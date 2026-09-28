@@ -44,8 +44,15 @@ class ColumnLayoutTest {
 
     @Test
     void parsesCsvWithQuotedMultilineCells() {
-        var rows = CsvParser.parse("﻿a,b,c\r\n1,\"x\r\ny\",\"q\"\"q\"\n,,\n");
+        var rows = CsvParser.parse((char) 0xFEFF + "a,b,c\r\n1,\"x\r\ny\",\"q\"\"q\"\n,,\n");
 
         assertThat(rows).containsExactly(List.of("a", "b", "c"), List.of("1", "x\ny", "q\"q"), List.of("", "", ""));
+    }
+
+    @Test
+    void csvWriteIsReadBackUnchanged() {
+        var rows = List.of(List.of("ID", "Доп. условия"), List.of("17", "🚗 Выход через Калжат\n⛴️ По суше, \"быстро\""));
+
+        assertThat(CsvParser.parse(CsvParser.write(rows))).isEqualTo(rows);
     }
 }

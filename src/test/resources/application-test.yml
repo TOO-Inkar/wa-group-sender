@@ -51,3 +51,4 @@ app:
     admin-only-groups: 2
     failure-rate: 0.0
     sheet-csv: ""
+    sheet-state: ""

@@ -30,15 +30,18 @@ public class FakeRequestSource implements RequestSource {
     private static final Logger log = LoggerFactory.getLogger(FakeRequestSource.class);
 
     private final SheetsProperties properties;
+    private final Path state;
     private final List<List<String>> grid = new ArrayList<>();
     private int writeCalls;
 
     public FakeRequestSource(FakeProperties fake, SheetsProperties properties) {
         this.properties = properties;
-        for (var row : CsvParser.parse(load(fake.sheetCsv()))) {
+        this.state = fake.sheetState() == null || fake.sheetState().isBlank() ? null : Path.of(fake.sheetState());
+        var source = state != null && Files.isRegularFile(state) ? state.toString() : fake.sheetCsv();
+        for (var row : CsvParser.parse(load(source))) {
             grid.add(new ArrayList<>(row));
         }
-        log.info("FAKE SHEET loaded {} rows from {}", grid.size() - properties.headerRow(), fake.sheetCsv().isBlank() ? "classpath:fake/test-sheet.csv" : fake.sheetCsv());
+        log.info("FAKE SHEET loaded {} rows from {}", grid.size() - properties.headerRow(), source == null || source.isBlank() ? "classpath:fake/test-sheet.csv" : source);
     }
 
     public synchronized int addRow(Map<SheetField, String> values) {
@@ -50,6 +53,7 @@ public class FakeRequestSource implements RequestSource {
         }
         values.forEach((field, value) -> row.set(layout.index(field), value));
         grid.add(row);
+        save();
         return grid.size();
     }
 
@@ -96,6 +100,19 @@ public class FakeRequestSource implements RequestSource {
             }
             row.set(index, write.value());
             log.info("FAKE SHEET row={} {}={}", write.rowNumber(), write.field(), write.value());
+        }
+        save();
+    }
+
+    private void save() {
+        if (state == null) {
+            return;
+        }
+        try {
+            Files.createDirectories(state.toAbsolutePath().getParent());
+            Files.writeString(state, CsvParser.write(grid), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("FAKE SHEET cannot save state {}: {}", state, e.getMessage());
         }
     }
 

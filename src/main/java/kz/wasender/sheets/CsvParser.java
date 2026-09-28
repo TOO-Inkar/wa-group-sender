@@ -5,11 +5,27 @@ import java.util.List;
 
 public final class CsvParser {
 
+    private static final String BOM = String.valueOf((char) 0xFEFF);
+
     private CsvParser() {
     }
 
+    public static String write(List<List<String>> rows) {
+        var builder = new StringBuilder();
+        for (var row : rows) {
+            for (var i = 0; i < row.size(); i++) {
+                if (i > 0) {
+                    builder.append(',');
+                }
+                builder.append('"').append(row.get(i).replace("\"", "\"\"")).append('"');
+            }
+            builder.append('\n');
+        }
+        return builder.toString();
+    }
+
     public static List<List<String>> parse(String text) {
-        var content = text.startsWith("﻿") ? text.substring(1) : text;
+        var content = text.startsWith(BOM) ? text.substring(1) : text;
         var rows = new ArrayList<List<String>>();
         var row = new ArrayList<String>();
         var cell = new StringBuilder();

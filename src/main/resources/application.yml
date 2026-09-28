@@ -105,3 +105,4 @@ app:
     admin-only-groups: ${FAKE_ADMIN_ONLY_GROUPS:2}
     failure-rate: ${FAKE_FAILURE_RATE:0.0}
     sheet-csv: "${FAKE_SHEET_CSV:}"
+    sheet-state: "${FAKE_SHEET_STATE:/data/db/fake-sheet.csv}"
