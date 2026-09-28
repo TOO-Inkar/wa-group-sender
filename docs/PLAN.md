@@ -114,7 +114,9 @@ daily_counter(counter_date date pk, sent int, limit_value int)
 | POST | /api/admin/resume | токен |
 | POST | /api/admin/pause | токен |
 | POST | /api/admin/groups/sync | токен |
-| POST | /api/admin/fake/requests | токен, только профиль `fake` |
+| POST | /api/admin/test-alert | токен |
+| GET | /api/admin/requests | токен |
+| POST | /api/admin/fake/requests, GET /api/admin/fake/sheet, /sent | токен, только профиль `fake` |
 
 Токен передаётся в заголовке `X-Admin-Token`.
 
