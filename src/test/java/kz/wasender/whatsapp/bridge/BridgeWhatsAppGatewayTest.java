@@ -44,6 +44,16 @@ class BridgeWhatsAppGatewayTest {
     }
 
     @Test
+    void sendFailureWithoutFlagIsNotGroupUnavailable() {
+        server.expect(requestTo("http://bridge/send"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"jid and text are required\"}"));
+
+        assertThatThrownBy(() -> gateway.sendText("1@g.us", "hi"))
+                .isInstanceOfSatisfying(SendException.class, e -> assertThat(e.groupUnavailable()).isFalse());
+    }
+
+    @Test
     void listsGroupsWithArchiveFlag() {
         server.expect(requestTo("http://bridge/groups"))
                 .andRespond(withSuccess("""
@@ -61,16 +71,16 @@ class BridgeWhatsAppGatewayTest {
         var events = new ArrayList<GatewayEvent>();
         gateway.subscribe(events::add);
 
-        gateway.handle(new BridgeWhatsAppGateway.Event(1, "qr", "2@abc", null, false, null));
+        gateway.handle(new BridgeWhatsAppGateway.Event(1, "qr", "2@abc", null, null, null));
         assertThat(gateway.sessionState()).isEqualTo(SessionState.WAITING_QR);
         assertThat(gateway.currentQr()).contains("2@abc");
 
-        gateway.handle(new BridgeWhatsAppGateway.Event(2, "connected", null, null, false, null));
+        gateway.handle(new BridgeWhatsAppGateway.Event(2, "connected", null, null, null, null));
         gateway.handle(new BridgeWhatsAppGateway.Event(3, "disconnected", null, "socket closed", true, null));
         assertThat(gateway.sessionState()).isEqualTo(SessionState.RECONNECTING);
 
         gateway.handle(new BridgeWhatsAppGateway.Event(4, "removed_from_group", null, null, false, "9@g.us"));
-        gateway.handle(new BridgeWhatsAppGateway.Event(5, "logged_out", null, "401", false, null));
+        gateway.handle(new BridgeWhatsAppGateway.Event(5, "logged_out", null, "401", null, null));
 
         assertThat(events).containsExactly(
                 new GatewayEvent.QrReceived("2@abc"),

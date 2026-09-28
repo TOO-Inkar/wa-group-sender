@@ -53,7 +53,7 @@ type event struct {
 	Type          string `json:"type"`
 	Payload       string `json:"payload,omitempty"`
 	Reason        string `json:"reason,omitempty"`
-	AutoReconnect bool   `json:"autoReconnect,omitempty"`
+	AutoReconnect bool   `json:"autoReconnect"`
 	JID           string `json:"jid,omitempty"`
 }
 

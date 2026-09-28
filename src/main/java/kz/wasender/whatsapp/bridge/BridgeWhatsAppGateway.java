@@ -90,7 +90,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     public boolean transportAlive() {
         try {
             var status = client.get().uri("/status").retrieve().body(Status.class);
-            return status != null && status.connected() && "CONNECTED".equals(status.state());
+            return status != null && Boolean.TRUE.equals(status.connected()) && "CONNECTED".equals(status.state());
         } catch (RestClientException e) {
             return false;
         }
@@ -112,7 +112,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
                     .toBodilessEntity();
         } catch (RestClientResponseException e) {
             var error = bridgeError(e);
-            throw new SendException(error.error(), error.unavailable(), e);
+            throw new SendException(error.error(), Boolean.TRUE.equals(error.unavailable()), e);
         } catch (RestClientException e) {
             throw new SendException("bridge: " + e.getMessage(), false, e);
         }
@@ -168,7 +168,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
                 if (stopped) {
                     return;
                 }
-                log.warn("Bridge events poll failed: {}", e.toString(), e);
+                log.warn("Bridge events poll failed: {}", e.toString());
                 try {
                     Thread.sleep(RETRY_DELAY);
                 } catch (InterruptedException interrupted) {
@@ -183,7 +183,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
         switch (event.type()) {
             case "qr" -> publish(new GatewayEvent.QrReceived(event.payload()));
             case "connected" -> publish(new GatewayEvent.Connected());
-            case "disconnected" -> publish(new GatewayEvent.Disconnected(event.reason(), event.autoReconnect()));
+            case "disconnected" -> publish(new GatewayEvent.Disconnected(event.reason(), Boolean.TRUE.equals(event.autoReconnect())));
             case "logged_out" -> publish(new GatewayEvent.LoggedOut());
             case "banned" -> publish(new GatewayEvent.Banned());
             case "removed_from_group" -> publish(new GatewayEvent.RemovedFromGroup(event.jid()));
@@ -203,15 +203,16 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
         return new BridgeError(e.getStatusCode() + " " + e.getResponseBodyAsString(), false);
     }
 
-    record Event(long seq, String type, String payload, String reason, boolean autoReconnect, String jid) {
+    // Boxed: Jackson 3 rejects a missing field for a primitive, and the bridge omits empty ones.
+    record Event(long seq, String type, String payload, String reason, Boolean autoReconnect, String jid) {
     }
 
     record EventBatch(String instance, long next, List<Event> events) {
     }
 
-    record Status(String state, boolean connected) {
+    record Status(String state, Boolean connected) {
     }
 
-    record BridgeError(String error, boolean unavailable) {
+    record BridgeError(String error, Boolean unavailable) {
     }
 }
