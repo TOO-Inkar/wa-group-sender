@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>wa-group-sender</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <form id="login-form" class="card login-card">
+    <h1>wa-group-sender</h1>
+    <p class="muted">Введите ADMIN_TOKEN из <code>/etc/wa-group-sender/.env</code></p>
+    <input id="token" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN" required>
+    <button type="submit">Войти</button>
+    <p id="login-error" class="error" hidden></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand">wa-group-sender</div>
+    <nav id="tabs">
+      <button data-tab="status" class="active">Состояние</button>
+      <button data-tab="pairing">Привязка</button>
+      <button data-tab="groups">Группы</button>
+      <button data-tab="requests">Заявки</button>
+      <button data-tab="control">Управление</button>
+    </nav>
+    <div class="top-right">
+      <span id="session-pill" class="pill">…</span>
+      <button id="logout" class="link">Выйти</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="tab-status">
+      <div id="status-cards" class="cards"></div>
+      <p class="muted small">Обновляется каждые 5 секунд. <span id="status-time"></span></p>
+    </section>
+
+    <section id="tab-pairing" hidden>
+      <div class="card pairing">
+        <div id="qr-box" class="qr-box"></div>
+        <div>
+          <h2>Привязка номера</h2>
+          <ol>
+            <li>WhatsApp на телефоне с <b>тестовым</b> номером → Настройки → Связанные устройства.</li>
+            <li>«Привязка устройства» → наведите камеру на QR слева.</li>
+            <li>QR обновляется примерно раз в 20 секунд, страница подхватит новый сама.</li>
+          </ol>
+          <p class="muted">Перед привязкой: «Оставлять чаты в архиве» включено, нужные группы лежат в «Архиве».</p>
+          <p id="qr-state" class="muted"></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-groups" hidden>
+      <div class="toolbar">
+        <input id="group-search" type="search" placeholder="Поиск по названию или JID">
+        <label><input id="group-active" type="checkbox"> только активные</label>
+        <label><input id="group-archived" type="checkbox"> только в архиве</label>
+        <button id="group-sync">Синхронизировать</button>
+      </div>
+      <p id="group-summary" class="muted"></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Название</th><th>Архив</th><th>Участник</th><th>Может писать</th><th>Активна</th><th>Синхронизация</th></tr></thead>
+          <tbody id="group-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-requests" hidden>
+      <div class="toolbar">
+        <select id="request-status">
+          <option value="">Все статусы</option>
+          <option value="QUEUED">В очереди</option>
+          <option value="SENDING">Отправляется</option>
+          <option value="DONE">Отправлено</option>
+          <option value="FAILED">Ошибка</option>
+        </select>
+        <button id="request-refresh">Обновить</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Статус</th><th>Прогресс</th><th>В очереди с</th><th>Завершено</th><th>Ошибка</th></tr></thead>
+          <tbody id="request-rows"></tbody>
+        </table>
+      </div>
+      <p class="muted small">Нажмите на строку, чтобы увидеть текст сообщения.</p>
+    </section>
+
+    <section id="tab-control" hidden>
+      <div class="cards">
+        <div class="card">
+          <h2>Рассылка</h2>
+          <p class="muted">Пауза останавливает диспетчер после текущей отправки. «Возобновить» снимает и паузу, и остановку по риску.</p>
+          <div class="row">
+            <button id="btn-pause" class="warn">Пауза</button>
+            <button id="btn-resume">Возобновить</button>
+          </div>
+          <p id="dispatch-result" class="muted"></p>
+        </div>
+        <div class="card">
+          <h2>Telegram</h2>
+          <p class="muted">Отправляет тестовый алерт во все чаты из TELEGRAM_CHAT_IDS.</p>
+          <button id="btn-alert">Тестовый алерт</button>
+          <p id="alert-result" class="muted"></p>
+        </div>
+        <div class="card wide">
+          <h2>Предпросмотр сообщения</h2>
+          <p class="muted">Текст по ID строки таблицы, без отправки.</p>
+          <form id="preview-form" class="row">
+            <input id="preview-id" placeholder="ID заявки, например 17" required>
+            <button type="submit">Показать</button>
+          </form>
+          <pre id="preview-text" class="preview" hidden></pre>
+          <p id="preview-error" class="error" hidden></p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

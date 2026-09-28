@@ -1,10 +1,12 @@
 package kz.wasender.web;
 
+import kz.wasender.dispatch.DeliveryRepository;
 import kz.wasender.dispatch.Dispatcher;
 import kz.wasender.group.GroupSyncService;
 import kz.wasender.notify.AlertService;
 import kz.wasender.request.RequestRecord;
 import kz.wasender.request.RequestRepository;
+import kz.wasender.request.RequestStatus;
 import kz.wasender.risk.RiskMonitor;
 import kz.wasender.template.PreviewService;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -32,15 +35,17 @@ public class AdminController {
     private final AlertService alerts;
     private final RequestRepository requests;
     private final PreviewService preview;
+    private final DeliveryRepository deliveries;
 
     public AdminController(Dispatcher dispatcher, RiskMonitor risk, GroupSyncService groupSync, AlertService alerts,
-                           RequestRepository requests, PreviewService preview) {
+                           RequestRepository requests, PreviewService preview, DeliveryRepository deliveries) {
         this.dispatcher = dispatcher;
         this.risk = risk;
         this.groupSync = groupSync;
         this.alerts = alerts;
         this.requests = requests;
         this.preview = preview;
+        this.deliveries = deliveries;
     }
 
     @PostMapping("/resume")
@@ -85,10 +90,19 @@ public class AdminController {
     }
 
     @GetMapping("/requests")
-    public List<RequestRecord> requests() {
-        return requests.findAll();
+    public List<RequestView> requests() {
+        return requests.findAll().stream().map(request -> RequestView.of(request, deliveries.progress(request.id()))).toList();
     }
 
     public record PreviewRequest(String id, Map<String, String> fields) {
+    }
+
+    public record RequestView(String id, Integer sheetRow, String message, RequestStatus status, String error,
+                              Instant queuedAt, Instant startedAt, Instant completedAt, DeliveryRepository.Progress progress) {
+
+        static RequestView of(RequestRecord request, DeliveryRepository.Progress progress) {
+            return new RequestView(request.id(), request.sheetRow(), request.message(), request.status(), request.error(),
+                    request.queuedAt(), request.startedAt(), request.completedAt(), progress);
+        }
     }
 }

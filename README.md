@@ -300,6 +300,9 @@ curl -X POST -H "X-Admin-Token: $TOKEN" localhost:8080/api/admin/resume
 
 ## 14. HTTP API
 
+Веб-админка открывается на корне сервиса (`http://127.0.0.1:8080/`, на стенде — `http://10.10.1.132:8097/`): состояние, QR для привязки, группы, заявки с прогрессом, пауза/возобновление, тестовый алерт, предпросмотр. Вход по `ADMIN_TOKEN`, токен запоминается в браузере. Страница — статика в `src/main/resources/static`, без сборки.
+
+
 | Метод | Путь | Токен | Назначение |
 | --- | --- | --- | --- |
 | GET | `/api/health` | нет | состояние сервиса (используется healthcheck Docker) |
@@ -310,7 +313,7 @@ curl -X POST -H "X-Admin-Token: $TOKEN" localhost:8080/api/admin/resume
 | POST | `/api/admin/pause` | да | ручная пауза рассылки |
 | POST | `/api/admin/groups/sync` | да | синхронизировать группы сейчас |
 | POST | `/api/admin/test-alert` | да | тестовый алерт во все чаты |
-| GET | `/api/admin/requests` | да | заявки в локальной БД |
+| GET | `/api/admin/requests` | да | заявки в локальной БД с прогрессом отправки (`progress`: total, sent, failed, skipped, pending) |
 
 Токен — заголовок `X-Admin-Token` (имя меняется через `ADMIN_TOKEN_HEADER`).
 

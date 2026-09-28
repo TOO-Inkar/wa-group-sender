@@ -34,6 +34,12 @@ class AdminTokenFilterTest {
     }
 
     @Test
+    void adminPageIsOpen() throws Exception {
+        assertThat(call("secret", "/", null).getStatus()).isEqualTo(200);
+        assertThat(call("secret", "/app.js", null).getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void missingConfiguredTokenLocksAdminApi() throws Exception {
         assertThat(call("", "/api/admin/pause", "").getStatus()).isEqualTo(503);
     }
