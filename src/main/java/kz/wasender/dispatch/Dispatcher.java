@@ -208,7 +208,7 @@ public class Dispatcher {
             return DispatcherState.OUTSIDE_WINDOW;
         }
         if (warmup.limitReached()) {
-            return DispatcherState.DAILY_LIMIT;
+            return DispatcherState.DAILY_LIMIT_REACHED;
         }
         return DispatcherState.RUNNING;
     }

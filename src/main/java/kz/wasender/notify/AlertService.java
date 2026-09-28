@@ -7,9 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,33 +27,23 @@ public class AlertService {
         this.clock = clock;
     }
 
-    public boolean alert(String key, String text) {
+    public int alert(String key, String text) {
         var now = Instant.now(clock);
         var previous = lastSent.get(key);
         if (previous != null && previous.plus(properties.cooldown()).isAfter(now)) {
             log.info("ALERT suppressed by cooldown key={}", key);
-            return false;
+            return 0;
         }
         lastSent.put(key, now);
         log.warn("ALERT key={} text={}", key, text);
-        var delivered = false;
-        for (var notifier : selected()) {
+        var delivered = 0;
+        for (var notifier : notifiers) {
             if (!notifier.configured()) {
-                log.warn("ALERT channel {} is not configured, check .env", notifier.channel());
+                log.warn("ALERT channel {} is not configured, check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_IDS in .env", notifier.name());
                 continue;
             }
-            try {
-                notifier.send("[wa-group-sender] " + text);
-                delivered = true;
-            } catch (Exception e) {
-                log.error("ALERT channel {} failed: {}", notifier.channel(), e.toString());
-            }
+            delivered += notifier.send("[wa-group-sender] " + text);
         }
         return delivered;
-    }
-
-    private List<Notifier> selected() {
-        var channels = Arrays.stream(properties.channel().toLowerCase(Locale.ROOT).split("\\s*,\\s*")).toList();
-        return notifiers.stream().filter(notifier -> channels.contains(notifier.channel())).toList();
     }
 }

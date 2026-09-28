@@ -2,9 +2,9 @@ package kz.wasender.notify;
 
 public interface Notifier {
 
-    String channel();
+    String name();
 
     boolean configured();
 
-    void send(String text) throws Exception;
+    int send(String text);
 }

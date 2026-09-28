@@ -3,13 +3,11 @@ package kz.wasender.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
+import java.util.List;
 
 @ConfigurationProperties("app.notify")
-public record NotifyProperties(String channel, Duration cooldown, Telegram telegram, Email email) {
+public record NotifyProperties(Duration cooldown, Telegram telegram) {
 
-    public record Telegram(String botToken, String chatId, String apiUrl) {
-    }
-
-    public record Email(String from, String to, String subject) {
+    public record Telegram(String botToken, List<String> chatIds, String apiUrl) {
     }
 }

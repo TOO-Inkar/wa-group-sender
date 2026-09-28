@@ -8,7 +8,7 @@ public enum DispatcherState {
     RUNNING,
     PAUSED,
     OUTSIDE_WINDOW,
-    DAILY_LIMIT,
+    DAILY_LIMIT_REACHED,
     WAITING_SESSION,
     NO_ACTIVE_GROUPS,
     STOPPED_BY_RISK,

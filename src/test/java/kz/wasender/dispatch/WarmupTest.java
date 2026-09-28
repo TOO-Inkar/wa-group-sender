@@ -26,7 +26,7 @@ class WarmupTest extends IntegrationTest {
 
         runUntilBlocked(1000);
 
-        assertThat(dispatcher.state()).isEqualTo(DispatcherState.DAILY_LIMIT);
+        assertThat(dispatcher.state()).isEqualTo(DispatcherState.DAILY_LIMIT_REACHED);
         assertThat(sentJids()).hasSize(50);
         assertThat(warmup.sentToday()).isEqualTo(50);
         assertThat(warmup.limitToday()).isEqualTo(50);

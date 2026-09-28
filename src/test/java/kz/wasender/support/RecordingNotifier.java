@@ -10,7 +10,7 @@ public class RecordingNotifier implements Notifier {
     private final List<String> messages = new CopyOnWriteArrayList<>();
 
     @Override
-    public String channel() {
+    public String name() {
         return "test";
     }
 
@@ -20,8 +20,9 @@ public class RecordingNotifier implements Notifier {
     }
 
     @Override
-    public void send(String text) {
+    public int send(String text) {
         messages.add(text);
+        return 1;
     }
 
     public List<String> messages() {

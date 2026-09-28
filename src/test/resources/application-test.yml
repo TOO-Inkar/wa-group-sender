@@ -39,7 +39,8 @@ app:
     critical-threshold: 10
     pause-multiplier: 2.0
   notify:
-    channel: telegram,test
+    telegram:
+      bot-token: ""
   security:
     admin-token: test-token
   fake:
