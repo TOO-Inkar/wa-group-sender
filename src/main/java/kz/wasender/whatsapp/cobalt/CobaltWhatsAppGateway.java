@@ -8,6 +8,7 @@ import it.auties.whatsapp.api.WebHistorySetting;
 import it.auties.whatsapp.api.Whatsapp;
 import it.auties.whatsapp.controller.ControllerSerializer;
 import it.auties.whatsapp.exception.HmacValidationException;
+import it.auties.whatsapp.exception.RequestException;
 import it.auties.whatsapp.model.chat.Chat;
 import it.auties.whatsapp.model.chat.ChatMetadata;
 import it.auties.whatsapp.model.chat.ChatRole;
@@ -218,6 +219,12 @@ public class CobaltWhatsAppGateway extends AbstractWhatsAppGateway {
     private ErrorHandler.Result handleError(Whatsapp client, ErrorHandler.Location location, Throwable error) {
         log.warn("Cobalt error at {}: {}", location, error.toString());
         if (location == ErrorHandler.Location.RECONNECT) {
+            return ErrorHandler.Result.DISCARD;
+        }
+        // Cobalt asks for account props at login and the request often times out. Disconnecting on that
+        // closes a working session silently, the watchdog reconnects, and every login ends the same way.
+        if (location == ErrorHandler.Location.LOGIN
+                && (error instanceof RequestException || error.getCause() instanceof RequestException)) {
             return ErrorHandler.Result.DISCARD;
         }
         if (location == ErrorHandler.Location.LOGIN
