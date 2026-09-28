@@ -40,6 +40,9 @@
 
 * { box-sizing: border-box; }
 
+/* Атрибут hidden должен побеждать display из классов (.login, .qr-box и т.п.). */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
