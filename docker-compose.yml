@@ -1,0 +1,38 @@
+services:
+  wa-group-sender:
+    build: .
+    image: wa-group-sender:1.0.0
+    container_name: wa-group-sender
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      TZ: Asia/Almaty
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
+    volumes:
+      - wa-session:/data/session
+      - wa-db:/data/db
+      - wa-logs:/data/logs
+      - wa-qr:/data/qr
+      - ./templates:/data/templates:ro
+      - ./secrets:/run/secrets:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  wa-session:
+  wa-db:
+  wa-logs:
+  wa-qr:

@@ -1,17 +1,17 @@
 app:
   groups:
-    initial-sync-delay: ${GROUPS_INITIAL_SYNC_DELAY:2s}
+    initial-sync-delay: 2s
   sheets:
-    poll-interval: ${SHEETS_POLL_INTERVAL:5s}
-    progress-flush-interval: ${SHEETS_PROGRESS_FLUSH_INTERVAL:5s}
+    poll-interval: 5s
+    progress-flush-interval: 5s
   dispatch:
-    wave-size: ${DISPATCH_WAVE_SIZE:10}
-    wave-pause-min: ${DISPATCH_WAVE_PAUSE_MIN:5s}
-    wave-pause-max: ${DISPATCH_WAVE_PAUSE_MAX:10s}
-    group-pause-min: ${DISPATCH_GROUP_PAUSE_MIN:500ms}
-    group-pause-max: ${DISPATCH_GROUP_PAUSE_MAX:1500ms}
-    typing-min: ${DISPATCH_TYPING_MIN:200ms}
-    typing-max: ${DISPATCH_TYPING_MAX:800ms}
-    idle-poll: ${DISPATCH_IDLE_POLL:1s}
-    window-start: ${DISPATCH_WINDOW_START:00:00}
-    window-end: ${DISPATCH_WINDOW_END:00:00}
+    wave-size: 10
+    wave-pause-min: 5s
+    wave-pause-max: 10s
+    group-pause-min: 500ms
+    group-pause-max: 1500ms
+    typing-min: 200ms
+    typing-max: 800ms
+    idle-poll: 1s
+    window-start: "00:00"
+    window-end: "00:00"

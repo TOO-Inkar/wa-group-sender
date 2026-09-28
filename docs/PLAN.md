@@ -53,7 +53,7 @@ delivery(id bigint pk, request_id fk, group_jid, position int, status varchar,
          error varchar, updated_at timestamp, unique(request_id, group_jid))
 risk_event(id bigint pk, type varchar, group_jid varchar, request_id varchar,
            detail varchar, created_at timestamp)
-daily_counter(day date pk, sent int, limit_value int)
+daily_counter(counter_date date pk, sent int, limit_value int)
 ```
 
 Статусы `delivery`: PENDING, SENDING, SENT, FAILED, SKIPPED. Статусы `request`: QUEUED, SENDING, DONE, FAILED.
