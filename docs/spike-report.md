@@ -21,7 +21,7 @@
 
 ## Живая проверка
 
-Тест `src/test/java/kz/inkar/wasender/spike/CobaltSpikeTest.java` (запуск `./gradlew spike`) подключается к настоящему `wss://web.whatsapp.com/ws/chat` без браузера и ждёт QR:
+Тест `src/test/java/kz/wasender/spike/CobaltSpikeTest.java` (запуск `./gradlew spike`) подключается к настоящему `wss://web.whatsapp.com/ws/chat` без браузера и ждёт QR:
 
 ```
 SPIKE text bytes equal=true
