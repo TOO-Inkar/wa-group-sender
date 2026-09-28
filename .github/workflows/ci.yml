@@ -40,7 +40,6 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # spike (живой WhatsApp) исключён из test в build.gradle.kts.
       - name: Build and test
         run: ./gradlew build --no-daemon
         env:

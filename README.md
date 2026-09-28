@@ -1,6 +1,6 @@
 # wa-group-sender
 
-Сервис берёт новые заявки на грузоперевозки из Google Sheets и публикует их в WhatsApp-группы из папки «Архив» **отдельного тестового номера**. Подключение через WhatsApp Web («Связанные устройства») без браузера, библиотека Cobalt. Отправка идёт в один поток: волны, случайные паузы, «печатает…», рабочее окно, прогрев, мониторинг риска.
+Сервис берёт новые заявки на грузоперевозки из Google Sheets и публикует их в WhatsApp-группы из папки «Архив» **отдельного тестового номера**. Подключение через WhatsApp Web («Связанные устройства») без браузера: клиент на Go-библиотеке [whatsmeow](https://github.com/tulir/whatsmeow) работает отдельным контейнером `wa-bridge` (`bridge/`), Java-сервис обращается к нему по HTTP внутри compose-сети. Отправка идёт в один поток: волны, случайные паузы, «печатает…», рабочее окно, прогрев, мониторинг риска.
 
 > Способ неофициальный. Номер может быть заблокирован WhatsApp в любой момент. Сервис снижает вероятность блокировки, но не исключает её. Подключайте только отдельный номер.
 
@@ -70,7 +70,7 @@ mkdir -p secrets
 | `.env` | настройки и секреты (не коммитится) |
 | `secrets/google-service-account.json` | JSON-ключ сервисного аккаунта Google (не коммитится) |
 | `templates/message.txt` | шаблон сообщения, меняется без пересборки |
-| volumes `wa-session`, `wa-db`, `wa-logs`, `wa-qr` | сессия WhatsApp, база H2, логи, PNG с QR |
+| volumes `wa-bridge`, `wa-db`, `wa-logs`, `wa-qr` | сессия WhatsApp (whatsmeow, sqlite), база H2, логи, PNG с QR |
 
 ## 4. Заполнение .env
 
@@ -158,7 +158,7 @@ curl -H "X-Admin-Token: $TOKEN" localhost:8080/api/qr -o qr.png
 
 и скачайте его (`scp user@server:~/wa-group-sender/qr.png .`). Тот же PNG лежит в volume: `docker compose cp wa-group-sender:/data/qr/qr.png .`
 
-После привязки в логе будет `SESSION state WAITING_QR -> CONNECTED`. Сессия хранится в volume `wa-session` и переживает `docker compose restart`, `down/up` и ребут сервера. Повторный QR не нужен, пока WhatsApp сам не разлогинит устройство. Через `GROUPS_INITIAL_SYNC_DELAY` (60 с) сервис синхронизирует группы и начинает рассылку.
+После привязки в логе будет `SESSION state WAITING_QR -> CONNECTED`. Сессия хранится в volume `wa-bridge` и переживает `docker compose restart`, `down/up` и ребут сервера. Повторный QR не нужен, пока WhatsApp сам не разлогинит устройство. Через `GROUPS_INITIAL_SYNC_DELAY` (60 с) сервис синхронизирует группы и начинает рассылку.
 
 ## 8. Проверка после запуска
 
@@ -341,28 +341,27 @@ docker compose down -v
 Бэкап сессии и БД:
 
 ```bash
-docker run --rm -v wa-group-sender_wa-session:/s -v wa-group-sender_wa-db:/d -v "$PWD":/b alpine \
+docker run --rm -v wa-group-sender_wa-bridge:/s -v wa-group-sender_wa-db:/d -v "$PWD":/b alpine \
   tar czf /b/backup-$(date +%F).tgz -C / s d
 ```
 
-Разработка (нужен JDK 17+ для запуска Gradle, JDK 25 скачается автоматически):
+Разработка (нужен JDK 17+ для запуска Gradle, JDK 25 скачается автоматически; `wa-bridge` собирается только в Docker):
 
 ```bash
 ./gradlew build        # сборка и все тесты
-./gradlew spike        # живая проверка Cobalt: handshake с WhatsApp Web, QR, передача разметки
 ./gradlew bootRun --args='--spring.profiles.active=fake --app.logging.dir=build/logs --spring.datasource.url=jdbc:h2:mem:dev --app.fake.sheet-state= --app.security.admin-token=dev'
 ```
 
-Стек: Java 25, Spring Boot 4.1.1, Gradle 9.8.0, Cobalt 0.0.10, H2 2.5.252 + Flyway 13.8.0, Google Sheets API v4.
+Стек: Java 25, Spring Boot 4.1.1, Gradle 9.8.0, whatsmeow (Go 1.26, коммит закреплён в `bridge/Dockerfile`), H2 2.5.252 + Flyway 13.8.0, Google Sheets API v4.
 
 ## 17. CI/CD и стенд inkbpadev
 
 Работаем только в `main`. `.github/workflows/ci.yml` на org-раннерах TOO-Inkar (`self-hosted, linux, x64`):
 
-- `build` — `./gradlew build` (все тесты, кроме `spike`) на каждый push в `main`, PR и ручной запуск;
+- `build` — `./gradlew build` (все тесты) на каждый push в `main`, PR и ручной запуск;
 - `deploy` — только push в `main` (и ручной запуск на `main`) после зелёного `build`: проверенный коммит кладётся в `/srv/stands/wa-group-sender` (`git archive` + `rsync --delete`), дальше `deploy/inkbpadev/deploy.sh`.
 
-`deploy.sh`: тег `wa-group-sender:rollback-<коммит>` на текущий образ → сборка → остановка → копия базы H2 в `/var/backups/wa-group-sender` (10 последних) → запуск → ожидание `"status":"UP"` от `/api/health`. Если стенд не поднялся, возвращается прежний образ; если в коммите появились новые миграции — ещё и база из копии. Сессия WhatsApp (`wa-session`) не копируется и не откатывается.
+`deploy.sh`: теги `wa-group-sender-<сервис>:rollback-<коммит>` на текущие образы `wa-group-sender` и `wa-bridge` → сборка → остановка → копия базы H2 в `/var/backups/wa-group-sender` (10 последних) → запуск → ожидание `"status":"UP"` от `/api/health`. Если стенд не поднялся, возвращаются прежние образы; если в коммите появились новые миграции — ещё и база из копии. Сессия WhatsApp (`wa-bridge`) не копируется и не откатывается; `wa-bridge` пересоздаётся, только если изменился его образ.
 
 | Что | Где |
 | --- | --- |

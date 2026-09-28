@@ -7,7 +7,6 @@ app:
   logging:
     dir: build/test-logs
   whatsapp:
-    session-dir: build/test-data/session
     qr-png-path: build/test-data/qr/qr.png
   message:
     template-path: build/test-data/templates/missing.txt

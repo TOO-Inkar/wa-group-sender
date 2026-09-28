@@ -27,10 +27,6 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     runtimeOnly("com.h2database:h2")
 
-    implementation("com.github.auties00:cobalt:0.0.10") {
-        exclude(group = "com.aspose", module = "aspose-words")
-        exclude(group = "org.slf4j", module = "slf4j-nop")
-    }
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.google.zxing:javase:3.5.4")
 
@@ -48,25 +44,9 @@ tasks.withType<JavaCompile> {
 }
 
 tasks.test {
-    useJUnitPlatform {
-        excludeTags("spike")
-    }
+    useJUnitPlatform()
     systemProperty("user.timezone", "Asia/Almaty")
     jvmArgs("-Dfile.encoding=UTF-8")
-}
-
-tasks.register<Test>("spike") {
-    description = "Runs the Cobalt connectivity spike against the real WhatsApp Web endpoint"
-    group = "verification"
-    testClassesDirs = sourceSets.test.get().output.classesDirs
-    classpath = sourceSets.test.get().runtimeClasspath
-    useJUnitPlatform {
-        includeTags("spike")
-    }
-    outputs.upToDateWhen { false }
-    testLogging {
-        showStandardStreams = true
-    }
 }
 
 tasks.processResources {

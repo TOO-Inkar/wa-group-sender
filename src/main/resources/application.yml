@@ -25,13 +25,10 @@ app:
     max-history: ${LOG_MAX_HISTORY_DAYS:30}
     total-size-cap: ${LOG_TOTAL_SIZE_CAP:2GB}
   whatsapp:
-    session-dir: ${WA_SESSION_DIR:/data/session}
+    bridge-url: ${WA_BRIDGE_URL:http://wa-bridge:8081}
     qr-png-path: ${WA_QR_PNG_PATH:/data/qr/qr.png}
-    device-name: ${WA_DEVICE_NAME:wa-group-sender}
     send-timeout: ${WA_SEND_TIMEOUT:60s}
-    metadata-query-delay: ${WA_METADATA_QUERY_DELAY:700ms}
-    metadata-ttl: ${WA_METADATA_TTL:6h}
-    history: ${WA_HISTORY:discard}
+    groups-timeout: ${WA_GROUPS_TIMEOUT:4m}
   watchdog:
     check-interval: ${WATCHDOG_CHECK_INTERVAL:15s}
     max-attempts: ${WATCHDOG_MAX_ATTEMPTS:8}

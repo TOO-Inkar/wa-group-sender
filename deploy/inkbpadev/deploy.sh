@@ -2,16 +2,20 @@
 # Выкладка wa-group-sender на стенд inkbpadev. Запускается джобой deploy из
 # ci.yml после того, как она положила проверенный коммит в каталог стенда.
 #
-# Порядок: тег отката → сборка → остановка → копия базы → запуск → проверка.
-# База H2 — файл в volume, поэтому копия снимается с остановленного контейнера.
-# Схему меняет Flyway при старте. При отказе возвращается прежний образ, а если
-# в коммите появились новые миграции — ещё и база из копии: прежний код не
-# знает новой схемы. Сессию WhatsApp не копируем и не возвращаем: в ней ключи,
-# которые меняются на ходу, старая копия сломает сессию.
+# Два контейнера: wa-group-sender (Java) и wa-bridge (WhatsApp-клиент на
+# whatsmeow, сессия в volume wa-bridge).
+#
+# Порядок: теги отката → сборка → остановка приложения → копия базы → запуск →
+# проверка. База H2 — файл в volume, поэтому копия снимается с остановленного
+# контейнера. Схему меняет Flyway при старте. При отказе возвращаются прежние
+# образы, а если в коммите появились новые миграции — ещё и база из копии.
+# Сессию WhatsApp не копируем и не возвращаем: в ней ключи, которые меняются
+# на ходу, старая копия сломает сессию.
 set -euo pipefail
 
 PROJECT=wa-group-sender
-SERVICE=wa-group-sender
+APP=wa-group-sender
+SERVICES=(wa-group-sender wa-bridge)
 STAND_DIR=/srv/stands/wa-group-sender
 ENV_FILE=/etc/wa-group-sender/.env
 BACKUP_DIR=/var/backups/wa-group-sender
@@ -21,11 +25,10 @@ LOCK_TIMEOUT_SECONDS=600
 READY_TIMEOUT_SECONDS=180
 DB_VOLUME=${PROJECT}_wa-db
 
-FIRST_DEPLOY=0
+declare -A ROLLBACK_NAME=()
 RECREATED=0
 HANDLING_FAILURE=0
 SHORT_SHA=""
-IMAGE=""
 DB_DUMP=""
 
 log() {
@@ -65,7 +68,7 @@ wait_ready() {
     sleep 5
   done
   log "стенд не ответил на $url за ${READY_TIMEOUT_SECONDS} с"
-  compose logs --tail 80 "$SERVICE" || true
+  compose logs --tail 80 || true
   return 1
 }
 
@@ -75,9 +78,9 @@ migrations_changed() {
   [ "$now" != "$(cat .migrations-before 2>/dev/null || true)" ]
 }
 
-# Образ с busybox tar — сам собранный образ, чтобы не тянуть лишнего.
-volume_shell() {
-  docker run --rm -i --user 0 --entrypoint sh -v "$DB_VOLUME:/data/db" "$IMAGE" -c "$1"
+# Одноразовый контейнер приложения с его volume /data/db: в образе есть busybox tar.
+db_shell() {
+  compose run --rm --no-deps -T --user 0 --entrypoint sh "$APP" -c "$1"
 }
 
 backup() {
@@ -87,7 +90,7 @@ backup() {
   fi
   mkdir -p "$BACKUP_DIR"
   DB_DUMP="$BACKUP_DIR/wa-group-sender-db-$(date -u +%Y-%m-%d-%H%M)-$SHORT_SHA.tar.gz"
-  volume_shell 'tar cf - -C /data/db .' | gzip > "$DB_DUMP"
+  db_shell 'tar cf - -C /data/db .' | gzip > "$DB_DUMP"
   gzip -t "$DB_DUMP" || fail "копия $DB_DUMP повреждена"
   log "backup: $DB_DUMP ($(du -h "$DB_DUMP" | cut -f1)) проходит gzip -t"
   find "$BACKUP_DIR" -maxdepth 1 -name 'wa-group-sender-db-*.tar.gz' -printf '%T@ %p\n' \
@@ -96,13 +99,22 @@ backup() {
 
 restore_db() {
   log "в коммите новые миграции: возвращаю базу из $DB_DUMP"
-  compose stop "$SERVICE" || true
-  gunzip -c "$DB_DUMP" | volume_shell 'find /data/db -mindepth 1 -delete && tar xf - -C /data/db && chown -R 10001:10001 /data/db'
+  compose stop "$APP" || true
+  gunzip -c "$DB_DUMP" | db_shell 'find /data/db -mindepth 1 -delete && tar xf - -C /data/db && chown -R 10001:10001 /data/db'
 }
 
 rollback() {
-  log "возвращаю прежний образ $PROJECT:rollback-$SHORT_SHA"
-  docker tag "$PROJECT:rollback-$SHORT_SHA" "$IMAGE"
+  local service
+  for service in "${SERVICES[@]}"; do
+    if [ -n "${ROLLBACK_NAME[$service]:-}" ]; then
+      log "rollback: $service ← $PROJECT-$service:rollback-$SHORT_SHA"
+      docker tag "$PROJECT-$service:rollback-$SHORT_SHA" "${ROLLBACK_NAME[$service]}"
+    else
+      # Сервиса до выкладки не было — прежней версии он не нужен.
+      log "rollback: $service появился в этой выкладке, останавливаю"
+      compose rm -sf "$service" || true
+    fi
+  done
   if migrations_changed; then
     if [ -n "$DB_DUMP" ]; then
       restore_db
@@ -110,7 +122,11 @@ rollback() {
       log "копии базы нет — прежний образ может не принять новую схему"
     fi
   fi
-  compose up -d --no-build --force-recreate "$SERVICE"
+  for service in "${SERVICES[@]}"; do
+    if [ -n "${ROLLBACK_NAME[$service]:-}" ]; then
+      compose up -d --no-build --no-deps --force-recreate "$service"
+    fi
+  done
   if wait_ready; then
     log "прежняя версия поднята и отвечает; коммит $SHORT_SHA не выложен"
   else
@@ -124,7 +140,7 @@ on_exit() {
   local status=$?
   if [ "$status" -ne 0 ] && [ "$RECREATED" = 1 ] && [ "$HANDLING_FAILURE" = 0 ]; then
     HANDLING_FAILURE=1
-    if [ "$FIRST_DEPLOY" = 1 ]; then
+    if [ -z "${ROLLBACK_NAME[$APP]:-}" ]; then
       log "первая выкладка, откатываться не на что"
       compose ps || true
     else
@@ -151,35 +167,37 @@ main() {
   test -r "$ENV_FILE" || fail "$ENV_FILE не найден — запусти deploy/inkbpadev/setup-host.sh"
   [ -w "$BACKUP_DIR" ] || fail "$BACKUP_DIR недоступен на запись — запусти deploy/inkbpadev/setup-host.sh"
   compose config --quiet
-  IMAGE=$(compose config --images | head -1)
-  [ -n "$IMAGE" ] || fail "не удалось определить имя образа из docker-compose.yml"
 
-  local id current
-  id=$(compose ps -a -q "$SERVICE")
-  if [ -z "$id" ]; then
-    FIRST_DEPLOY=1
-    log "rollback: контейнера ещё нет — первая выкладка, без автоматического отката"
-  else
+  local service id current
+  for service in "${SERVICES[@]}"; do
+    id=$(compose ps -a -q "$service")
+    if [ -z "$id" ]; then
+      log "rollback: контейнера $service ещё нет — для него отката не будет"
+      continue
+    fi
     current=$(docker inspect -f '{{.Image}}' "$id")
     docker image inspect "$current" > /dev/null 2>&1 \
-      || fail "образа ${current:7:12} текущего контейнера уже нет, откатываться некуда"
-    docker tag "$current" "$PROJECT:rollback-$SHORT_SHA"
-    log "rollback: ${current:7:12} → $PROJECT:rollback-$SHORT_SHA"
-  fi
+      || fail "образа ${current:7:12} контейнера $service уже нет, откатываться некуда"
+    docker tag "$current" "$PROJECT-$service:rollback-$SHORT_SHA"
+    ROLLBACK_NAME[$service]=$(docker inspect -f '{{.Config.Image}}' "$id")
+    log "rollback: $service ${current:7:12} → $PROJECT-$service:rollback-$SHORT_SHA"
+  done
 
-  log "сборка образа $IMAGE"
-  compose build "$SERVICE"
+  log "сборка образов: ${SERVICES[*]}"
+  compose build
 
   trap on_exit EXIT
   RECREATED=1
-  if [ "$FIRST_DEPLOY" = 0 ]; then
-    log "остановка для копии базы"
-    compose stop -t 60 "$SERVICE"
+  if [ -n "${ROLLBACK_NAME[$APP]:-}" ]; then
+    log "остановка приложения для копии базы"
+    compose stop -t 60 "$APP"
   fi
   backup
 
+  # Без --force-recreate: wa-bridge пересоздаётся, только если изменился его образ,
+  # и сессия WhatsApp не переподключается на каждую выкладку.
   log "запуск"
-  compose up -d --no-build --remove-orphans --force-recreate --wait --wait-timeout 300 "$SERVICE"
+  compose up -d --no-build --remove-orphans --wait --wait-timeout 300
   wait_ready || fail "стенд не готов после выкладки"
   compose ps
   log "выкладка $SHORT_SHA завершена"

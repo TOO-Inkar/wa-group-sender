@@ -1,4 +1,22 @@
 services:
+  # WhatsApp-клиент на whatsmeow (bridge/). Порт наружу не публикуется: к нему ходит только wa-group-sender.
+  wa-bridge:
+    build: ./bridge
+    image: wa-group-sender-bridge:1.0.0
+    container_name: wa-group-sender-bridge
+    restart: unless-stopped
+    environment:
+      WA_DEVICE_NAME: ${WA_DEVICE_NAME:-wa-group-sender}
+      BRIDGE_LOG_LEVEL: ${BRIDGE_LOG_LEVEL:-INFO}
+      TZ: Asia/Almaty
+    volumes:
+      - wa-bridge:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
   wa-group-sender:
     build: .
     image: wa-group-sender:1.0.0
@@ -9,11 +27,14 @@ services:
         required: false
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      WA_BRIDGE_URL: http://wa-bridge:8081
       TZ: Asia/Almaty
+    depends_on:
+      wa-bridge:
+        condition: service_healthy
     ports:
       - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
     volumes:
-      - wa-session:/data/session
       - wa-db:/data/db
       - wa-logs:/data/logs
       - wa-qr:/data/qr
@@ -32,7 +53,7 @@ services:
         max-file: "5"
 
 volumes:
-  wa-session:
+  wa-bridge:
   wa-db:
   wa-logs:
   wa-qr:
