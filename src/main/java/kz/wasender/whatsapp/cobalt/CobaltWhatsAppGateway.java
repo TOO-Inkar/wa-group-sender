@@ -3,6 +3,7 @@ package kz.wasender.whatsapp.cobalt;
 import it.auties.whatsapp.api.DisconnectReason;
 import it.auties.whatsapp.api.ErrorHandler;
 import it.auties.whatsapp.api.QrHandler;
+import it.auties.whatsapp.api.TextPreviewSetting;
 import it.auties.whatsapp.api.WebHistorySetting;
 import it.auties.whatsapp.api.Whatsapp;
 import it.auties.whatsapp.controller.ControllerSerializer;
@@ -78,6 +79,7 @@ public class CobaltWhatsAppGateway extends AbstractWhatsAppGateway {
                 .lastConnection()
                 .name(properties.deviceName())
                 .historySetting(WebHistorySetting.discard(false))
+                .textPreviewSetting(TextPreviewSetting.DISABLED)
                 .errorHandler(this::handleError)
                 .unregistered(QrHandler.toPlainString(payload -> publish(new GatewayEvent.QrReceived(payload))));
         client.addLoggedInListener(() -> {

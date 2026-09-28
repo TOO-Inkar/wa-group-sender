@@ -24,6 +24,7 @@
 Тест `src/test/java/kz/inkar/wasender/spike/CobaltSpikeTest.java` (запуск `./gradlew spike`) подключается к настоящему `wss://web.whatsapp.com/ws/chat` без браузера и ждёт QR:
 
 ```
+SPIKE text bytes equal=true
 SPIKE QR payload length=239 commas=4
 SPIKE session files=1
 BUILD SUCCESSFUL
@@ -42,6 +43,7 @@ BUILD SUCCESSFUL
 | Признак «в архиве» у чатов | Подтверждено по исходникам | `Chat.archived()`; выставляется из app-state sync (`AppStateHandler`: `ArchiveChatAction -> chat.setArchived`) |
 | Список групп и право на запись | Подтверждено по исходникам | `store().chats()` + `Chat.isGroup()`; при первом логине Cobalt сам делает запрос `w:g2 participating`. `queryGroupMetadata()` отдаёт участников с ролями и `getPolicy(GroupSetting.SEND_MESSAGES)` (ANYONE/ADMINS) |
 | Отправка текста в группу | Подтверждено по исходникам | `sendChatMessage(Jid, MessageContainer.of(text), false)` |
+| *Жирный* и эмодзи передаются как есть | Подтверждено тестом и по исходникам | `MessageContainer.of(text)` кладёт строку в `TextMessage` без изменений (тест `textWithMarkupAndEmojiIsWrappedUnchanged` сравнивает UTF-8 байты). Разметку `*...*` рендерит клиент WhatsApp. Превью ссылок (`TextPreviewSetting.ENABLED_WITH_INFERENCE`) может переписать текст, поэтому в шлюзе оно выключено: `TextPreviewSetting.DISABLED` |
 | Presence «печатает» | Подтверждено по исходникам | `changePresence(jid, ContactStatus.COMPOSING)` шлёт `chatstate/composing` в чат |
 | Сохранение auth state на диск | Подтверждено живым тестом | `ControllerSerializer.toProtobuf(dir)` пишет сессию в volume, `lastConnection()` поднимает её после рестарта |
 | Выдача QR | Подтверждено живым тестом | `QrHandler.toPlainString(consumer)` отдаёт сырую строку, PNG и ASCII рисуем сами через ZXing |
