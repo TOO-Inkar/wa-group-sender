@@ -1,0 +1,9 @@
+# Стенд на inkbpadev. Секреты лежат в /etc/wa-group-sender, а не в каталоге
+# стенда: его при каждой выкладке перезаписывает rsync --delete.
+services:
+  wa-group-sender:
+    env_file: !override
+      - path: /etc/wa-group-sender/.env
+        required: true
+    volumes:
+      - /etc/wa-group-sender/secrets:/run/secrets:ro

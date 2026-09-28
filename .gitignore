@@ -14,4 +14,4 @@ logs/
 *.log
 secrets/
 *.json
-docker-compose.override.yml
+/docker-compose.override.yml

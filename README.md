@@ -24,6 +24,7 @@
 14. [HTTP API](#14-http-api)
 15. [Тестовый прогон без номера (профиль fake)](#15-тестовый-прогон-без-номера-профиль-fake)
 16. [Обновление, бэкап, разработка](#16-обновление-бэкап-разработка)
+17. [CI/CD и стенд inkbpadev](#17-cicd-и-стенд-inkbpadev)
 
 ## 1. Требования к серверу
 
@@ -353,3 +354,29 @@ docker run --rm -v wa-group-sender_wa-session:/s -v wa-group-sender_wa-db:/d -v 
 ```
 
 Стек: Java 25, Spring Boot 4.1.1, Gradle 9.8.0, Cobalt 0.0.10, H2 2.5.252 + Flyway 13.8.0, Google Sheets API v4.
+
+## 17. CI/CD и стенд inkbpadev
+
+Работаем только в `main`. `.github/workflows/ci.yml` на org-раннерах TOO-Inkar (`self-hosted, linux, x64`):
+
+- `build` — `./gradlew build` (все тесты, кроме `spike`) на каждый push в `main`, PR и ручной запуск;
+- `deploy` — только push в `main` (и ручной запуск на `main`) после зелёного `build`: проверенный коммит кладётся в `/srv/stands/wa-group-sender` (`git archive` + `rsync --delete`), дальше `deploy/inkbpadev/deploy.sh`.
+
+`deploy.sh`: тег `wa-group-sender:rollback-<коммит>` на текущий образ → сборка → остановка → копия базы H2 в `/var/backups/wa-group-sender` (10 последних) → запуск → ожидание `"status":"UP"` от `/api/health`. Если стенд не поднялся, возвращается прежний образ; если в коммите появились новые миграции — ещё и база из копии. Сессия WhatsApp (`wa-session`) не копируется и не откатывается.
+
+| Что | Где |
+| --- | --- |
+| Настройки и секреты | `/etc/wa-group-sender/.env` (root:gha-runner, 0640) |
+| Ключ Google | `/etc/wa-group-sender/secrets/google-service-account.json` (`sudo install -m 0440 -o root -g 10001 key.json …`) |
+| Стенд | `/srv/stands/wa-group-sender`, compose-проект `wa-group-sender` |
+| HTTP | `127.0.0.1:8097`, снаружи — `ssh -L 8097:127.0.0.1:8097 inkbpadev` |
+
+Подготовка сервера один раз: `sudo bash deploy/inkbpadev/setup-host.sh` из клона. Стенд стартует в профиле `fake`. Для боевого: в `/etc/wa-group-sender/.env` — `SPRING_PROFILES_ACTIVE=prod`, таблица, Telegram, ключ Google; затем перезапуск workflow или руками:
+
+```bash
+cd /srv/stands/wa-group-sender
+docker compose -p wa-group-sender --env-file /etc/wa-group-sender/.env \
+  -f docker-compose.yml -f deploy/inkbpadev/docker-compose.override.yml up -d
+```
+
+Шаблон `templates/message.txt` на стенде берётся из репозитория: правки прямо на сервере затрёт следующая выкладка.
