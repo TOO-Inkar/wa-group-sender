@@ -46,7 +46,7 @@ create table risk_event (
 create index idx_risk_event_created on risk_event (created_at);
 
 create table daily_counter (
-    day date primary key,
+    counter_date date primary key,
     sent int not null,
     limit_value int
 );

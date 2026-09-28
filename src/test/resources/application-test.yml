@@ -1,0 +1,50 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:${random.uuid};DB_CLOSE_DELAY=-1
+
+app:
+  scheduling-enabled: false
+  logging:
+    dir: build/test-logs
+  whatsapp:
+    session-dir: build/test-data/session
+    qr-png-path: build/test-data/qr/qr.png
+  template:
+    path: build/test-data/templates/missing.txt
+  groups:
+    initial-sync-delay: 1h
+  sheets:
+    retry:
+      initial-backoff: 1ms
+      max-backoff: 2ms
+  dispatch:
+    autostart: false
+    wave-size: 10
+    wave-pause-min: 10m
+    wave-pause-max: 20m
+    group-pause-min: 20s
+    group-pause-max: 60s
+    typing-min: 2s
+    typing-max: 6s
+    idle-poll: 5s
+    window-start: "08:00"
+    window-end: "21:00"
+    weekends-enabled: true
+  warmup:
+    enabled: false
+    daily-limits: 50,100,150,250
+  risk:
+    window: 1h
+    warn-threshold: 5
+    critical-threshold: 10
+    pause-multiplier: 2.0
+  notify:
+    channel: telegram,test
+  security:
+    admin-token: test-token
+  fake:
+    groups: 30
+    unarchived-groups: 3
+    admin-only-groups: 2
+    failure-rate: 0.0
+    seed-requests: 0

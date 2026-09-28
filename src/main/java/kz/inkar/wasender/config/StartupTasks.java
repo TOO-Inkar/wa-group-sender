@@ -12,9 +12,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 
 @Component
 public class StartupTasks {
@@ -32,11 +30,10 @@ public class StartupTasks {
     private final SheetUpdateBuffer buffer;
     private final GroupSyncService groupSync;
     private final Dispatcher dispatcher;
-    private final Clock clock;
 
     public StartupTasks(AppProperties app, SheetsProperties sheets, GroupsProperties groups, WatchdogProperties watchdog,
                         DispatchProperties dispatch, TaskScheduler scheduler, SessionWatchdog sessionWatchdog, SheetPoller poller,
-                        SheetUpdateBuffer buffer, GroupSyncService groupSync, Dispatcher dispatcher, Clock clock) {
+                        SheetUpdateBuffer buffer, GroupSyncService groupSync, Dispatcher dispatcher) {
         this.app = app;
         this.sheets = sheets;
         this.groups = groups;
@@ -48,7 +45,6 @@ public class StartupTasks {
         this.buffer = buffer;
         this.groupSync = groupSync;
         this.dispatcher = dispatcher;
-        this.clock = clock;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -79,6 +75,6 @@ public class StartupTasks {
             } catch (RuntimeException e) {
                 log.error("Background task failed", e);
             }
-        }, Instant.now(clock).plus(interval), interval);
+        }, scheduler.getClock().instant().plus(interval), interval);
     }
 }

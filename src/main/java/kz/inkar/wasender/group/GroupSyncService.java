@@ -90,7 +90,7 @@ public class GroupSyncService {
 
     private void onEvent(GatewayEvent event) {
         switch (event) {
-            case GatewayEvent.Connected ignored -> scheduler.schedule(this::syncQuietly, Instant.now(clock).plus(properties.initialSyncDelay()));
+            case GatewayEvent.Connected ignored -> scheduler.schedule(this::syncQuietly, scheduler.getClock().instant().plus(properties.initialSyncDelay()));
             case GatewayEvent.RemovedFromGroup removed -> {
                 groups.markRemoved(removed.groupJid(), Instant.now(clock));
                 log.warn("GROUP removed group_jid={}", removed.groupJid());

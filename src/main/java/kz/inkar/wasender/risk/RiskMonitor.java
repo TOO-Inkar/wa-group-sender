@@ -19,7 +19,6 @@ public class RiskMonitor {
     private final RiskProperties properties;
     private final AlertService alerts;
     private final Clock clock;
-    private volatile Boolean stopped;
 
     public RiskMonitor(RiskEventRepository repository, RiskProperties properties, AlertService alerts, Clock clock) {
         this.repository = repository;
@@ -45,26 +44,19 @@ public class RiskMonitor {
 
     public synchronized void stop(String reason) {
         repository.insert(RiskType.RISK_STOP, null, null, reason, Instant.now(clock));
-        stopped = true;
         log.error("RISK dispatch stopped: {}", reason);
         alerts.alert("risk-stop", "Рассылка ОСТАНОВЛЕНА: " + reason + ". Проверьте номер и возобновите вручную: POST /api/admin/resume.");
     }
 
     public synchronized void resume() {
         repository.insert(RiskType.RESUMED, null, null, "manual resume", Instant.now(clock));
-        stopped = false;
         log.warn("RISK dispatch resumed manually");
     }
 
     public boolean isStopped() {
-        var value = stopped;
-        if (value == null) {
-            value = repository.latestOf(List.of(RiskType.RISK_STOP, RiskType.RESUMED))
-                    .map(event -> event.type() == RiskType.RISK_STOP)
-                    .orElse(false);
-            stopped = value;
-        }
-        return value;
+        return repository.latestOf(List.of(RiskType.RISK_STOP, RiskType.RESUMED))
+                .map(event -> event.type() == RiskType.RISK_STOP)
+                .orElse(false);
     }
 
     public int eventsInWindow() {

@@ -97,7 +97,7 @@ app:
     email:
       from: ${NOTIFY_EMAIL_FROM:}
       to: ${NOTIFY_EMAIL_TO:}
-      subject: ${NOTIFY_EMAIL_SUBJECT:wa-group-sender: alert}
+      subject: "${NOTIFY_EMAIL_SUBJECT:wa-group-sender alert}"
   security:
     admin-token: ${ADMIN_TOKEN:}
     header: ${ADMIN_TOKEN_HEADER:X-Admin-Token}

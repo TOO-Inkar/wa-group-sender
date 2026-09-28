@@ -6,8 +6,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,15 +18,13 @@ public class SheetUpdateBuffer {
     private final RequestSource source;
     private final RequestRepository requests;
     private final TaskScheduler scheduler;
-    private final Clock clock;
     private final Map<Key, String> pending = new LinkedHashMap<>();
     private final Object flushLock = new Object();
 
-    public SheetUpdateBuffer(RequestSource source, RequestRepository requests, TaskScheduler scheduler, Clock clock) {
+    public SheetUpdateBuffer(RequestSource source, RequestRepository requests, TaskScheduler scheduler) {
         this.source = source;
         this.requests = requests;
         this.scheduler = scheduler;
-        this.clock = clock;
     }
 
     public synchronized void put(String requestId, SheetField field, String value) {
@@ -40,7 +36,7 @@ public class SheetUpdateBuffer {
     }
 
     public void flushAsync() {
-        scheduler.schedule(this::flushQuietly, Instant.now(clock));
+        scheduler.schedule(this::flushQuietly, scheduler.getClock().instant());
     }
 
     public void flushQuietly() {
