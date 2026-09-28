@@ -168,7 +168,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
                 if (stopped) {
                     return;
                 }
-                log.debug("Bridge events poll failed: {}", e.toString());
+                log.warn("Bridge events poll failed: {}", e.toString(), e);
                 try {
                     Thread.sleep(RETRY_DELAY);
                 } catch (InterruptedException interrupted) {
@@ -179,6 +179,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     }
 
     void handle(Event event) {
+        log.info("BRIDGE event seq={} type={} reason={} jid={}", event.seq(), event.type(), event.reason(), event.jid());
         switch (event.type()) {
             case "qr" -> publish(new GatewayEvent.QrReceived(event.payload()));
             case "connected" -> publish(new GatewayEvent.Connected());
