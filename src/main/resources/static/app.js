@@ -398,9 +398,9 @@ $('btn-alert').addEventListener('click', testAlert);
 $('preview-form').addEventListener('submit', preview);
 
 if (token) {
+  // Админка показывается, только когда сервер принял сохранённый токен.
   api('/api/admin/requests').then(start).catch((error) => {
-    if (error instanceof Unauthorized) logout();
-    else start();
+    logout(error instanceof Unauthorized ? null : `Сервис недоступен: ${error.message}`);
   });
 } else {
   $('login').hidden = false;
