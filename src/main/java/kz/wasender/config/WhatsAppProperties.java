@@ -12,5 +12,15 @@ public record WhatsAppProperties(
         String deviceName,
         Duration sendTimeout,
         Duration metadataQueryDelay,
-        Duration metadataTtl) {
+        Duration metadataTtl,
+        History history) {
+
+    /**
+     * How much chat history the phone sends when the device is linked. Only applied at QR pairing.
+     * DISCARD skips the chat list, so quiet (e.g. archived) groups and the archive flag may never arrive.
+     */
+    public enum History {
+        DISCARD,
+        STANDARD
+    }
 }

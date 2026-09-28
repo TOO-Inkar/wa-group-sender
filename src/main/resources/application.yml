@@ -31,6 +31,7 @@ app:
     send-timeout: ${WA_SEND_TIMEOUT:60s}
     metadata-query-delay: ${WA_METADATA_QUERY_DELAY:700ms}
     metadata-ttl: ${WA_METADATA_TTL:6h}
+    history: ${WA_HISTORY:discard}
   watchdog:
     check-interval: ${WATCHDOG_CHECK_INTERVAL:15s}
     max-attempts: ${WATCHDOG_MAX_ATTEMPTS:8}

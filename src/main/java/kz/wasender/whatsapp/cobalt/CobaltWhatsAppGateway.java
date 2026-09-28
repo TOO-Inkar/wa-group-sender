@@ -78,7 +78,7 @@ public class CobaltWhatsAppGateway extends AbstractWhatsAppGateway {
                 .serializer(ControllerSerializer.toProtobuf(properties.sessionDir()))
                 .lastConnection()
                 .name(properties.deviceName())
-                .historySetting(WebHistorySetting.discard(false))
+                .historySetting(historySetting())
                 .textPreviewSetting(TextPreviewSetting.DISABLED)
                 .errorHandler(this::handleError)
                 .unregistered(QrHandler.toPlainString(payload -> publish(new GatewayEvent.QrReceived(payload))));
@@ -107,6 +107,13 @@ public class CobaltWhatsAppGateway extends AbstractWhatsAppGateway {
     public synchronized void disconnect() {
         closeQuietly();
         updateState(SessionState.DISCONNECTED);
+    }
+
+    private WebHistorySetting historySetting() {
+        return switch (properties.history()) {
+            case DISCARD -> WebHistorySetting.discard(false);
+            case STANDARD -> WebHistorySetting.standard(false);
+        };
     }
 
     @Override
