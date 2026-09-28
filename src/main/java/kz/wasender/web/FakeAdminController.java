@@ -2,6 +2,7 @@ package kz.wasender.web;
 
 import kz.wasender.sheets.SheetRow;
 import kz.wasender.sheets.fake.FakeRequestSource;
+import kz.wasender.template.PreviewService;
 import kz.wasender.whatsapp.fake.FakeWhatsAppGateway;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,16 +21,17 @@ public class FakeAdminController {
 
     private final FakeRequestSource source;
     private final FakeWhatsAppGateway gateway;
+    private final PreviewService preview;
 
-    public FakeAdminController(FakeRequestSource source, FakeWhatsAppGateway gateway) {
+    public FakeAdminController(FakeRequestSource source, FakeWhatsAppGateway gateway, PreviewService preview) {
         this.source = source;
         this.gateway = gateway;
+        this.preview = preview;
     }
 
     @PostMapping("/requests")
-    public Map<String, Object> add(@RequestBody NewRow row) {
-        var number = source.addRow(value(row.id()), value(row.route()), value(row.tonnage()), value(row.cargo()), value(row.date()), value(row.freight()));
-        return Map.of("row", number);
+    public Map<String, Object> add(@RequestBody Map<String, String> fields) {
+        return Map.of("row", source.addRow(preview.fields(fields)));
     }
 
     @GetMapping("/sheet")
@@ -40,12 +42,5 @@ public class FakeAdminController {
     @GetMapping("/sent")
     public List<FakeWhatsAppGateway.SentMessage> sent() {
         return gateway.sent();
-    }
-
-    private static String value(String value) {
-        return value == null ? "" : value;
-    }
-
-    public record NewRow(String id, String route, String tonnage, String cargo, String date, String freight) {
     }
 }

@@ -32,7 +32,7 @@ class WarmupTest extends IntegrationTest {
         assertThat(warmup.limitToday()).isEqualTo(50);
         assertThat(requests.find(id).orElseThrow().status()).isEqualTo(RequestStatus.SENDING);
         assertThat(sheet.row(row).get(SheetField.STATUS)).isEqualTo("Отправляется");
-        assertThat(sheet.row(row).get(SheetField.PROGRESS)).isEqualTo("50/120");
+        assertThat(sheet.row(row).get(SheetField.PROGRESS)).isEqualTo("50 / 120");
         var plan = deliveries.findByRequest(id).stream().map(DeliveryRecord::groupJid).toList();
         assertThat(sentJids()).isEqualTo(plan.subList(0, 50));
 

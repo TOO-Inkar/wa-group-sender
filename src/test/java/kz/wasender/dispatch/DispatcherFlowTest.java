@@ -19,24 +19,24 @@ class DispatcherFlowTest extends IntegrationTest {
         assertThat(sync.archived()).isEqualTo(27);
         assertThat(sync.active()).isEqualTo(25);
 
-        var row = addValidRow("Алматы — Шымкент");
+        var row = addValidRow("АЛМАТЫ → ШЫМКЕНТ");
         assertThat(poller.poll()).isEqualTo(1);
         buffer.flush();
         assertThat(sheet.row(row).get(SheetField.STATUS)).isEqualTo("В очереди");
         var id = sheet.row(row).get(SheetField.ID);
-        assertThat(id).matches("R\\d{6}-[A-Z0-9]{5}");
+        assertThat(id).isEqualTo("1");
 
         runUntilBlocked(500);
 
         assertThat(dispatcher.state()).isEqualTo(DispatcherState.IDLE);
         assertThat(sentJids()).hasSize(25).doesNotHaveDuplicates();
         assertThat(sentJids()).allMatch(jid -> jid.compareTo("120363000000006@g.us") >= 0);
-        assertThat(gateway.sent()).allMatch(message -> message.text().contains("Алматы — Шымкент") && message.text().contains(id));
+        assertThat(gateway.sent()).allMatch(message -> message.text().startsWith("📍*АЛМАТЫ → ШЫМКЕНТ*") && message.text().contains("⚖️"));
         assertThat(gateway.typing()).hasSize(25);
         var finalRow = sheet.row(row);
         assertThat(finalRow.get(SheetField.STATUS)).isEqualTo("Отправлено");
-        assertThat(finalRow.get(SheetField.PROGRESS)).isEqualTo("25/25");
-        assertThat(finalRow.get(SheetField.COMPLETED)).matches("\\d{2}\\.\\d{2}\\.\\d{4} \\d{2}:\\d{2}");
+        assertThat(finalRow.get(SheetField.PROGRESS)).isEqualTo("25 / 25");
+        assertThat(finalRow.get(SheetField.COMPLETED)).matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}");
         assertThat(requests.find(id).orElseThrow().status()).isEqualTo(RequestStatus.DONE);
     }
 
@@ -104,7 +104,7 @@ class DispatcherFlowTest extends IntegrationTest {
         runUntilBlocked(500);
 
         assertThat(sentJids()).hasSize(4).doesNotContain("12036399000003@g.us");
-        assertThat(sheet.row(row).get(SheetField.PROGRESS)).isEqualTo("4/5");
+        assertThat(sheet.row(row).get(SheetField.PROGRESS)).isEqualTo("4 / 5");
         assertThat(sheet.row(row).get(SheetField.STATUS)).isEqualTo("Отправлено");
         assertThat(risk.eventsInWindow()).isEqualTo(1);
     }

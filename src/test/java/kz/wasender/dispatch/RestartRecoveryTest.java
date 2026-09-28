@@ -31,7 +31,7 @@ class RestartRecoveryTest extends IntegrationTest {
         assertThat(all).doesNotContain(interrupted.groupJid());
         var statuses = deliveries.findByRequest(id).stream().map(DeliveryRecord::status).toList();
         assertThat(statuses).hasSize(12).allMatch(status -> status == DeliveryStatus.SENT);
-        assertThat(deliveries.progress(id).sheetText()).isEqualTo("12/12");
+        assertThat(deliveries.progress(id).sheetText()).isEqualTo("12 / 12");
     }
 
     @Test

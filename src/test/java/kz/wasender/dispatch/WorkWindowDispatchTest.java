@@ -36,14 +36,14 @@ class WorkWindowDispatchTest extends IntegrationTest {
     @Test
     void sendingStopsWhenWindowClosesMidRequest() throws Exception {
         useGroups(30);
-        clock.set(LocalDateTime.of(2026, 9, 28, 20, 55));
+        clock.set(LocalDateTime.of(2026, 9, 28, 19, 55));
         addValidRow("Поздняя заявка");
         poller.poll();
 
         runUntilBlocked(500);
 
         assertThat(dispatcher.state()).isEqualTo(DispatcherState.OUTSIDE_WINDOW);
-        assertThat(clock.now().toLocalTime()).isAfterOrEqualTo(java.time.LocalTime.of(21, 0));
+        assertThat(clock.now().toLocalTime()).isAfterOrEqualTo(java.time.LocalTime.of(20, 0));
         var sentBefore = sentJids().size();
         assertThat(sentBefore).isBetween(1, 29);
 
