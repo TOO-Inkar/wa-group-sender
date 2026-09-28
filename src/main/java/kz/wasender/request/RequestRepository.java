@@ -69,6 +69,10 @@ public class RequestRepository {
                 .update();
     }
 
+    public List<String> findAllIds() {
+        return jdbc.sql("select id from request").query(String.class).list();
+    }
+
     public List<RequestRecord> findAll() {
         return jdbc.sql("select * from request order by queued_at, id").query(MAPPER).list();
     }

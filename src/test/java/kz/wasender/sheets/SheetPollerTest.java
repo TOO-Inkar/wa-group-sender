@@ -3,52 +3,64 @@ package kz.wasender.sheets;
 import kz.wasender.support.IntegrationTest;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SheetPollerTest extends IntegrationTest {
 
     @Test
     void rowWithMissingFieldsGetsReadableErrorAndIsNotQueued() {
-        var row = sheet.addRow("", "Алматы — Астана", "", "Мука", "02.10.2026", "");
+        var row = sheet.addRow(Map.of(SheetField.ROUTE, "АЛМАТЫ → АСТАНА", SheetField.DATE, "Срочно", SheetField.CARGO, "Мука"));
 
         assertThat(poller.poll()).isZero();
 
-        assertThat(sheet.row(row).get(SheetField.STATUS)).isEqualTo("Ошибка: не заполнено Тоннаж, Фрахт");
+        assertThat(sheet.row(row).get(SheetField.STATUS)).isEqualTo("Ошибка: не заполнено Машины и тоннаж, Фрахт");
         assertThat(sheet.row(row).get(SheetField.ID)).isEmpty();
         assertThat(requests.findAll()).isEmpty();
         assertThat(poller.poll()).isZero();
     }
 
     @Test
-    void emptyIdIsGeneratedAndWrittenBeforeQueueing() {
-        var row = addValidRow("Костанай — Кокшетау");
+    void optionalConditionsMayBeEmpty() {
+        addValidRow("ХОРГОС → МОСКВА");
 
         assertThat(poller.poll()).isEqualTo(1);
+    }
 
-        var id = sheet.row(row).get(SheetField.ID);
-        assertThat(id).isNotBlank();
-        assertThat(requests.find(id)).isPresent();
-        assertThat(requests.find(id).orElseThrow().sheetRow()).isEqualTo(row);
-        assertThat(sheet.row(row).get(SheetField.STATUS)).isEqualTo("В очереди");
+    @Test
+    void emptyIdIsGeneratedAsNextNumberAndWrittenBeforeQueueing() {
+        sheet.addRow(Map.of(SheetField.ID, "16", SheetField.ROUTE, "А", SheetField.DATE, "Д", SheetField.VEHICLES, "М",
+                SheetField.CARGO, "Г", SheetField.FREIGHT, "Ф", SheetField.STATUS, "Отправлено"));
+        var first = addValidRow("ХОРГОС → БАКУ");
+        var second = addValidRow("КАЛЖАТ → БАКУ");
+
+        assertThat(poller.poll()).isEqualTo(2);
+
+        assertThat(sheet.row(first).get(SheetField.ID)).isEqualTo("17");
+        assertThat(sheet.row(second).get(SheetField.ID)).isEqualTo("18");
+        assertThat(requests.find("17").orElseThrow().sheetRow()).isEqualTo(first);
+        assertThat(sheet.row(first).get(SheetField.STATUS)).isEqualTo("В очереди");
     }
 
     @Test
     void existingIdIsKeptAndRequestIsQueuedOnlyOnce() {
-        var row = sheet.addRow("MANUAL-1", "Атырау — Актау", "10 т", "Трубы", "03.10.2026", "300 000 ₸");
+        var row = sheet.addRow(Map.of(SheetField.ID, "MANUAL-1", SheetField.ROUTE, "АТЫРАУ → АКТАУ", SheetField.DATE, "Завтра",
+                SheetField.VEHICLES, "Тент 20 т", SheetField.CARGO, "Трубы", SheetField.FREIGHT, "300 000 ₸"));
 
         assertThat(poller.poll()).isEqualTo(1);
         assertThat(poller.poll()).isZero();
 
         assertThat(requests.findAll()).hasSize(1);
-        assertThat(requests.find("MANUAL-1")).isPresent();
         assertThat(sheet.row(row).get(SheetField.ID)).isEqualTo("MANUAL-1");
     }
 
     @Test
     void clearedStatusOfKnownRequestIsRestoredWithoutResending() {
-        var row = sheet.addRow("MANUAL-2", "Уральск — Актобе", "5 т", "Зерно", "04.10.2026", "200 000 ₸");
+        var row = addValidRow("УРАЛЬСК → АКТОБЕ");
         poller.poll();
-        sheet.write(java.util.List.of(new CellWrite(row, SheetField.STATUS, "")));
+        sheet.write(List.of(new CellWrite(row, SheetField.STATUS, "")));
 
         assertThat(poller.poll()).isZero();
 
@@ -58,22 +70,28 @@ class SheetPollerTest extends IntegrationTest {
 
     @Test
     void copiedRowWithSameIdIsRejectedAsDuplicate() {
-        sheet.addRow("MANUAL-3", "Тараз — Шымкент", "7 т", "Сахар", "05.10.2026", "150 000 ₸");
+        var original = addValidRow("ТАРАЗ → ШЫМКЕНТ");
         poller.poll();
-        var copy = sheet.addRow("MANUAL-3", "Тараз — Шымкент", "7 т", "Сахар", "05.10.2026", "150 000 ₸");
+        var id = sheet.row(original).get(SheetField.ID);
+        var copy = sheet.addRow(Map.of(SheetField.ID, id, SheetField.ROUTE, "ТАРАЗ → ШЫМКЕНТ", SheetField.DATE, "Срочно",
+                SheetField.VEHICLES, "Тент", SheetField.CARGO, "Сахар", SheetField.FREIGHT, "🔥"));
 
         assertThat(poller.poll()).isZero();
 
         assertThat(requests.findAll()).hasSize(1);
-        assertThat(sheet.row(copy).get(SheetField.STATUS)).isEqualTo("Ошибка: дубликат ID MANUAL-3");
+        assertThat(sheet.row(copy).get(SheetField.STATUS)).isEqualTo("Ошибка: дубликат ID " + id);
     }
 
     @Test
-    void rowsWithStatusAreIgnored() {
-        var row = addValidRow("Старая заявка");
-        sheet.write(java.util.List.of(new CellWrite(row, SheetField.STATUS, "Отправлено")));
+    void missingHeadersAreReportedWithoutCrashing() {
+        addValidRow("ХОРГОС → БАКУ");
+        sheet.replaceHeader(List.of("ID", "Маршрут", "Дата", "Машины и тоннаж", "Груз", "Фрахт", "Доп. условия", "Статус",
+                "Отправлено / всего", "Завершено"));
 
+        assertThat(poller.checkLayout()).isFalse();
         assertThat(poller.poll()).isZero();
+
         assertThat(requests.findAll()).isEmpty();
+        assertThat(notifier.anyContains("нет колонок: Дата / срочность")).isTrue();
     }
 }

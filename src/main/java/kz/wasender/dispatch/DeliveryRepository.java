@@ -78,7 +78,7 @@ public class DeliveryRepository {
     public record Progress(int total, int sent, int failed, int skipped, int pending) {
 
         public String sheetText() {
-            return sent + "/" + total;
+            return sent + " / " + total;
         }
     }
 }

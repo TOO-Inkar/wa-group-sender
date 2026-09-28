@@ -43,26 +43,29 @@ app:
     sheet-name: ${SHEETS_SHEET_NAME:Заявки}
     credentials-path: ${GOOGLE_CREDENTIALS_PATH:/run/secrets/google.json}
     poll-interval: ${SHEETS_POLL_INTERVAL:30s}
-    first-data-row: ${SHEETS_FIRST_DATA_ROW:2}
+    header-row: ${SHEETS_HEADER_ROW:1}
     columns:
-      id: ${SHEETS_COL_ID:A}
-      route: ${SHEETS_COL_ROUTE:B}
-      tonnage: ${SHEETS_COL_TONNAGE:C}
-      cargo: ${SHEETS_COL_CARGO:D}
-      date: ${SHEETS_COL_DATE:E}
-      freight: ${SHEETS_COL_FREIGHT:F}
-      status: ${SHEETS_COL_STATUS:G}
-      progress: ${SHEETS_COL_PROGRESS:H}
-      completed: ${SHEETS_COL_COMPLETED:I}
+      id: "${SHEETS_COL_ID:ID}"
+      route: "${SHEETS_COL_ROUTE:Маршрут}"
+      date: "${SHEETS_COL_DATE:Дата / срочность}"
+      vehicles: "${SHEETS_COL_VEHICLES:Машины и тоннаж}"
+      cargo: "${SHEETS_COL_CARGO:Груз}"
+      freight: "${SHEETS_COL_FREIGHT:Фрахт}"
+      conditions: "${SHEETS_COL_CONDITIONS:Доп. условия}"
+      status: "${SHEETS_COL_STATUS:Статус}"
+      progress: "${SHEETS_COL_PROGRESS:Отправлено / всего}"
+      completed: "${SHEETS_COL_COMPLETED:Завершено}"
     progress-flush-interval: ${SHEETS_PROGRESS_FLUSH_INTERVAL:60s}
     retry:
       max-attempts: ${SHEETS_RETRY_MAX_ATTEMPTS:5}
       initial-backoff: ${SHEETS_RETRY_INITIAL_BACKOFF:2s}
       max-backoff: ${SHEETS_RETRY_MAX_BACKOFF:60s}
     alert-after-failures: ${SHEETS_ALERT_AFTER_FAILURES:10}
-    completed-format: ${SHEETS_COMPLETED_FORMAT:dd.MM.yyyy HH:mm}
-  template:
-    path: ${TEMPLATE_PATH:/data/templates/message.txt}
+    completed-format: "${SHEETS_COMPLETED_FORMAT:yyyy-MM-dd HH:mm}"
+  message:
+    template-path: ${MESSAGE_TEMPLATE_PATH:/data/templates/message.txt}
+    contact: "${MESSAGE_CONTACT:}"
+    numbering: ${MESSAGE_NUMBERING:false}
   groups:
     sync-interval: ${GROUPS_SYNC_INTERVAL:1h}
     initial-sync-delay: ${GROUPS_INITIAL_SYNC_DELAY:60s}
@@ -77,11 +80,11 @@ app:
     typing-max: ${DISPATCH_TYPING_MAX:6s}
     idle-poll: ${DISPATCH_IDLE_POLL:5s}
     window-start: ${DISPATCH_WINDOW_START:08:00}
-    window-end: ${DISPATCH_WINDOW_END:21:00}
-    weekends-enabled: ${DISPATCH_WEEKENDS_ENABLED:true}
+    window-end: ${DISPATCH_WINDOW_END:20:00}
+    weekends-enabled: ${DISPATCH_WEEKENDS_ENABLED:false}
   warmup:
     enabled: ${WARMUP_ENABLED:true}
-    daily-limits: ${WARMUP_DAILY_LIMITS:50,100,150,250}
+    daily-limits: ${WARMUP_DAILY_LIMITS:45,80,120,170,220}
   risk:
     window: ${RISK_WINDOW:1h}
     warn-threshold: ${RISK_WARN_THRESHOLD:5}
@@ -101,4 +104,4 @@ app:
     unarchived-groups: ${FAKE_UNARCHIVED_GROUPS:3}
     admin-only-groups: ${FAKE_ADMIN_ONLY_GROUPS:2}
     failure-rate: ${FAKE_FAILURE_RATE:0.0}
-    seed-requests: ${FAKE_SEED_REQUESTS:1}
+    sheet-csv: "${FAKE_SHEET_CSV:}"

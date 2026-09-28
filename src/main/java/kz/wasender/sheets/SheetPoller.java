@@ -14,8 +14,10 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 public class SheetPoller {
@@ -44,11 +46,30 @@ public class SheetPoller {
         this.clock = clock;
     }
 
+    public boolean checkLayout() {
+        try {
+            var missing = source.missingHeaders();
+            if (missing.isEmpty()) {
+                log.info("SHEETS layout ok sheet=\"{}\" header_row={}", properties.sheetName(), properties.headerRow());
+                return true;
+            }
+            reportLayout(missing);
+        } catch (RuntimeException e) {
+            log.error("SHEETS layout check failed: {}", e.getMessage());
+            alerts.alert("sheet-unavailable", "Не удаётся прочитать Google Таблицу: " + e.getMessage()
+                    + ". Проверьте SHEETS_SPREADSHEET_ID, имя листа и доступ «Редактор» для сервисного аккаунта.");
+        }
+        return false;
+    }
+
     public synchronized int poll() {
         List<SheetRow> rows;
         try {
             rows = source.readRows();
             failures = 0;
+        } catch (SheetLayoutException e) {
+            reportLayout(e.missing());
+            return 0;
         } catch (RuntimeException e) {
             failures++;
             log.error("SHEETS read failed ({} in a row): {}", failures, e.getMessage());
@@ -57,11 +78,13 @@ public class SheetPoller {
             }
             return 0;
         }
+        var sheetIds = new HashSet<String>();
+        rows.forEach(row -> sheetIds.add(row.get(SheetField.ID)));
         var queued = 0;
         var writes = new ArrayList<CellWrite>();
         for (var row : rows) {
             try {
-                queued += handle(row, writes) ? 1 : 0;
+                queued += handle(row, writes, sheetIds) ? 1 : 0;
             } catch (RuntimeException e) {
                 log.error("SHEETS row {} skipped this poll: {}", row.rowNumber(), e.getMessage());
             }
@@ -74,7 +97,7 @@ public class SheetPoller {
         return queued;
     }
 
-    private boolean handle(SheetRow row, List<CellWrite> writes) {
+    private boolean handle(SheetRow row, List<CellWrite> writes, Set<String> sheetIds) {
         var id = row.get(SheetField.ID);
         var known = id.isBlank() ? null : requests.find(id).orElse(null);
         if (known != null && row.isBlank(SheetField.STATUS)) {
@@ -88,10 +111,9 @@ public class SheetPoller {
             return false;
         }
         if (known != null) {
-            if (Objects.equals(known.sheetRow(), row.rowNumber())) {
-                return false;
+            if (!Objects.equals(known.sheetRow(), row.rowNumber())) {
+                requests.updateRow(id, row.rowNumber());
             }
-            requests.updateRow(id, row.rowNumber());
             return false;
         }
         if (!row.isBlank(SheetField.STATUS)) {
@@ -105,8 +127,9 @@ public class SheetPoller {
             return false;
         }
         if (id.isBlank()) {
-            id = ids.next();
+            id = ids.next(sheetIds);
             source.write(List.of(new CellWrite(row.rowNumber(), SheetField.ID, id)));
+            sheetIds.add(id);
             log.info("SHEETS row={} generated request_id={}", row.rowNumber(), id);
         }
         var message = renderer.render(row.with(SheetField.ID, id));
@@ -114,5 +137,12 @@ public class SheetPoller {
         writes.add(new CellWrite(row.rowNumber(), SheetField.STATUS, RequestStatus.QUEUED.sheetText()));
         log.info("QUEUED request_id={} row={}", id, row.rowNumber());
         return true;
+    }
+
+    private void reportLayout(List<String> missing) {
+        log.error("SHEETS sheet \"{}\" has no columns {} in header row {}. Fix the headers or SHEETS_COL_* in .env",
+                properties.sheetName(), missing, properties.headerRow());
+        alerts.alert("sheet-layout", "В Google Таблице (лист «" + properties.sheetName() + "», строка " + properties.headerRow()
+                + ") нет колонок: " + String.join(", ", missing) + ". Заявки не читаются, пока заголовки не исправлены.");
     }
 }

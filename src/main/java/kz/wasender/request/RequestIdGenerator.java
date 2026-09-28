@@ -2,37 +2,25 @@ package kz.wasender.request;
 
 import org.springframework.stereotype.Component;
 
-import java.time.Clock;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.random.RandomGenerator;
+import java.util.Collection;
+import java.util.stream.Stream;
 
 @Component
 public class RequestIdGenerator {
 
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyMMdd");
-    private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
     private final RequestRepository requests;
-    private final RandomGenerator random;
-    private final Clock clock;
 
-    public RequestIdGenerator(RequestRepository requests, RandomGenerator random, Clock clock) {
+    public RequestIdGenerator(RequestRepository requests) {
         this.requests = requests;
-        this.random = random;
-        this.clock = clock;
     }
 
-    public String next() {
-        while (true) {
-            var builder = new StringBuilder("R").append(DAY.format(LocalDate.now(clock))).append('-');
-            for (var i = 0; i < 5; i++) {
-                builder.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
-            }
-            var id = builder.toString();
-            if (!requests.exists(id)) {
-                return id;
-            }
-        }
+    public String next(Collection<String> idsInSheet) {
+        var max = Stream.concat(idsInSheet.stream(), requests.findAllIds().stream())
+                .map(String::strip)
+                .filter(id -> id.matches("\\d{1,15}"))
+                .mapToLong(Long::parseLong)
+                .max()
+                .orElse(0);
+        return Long.toString(max + 1);
     }
 }

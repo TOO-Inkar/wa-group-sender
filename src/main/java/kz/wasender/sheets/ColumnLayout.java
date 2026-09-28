@@ -2,24 +2,38 @@ package kz.wasender.sheets;
 
 import kz.wasender.config.SheetsProperties;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 public class ColumnLayout {
 
     private final Map<SheetField, Integer> indexes = new EnumMap<>(SheetField.class);
+    private final List<String> missing = new ArrayList<>();
 
-    public ColumnLayout(SheetsProperties.Columns columns) {
-        put(SheetField.ID, columns.id());
-        put(SheetField.ROUTE, columns.route());
-        put(SheetField.TONNAGE, columns.tonnage());
-        put(SheetField.CARGO, columns.cargo());
-        put(SheetField.DATE, columns.date());
-        put(SheetField.FREIGHT, columns.freight());
-        put(SheetField.STATUS, columns.status());
-        put(SheetField.PROGRESS, columns.progress());
-        put(SheetField.COMPLETED, columns.completed());
+    public ColumnLayout(SheetsProperties.Columns columns, List<?> headerRow) {
+        var headers = headerRow.stream().map(value -> normalize(String.valueOf(value))).toList();
+        for (var field : SheetField.values()) {
+            var index = headers.indexOf(normalize(columns.header(field)));
+            if (index < 0) {
+                missing.add(columns.header(field));
+            } else {
+                indexes.put(field, index);
+            }
+        }
+    }
+
+    public List<String> missing() {
+        return List.copyOf(missing);
+    }
+
+    public ColumnLayout requireComplete() {
+        if (!missing.isEmpty()) {
+            throw new SheetLayoutException(missing);
+        }
+        return this;
     }
 
     public int index(SheetField field) {
@@ -30,19 +44,21 @@ public class ColumnLayout {
         return toLetter(index(field));
     }
 
-    public String lastLetter() {
-        return toLetter(indexes.values().stream().mapToInt(Integer::intValue).max().orElse(0));
-    }
-
-    public static int toIndex(String letters) {
-        var value = 0;
-        for (var ch : letters.strip().toUpperCase(Locale.ROOT).toCharArray()) {
-            if (ch < 'A' || ch > 'Z') {
-                throw new IllegalArgumentException("Invalid column: " + letters);
+    public List<SheetRow> rows(List<? extends List<?>> values, int headerRow) {
+        var rows = new ArrayList<SheetRow>();
+        for (var i = headerRow; i < values.size(); i++) {
+            var cells = values.get(i);
+            var map = new EnumMap<SheetField, String>(SheetField.class);
+            for (var field : SheetField.values()) {
+                var index = index(field);
+                map.put(field, index < cells.size() && cells.get(index) != null ? String.valueOf(cells.get(index)) : "");
             }
-            value = value * 26 + (ch - 'A' + 1);
+            var row = new SheetRow(i + 1, map);
+            if (!row.isEmpty()) {
+                rows.add(row);
+            }
         }
-        return value - 1;
+        return rows;
     }
 
     public static String toLetter(int index) {
@@ -56,7 +72,7 @@ public class ColumnLayout {
         return builder.toString();
     }
 
-    private void put(SheetField field, String letters) {
-        indexes.put(field, toIndex(letters));
+    public static String normalize(String header) {
+        return header == null ? "" : header.strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 }

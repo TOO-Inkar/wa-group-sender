@@ -69,6 +69,12 @@ tasks.register<Test>("spike") {
     }
 }
 
+tasks.processResources {
+    from("docs/test-sheet.csv") {
+        into("fake")
+    }
+}
+
 tasks.bootJar {
     archiveFileName = "app.jar"
 }

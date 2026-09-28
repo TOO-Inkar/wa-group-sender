@@ -9,8 +9,10 @@ app:
   whatsapp:
     session-dir: build/test-data/session
     qr-png-path: build/test-data/qr/qr.png
-  template:
-    path: build/test-data/templates/missing.txt
+  message:
+    template-path: build/test-data/templates/missing.txt
+    contact: "Диспетчер (тест) +7 000 000 00 00"
+    numbering: false
   groups:
     initial-sync-delay: 1h
   sheets:
@@ -28,11 +30,11 @@ app:
     typing-max: 6s
     idle-poll: 5s
     window-start: "08:00"
-    window-end: "21:00"
+    window-end: "20:00"
     weekends-enabled: true
   warmup:
     enabled: false
-    daily-limits: 50,100,150,250
+    daily-limits: 45,80,120,170,220
   risk:
     window: 1h
     warn-threshold: 5
@@ -48,4 +50,4 @@ app:
     unarchived-groups: 3
     admin-only-groups: 2
     failure-rate: 0.0
-    seed-requests: 0
+    sheet-csv: ""

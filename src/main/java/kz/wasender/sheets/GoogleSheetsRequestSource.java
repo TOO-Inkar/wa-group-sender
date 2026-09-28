@@ -7,14 +7,12 @@ import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.BatchUpdateValuesRequest;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.auth.http.HttpCredentialsAdapter;
-import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import kz.wasender.config.SheetsProperties;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
 
 @Component
@@ -22,38 +20,26 @@ import java.util.List;
 public class GoogleSheetsRequestSource implements RequestSource {
 
     private final SheetsProperties properties;
-    private final ColumnLayout layout;
     private final SheetsRetry retry;
     private volatile Sheets sheets;
+    private volatile ColumnLayout layout;
 
     public GoogleSheetsRequestSource(SheetsProperties properties, SheetsRetry retry) {
         this.properties = properties;
-        this.layout = new ColumnLayout(properties.columns());
         this.retry = retry;
     }
 
     @Override
     public List<SheetRow> readRows() {
-        var range = sheetPrefix() + "A" + properties.firstDataRow() + ":" + layout.lastLetter();
         var response = retry.call("read", () -> client().spreadsheets().values()
-                .get(properties.spreadsheetId(), range)
+                .get(properties.spreadsheetId(), sheetRange())
                 .setValueRenderOption("FORMATTED_VALUE")
                 .execute());
         var values = response.getValues() == null ? List.<List<Object>>of() : response.getValues();
-        var rows = new ArrayList<SheetRow>();
-        for (var i = 0; i < values.size(); i++) {
-            var cells = values.get(i);
-            var map = new EnumMap<SheetField, String>(SheetField.class);
-            for (var field : SheetField.values()) {
-                var index = layout.index(field);
-                map.put(field, index < cells.size() && cells.get(index) != null ? cells.get(index).toString() : "");
-            }
-            var row = new SheetRow(properties.firstDataRow() + i, map);
-            if (!row.isEmpty()) {
-                rows.add(row);
-            }
-        }
-        return rows;
+        var header = values.size() >= properties.headerRow() ? values.get(properties.headerRow() - 1) : List.of();
+        var current = new ColumnLayout(properties.columns(), header).requireComplete();
+        layout = current;
+        return current.rows(values, properties.headerRow());
     }
 
     @Override
@@ -61,17 +47,40 @@ public class GoogleSheetsRequestSource implements RequestSource {
         if (writes.isEmpty()) {
             return;
         }
+        var current = layout == null ? readLayout().requireComplete() : layout;
         var data = writes.stream()
                 .map(write -> new ValueRange()
-                        .setRange(sheetPrefix() + layout.letter(write.field()) + write.rowNumber())
+                        .setRange(sheetPrefix() + current.letter(write.field()) + write.rowNumber())
                         .setValues(List.of(List.of(write.value()))))
                 .toList();
         var body = new BatchUpdateValuesRequest().setValueInputOption("RAW").setData(data);
         retry.call("write", () -> client().spreadsheets().values().batchUpdate(properties.spreadsheetId(), body).execute());
     }
 
+    @Override
+    public List<String> missingHeaders() {
+        return readLayout().missing();
+    }
+
+    private ColumnLayout readLayout() {
+        var row = properties.headerRow();
+        var response = retry.call("read header", () -> client().spreadsheets().values()
+                .get(properties.spreadsheetId(), sheetPrefix() + row + ":" + row)
+                .execute());
+        var values = response.getValues();
+        var current = new ColumnLayout(properties.columns(), values == null || values.isEmpty() ? List.of() : values.getFirst());
+        if (current.missing().isEmpty()) {
+            layout = current;
+        }
+        return current;
+    }
+
+    private String sheetRange() {
+        return "'" + properties.sheetName().replace("'", "''") + "'";
+    }
+
     private String sheetPrefix() {
-        return "'" + properties.sheetName().replace("'", "''") + "'!";
+        return sheetRange() + "!";
     }
 
     private Sheets client() throws Exception {
@@ -79,12 +88,12 @@ public class GoogleSheetsRequestSource implements RequestSource {
         if (current == null) {
             synchronized (this) {
                 if (sheets == null) {
-                    GoogleCredentials credentials;
+                    ServiceAccountCredentials credentials;
                     try (var input = Files.newInputStream(properties.credentialsPath())) {
-                        credentials = GoogleCredentials.fromStream(input).createScoped(List.of(SheetsScopes.SPREADSHEETS));
+                        credentials = ServiceAccountCredentials.fromStream(input);
                     }
                     sheets = new Sheets.Builder(GoogleNetHttpTransport.newTrustedTransport(), GsonFactory.getDefaultInstance(),
-                            new HttpCredentialsAdapter(credentials))
+                            new HttpCredentialsAdapter(credentials.createScoped(List.of(SheetsScopes.SPREADSHEETS))))
                             .setApplicationName("wa-group-sender")
                             .build();
                 }

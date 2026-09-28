@@ -7,6 +7,7 @@ import kz.wasender.group.GroupSyncService;
 import kz.wasender.request.RequestRepository;
 import kz.wasender.risk.RiskMonitor;
 import kz.wasender.sheets.SheetPoller;
+import kz.wasender.sheets.SheetField;
 import kz.wasender.sheets.SheetUpdateBuffer;
 import kz.wasender.sheets.fake.FakeRequestSource;
 import kz.wasender.whatsapp.GroupInfo;
@@ -20,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @SpringBootTest
 @ActiveProfiles({"fake", "test"})
@@ -53,8 +55,15 @@ public abstract class IntegrationTest {
     protected RiskMonitor risk;
 
     @BeforeEach
-    void connectAndSync() {
+    void connectAndClearSheet() {
         gateway.connect();
+        if (clearSheet()) {
+            sheet.clearData();
+        }
+    }
+
+    protected boolean clearSheet() {
+        return true;
     }
 
     protected void useGroups(int count) {
@@ -67,7 +76,12 @@ public abstract class IntegrationTest {
     }
 
     protected int addValidRow(String route) {
-        return sheet.addRow("", route, "20 т", "Цемент", "01.10.2026", "500 000 ₸");
+        return sheet.addRow(Map.of(
+                SheetField.ROUTE, route,
+                SheetField.DATE, "Погрузка 1 октября",
+                SheetField.VEHICLES, "120 м³/5 осей — ⚖️ 20 т",
+                SheetField.CARGO, "Цемент",
+                SheetField.FREIGHT, "🔥🔥"));
     }
 
     protected int runUntilBlocked(int maxCycles) throws InterruptedException {

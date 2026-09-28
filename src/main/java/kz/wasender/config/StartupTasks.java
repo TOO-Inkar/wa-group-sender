@@ -57,6 +57,7 @@ public class StartupTasks {
         sessionWatchdog.start();
         repeat(sessionWatchdog::check, watchdog.checkInterval());
         if (sheets.enabled()) {
+            scheduler.schedule(poller::checkLayout, scheduler.getClock().instant());
             repeat(poller::poll, sheets.pollInterval());
         } else {
             log.warn("Google Sheets polling disabled (SHEETS_ENABLED=false)");
