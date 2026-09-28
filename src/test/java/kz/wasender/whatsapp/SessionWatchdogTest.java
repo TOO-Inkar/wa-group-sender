@@ -84,10 +84,37 @@ class SessionWatchdogTest {
         assertThat(gateway.connects).isEqualTo(2);
     }
 
+    @Test
+    void reconnectsWhenSocketClosedWithoutDisconnectEvent() {
+        gateway.succeed = true;
+        watchdog.start();
+        assertThat(gateway.sessionState()).isEqualTo(SessionState.CONNECTED);
+
+        gateway.alive = false;
+        watchdog.check();
+        assertThat(gateway.connects).isEqualTo(1);
+
+        gateway.alive = true;
+        watchdog.check();
+        gateway.alive = false;
+        watchdog.check();
+        assertThat(gateway.connects).isEqualTo(1);
+
+        watchdog.check();
+        assertThat(gateway.connects).isEqualTo(2);
+        verify(risk, times(1)).record(eq(RiskType.DISCONNECTED), any(), any(), anyString());
+    }
+
     static class FailingGateway extends AbstractWhatsAppGateway {
 
         int connects;
         boolean succeed;
+        boolean alive = true;
+
+        @Override
+        public boolean transportAlive() {
+            return alive;
+        }
 
         @Override
         public void connect() {

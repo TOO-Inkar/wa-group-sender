@@ -12,6 +12,14 @@ public interface WhatsAppGateway {
 
     SessionState sessionState();
 
+    /**
+     * Whether the underlying socket is really open. The session state follows library events,
+     * and a socket that closes without a disconnect event would otherwise stay CONNECTED forever.
+     */
+    default boolean transportAlive() {
+        return true;
+    }
+
     Optional<String> currentQr();
 
     List<GroupInfo> listGroups();

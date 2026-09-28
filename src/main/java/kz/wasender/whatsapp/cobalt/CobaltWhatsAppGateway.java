@@ -110,6 +110,12 @@ public class CobaltWhatsAppGateway extends AbstractWhatsAppGateway {
     }
 
     @Override
+    public boolean transportAlive() {
+        var client = whatsapp;
+        return client != null && client.isConnected();
+    }
+
+    @Override
     public List<GroupInfo> listGroups() {
         var client = requireClient();
         var self = selfUsers(client);

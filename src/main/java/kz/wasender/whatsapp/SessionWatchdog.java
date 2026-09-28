@@ -16,6 +16,8 @@ import java.time.Instant;
 public class SessionWatchdog {
 
     private static final Logger log = LoggerFactory.getLogger(SessionWatchdog.class);
+    // Two checks in a row, so a socket that is being swapped right now is not mistaken for a dead one.
+    private static final int DEAD_TRANSPORT_CHECKS = 2;
 
     private final WhatsAppGateway gateway;
     private final WatchdogProperties properties;
@@ -29,6 +31,7 @@ public class SessionWatchdog {
     private SessionState lastState;
     private boolean pairing;
     private boolean exhausted;
+    private int deadTransportChecks;
 
     public SessionWatchdog(WhatsAppGateway gateway, WatchdogProperties properties, AlertService alerts, RiskMonitor risk, Clock clock) {
         this.gateway = gateway;
@@ -61,6 +64,17 @@ public class SessionWatchdog {
         }
         var stuck = (state == SessionState.CONNECTING || state == SessionState.RECONNECTING)
                 && Duration.between(stateSince, now).compareTo(properties.connectTimeout()) > 0;
+        if (state == SessionState.CONNECTED && !gateway.transportAlive()) {
+            if (++deadTransportChecks >= DEAD_TRANSPORT_CHECKS) {
+                deadTransportChecks = 0;
+                log.warn("WATCHDOG session is CONNECTED but the socket is closed, reconnecting");
+                risk.record(RiskType.DISCONNECTED, null, null, "socket closed without disconnect event");
+                lastState = null;
+                gateway.connect();
+            }
+            return;
+        }
+        deadTransportChecks = 0;
         if (stuck && nextAttemptAt == null) {
             log.warn("WATCHDOG session stuck in {} for more than {}", state, properties.connectTimeout());
             schedule(now);
