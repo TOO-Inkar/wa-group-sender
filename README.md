@@ -369,7 +369,7 @@ docker run --rm -v wa-group-sender_wa-session:/s -v wa-group-sender_wa-db:/d -v 
 | Настройки и секреты | `/etc/wa-group-sender/.env` (root:gha-runner, 0640) |
 | Ключ Google | `/etc/wa-group-sender/secrets/google-service-account.json` (`sudo install -m 0440 -o root -g 10001 key.json …`) |
 | Стенд | `/srv/stands/wa-group-sender`, compose-проект `wa-group-sender` |
-| HTTP | `127.0.0.1:8097`, снаружи — `ssh -L 8097:127.0.0.1:8097 inkbpadev` |
+| HTTP | `http://10.10.1.132:8097` — системный nginx (`deploy/inkbpadev/nginx-wa-group-sender.conf`) → контейнер `127.0.0.1:8098` |
 
 Подготовка сервера один раз: `sudo bash deploy/inkbpadev/setup-host.sh` из клона. Стенд стартует в профиле `fake`. Для боевого: в `/etc/wa-group-sender/.env` — `SPRING_PROFILES_ACTIVE=prod`, таблица, Telegram, ключ Google; затем перезапуск workflow или руками:
 
