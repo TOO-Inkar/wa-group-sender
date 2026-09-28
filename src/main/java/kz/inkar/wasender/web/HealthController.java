@@ -1,0 +1,69 @@
+package kz.inkar.wasender.web;
+
+import kz.inkar.wasender.dispatch.Dispatcher;
+import kz.inkar.wasender.dispatch.WarmupService;
+import kz.inkar.wasender.group.GroupRepository;
+import kz.inkar.wasender.request.RequestRepository;
+import kz.inkar.wasender.risk.RiskMonitor;
+import kz.inkar.wasender.whatsapp.WhatsAppGateway;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.Clock;
+import java.time.OffsetDateTime;
+
+@RestController
+public class HealthController {
+
+    private final WhatsAppGateway gateway;
+    private final RequestRepository requests;
+    private final GroupRepository groups;
+    private final WarmupService warmup;
+    private final Dispatcher dispatcher;
+    private final RiskMonitor risk;
+    private final Clock clock;
+
+    public HealthController(WhatsAppGateway gateway, RequestRepository requests, GroupRepository groups, WarmupService warmup,
+                            Dispatcher dispatcher, RiskMonitor risk, Clock clock) {
+        this.gateway = gateway;
+        this.requests = requests;
+        this.groups = groups;
+        this.warmup = warmup;
+        this.dispatcher = dispatcher;
+        this.risk = risk;
+        this.clock = clock;
+    }
+
+    @GetMapping("/api/health")
+    public Health health() {
+        var today = warmup.today();
+        return new Health(
+                "UP",
+                gateway.sessionState().name(),
+                requests.queueLength(),
+                warmup.sentToday(),
+                warmup.limitFor(today),
+                warmup.warmupDay(today),
+                dispatcher.state().label(),
+                risk.isStopped(),
+                risk.eventsInWindow(),
+                risk.pauseMultiplier(),
+                groups.activeCount(),
+                OffsetDateTime.now(clock).toString());
+    }
+
+    public record Health(
+            String status,
+            String session,
+            int queueLength,
+            int sentToday,
+            Integer warmupLimitToday,
+            int warmupDay,
+            String dispatcher,
+            boolean stoppedByRisk,
+            int riskEventsInWindow,
+            double pauseMultiplier,
+            long activeGroups,
+            String time) {
+    }
+}
