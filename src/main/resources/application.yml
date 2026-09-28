@@ -1,0 +1,109 @@
+spring:
+  application:
+    name: wa-group-sender
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  datasource:
+    url: ${DB_URL:jdbc:h2:file:${DB_PATH:/data/db/wasender}}
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:}
+  flyway:
+    enabled: true
+  jackson:
+    time-zone: ${APP_ZONE:Asia/Almaty}
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+app:
+  zone: ${APP_ZONE:Asia/Almaty}
+  scheduling-enabled: ${APP_SCHEDULING_ENABLED:true}
+  logging:
+    dir: ${LOG_DIR:/data/logs}
+    max-file-size: ${LOG_MAX_FILE_SIZE:20MB}
+    max-history: ${LOG_MAX_HISTORY_DAYS:30}
+    total-size-cap: ${LOG_TOTAL_SIZE_CAP:2GB}
+  whatsapp:
+    session-dir: ${WA_SESSION_DIR:/data/session}
+    qr-png-path: ${WA_QR_PNG_PATH:/data/qr/qr.png}
+    device-name: ${WA_DEVICE_NAME:wa-group-sender}
+    send-timeout: ${WA_SEND_TIMEOUT:60s}
+    metadata-query-delay: ${WA_METADATA_QUERY_DELAY:700ms}
+    metadata-ttl: ${WA_METADATA_TTL:6h}
+  watchdog:
+    check-interval: ${WATCHDOG_CHECK_INTERVAL:15s}
+    max-attempts: ${WATCHDOG_MAX_ATTEMPTS:8}
+    initial-delay: ${WATCHDOG_INITIAL_DELAY:10s}
+    max-delay: ${WATCHDOG_MAX_DELAY:15m}
+    connect-timeout: ${WATCHDOG_CONNECT_TIMEOUT:3m}
+  sheets:
+    enabled: ${SHEETS_ENABLED:true}
+    spreadsheet-id: ${SHEETS_SPREADSHEET_ID:}
+    sheet-name: ${SHEETS_SHEET_NAME:Заявки}
+    credentials-path: ${GOOGLE_CREDENTIALS_PATH:/run/secrets/google.json}
+    poll-interval: ${SHEETS_POLL_INTERVAL:30s}
+    first-data-row: ${SHEETS_FIRST_DATA_ROW:2}
+    columns:
+      id: ${SHEETS_COL_ID:A}
+      route: ${SHEETS_COL_ROUTE:B}
+      tonnage: ${SHEETS_COL_TONNAGE:C}
+      cargo: ${SHEETS_COL_CARGO:D}
+      date: ${SHEETS_COL_DATE:E}
+      freight: ${SHEETS_COL_FREIGHT:F}
+      status: ${SHEETS_COL_STATUS:G}
+      progress: ${SHEETS_COL_PROGRESS:H}
+      completed: ${SHEETS_COL_COMPLETED:I}
+    progress-flush-interval: ${SHEETS_PROGRESS_FLUSH_INTERVAL:60s}
+    retry:
+      max-attempts: ${SHEETS_RETRY_MAX_ATTEMPTS:5}
+      initial-backoff: ${SHEETS_RETRY_INITIAL_BACKOFF:2s}
+      max-backoff: ${SHEETS_RETRY_MAX_BACKOFF:60s}
+    alert-after-failures: ${SHEETS_ALERT_AFTER_FAILURES:10}
+    completed-format: ${SHEETS_COMPLETED_FORMAT:dd.MM.yyyy HH:mm}
+  template:
+    path: ${TEMPLATE_PATH:/data/templates/message.txt}
+  groups:
+    sync-interval: ${GROUPS_SYNC_INTERVAL:1h}
+    initial-sync-delay: ${GROUPS_INITIAL_SYNC_DELAY:60s}
+  dispatch:
+    autostart: ${DISPATCH_AUTOSTART:true}
+    wave-size: ${DISPATCH_WAVE_SIZE:25}
+    wave-pause-min: ${DISPATCH_WAVE_PAUSE_MIN:10m}
+    wave-pause-max: ${DISPATCH_WAVE_PAUSE_MAX:20m}
+    group-pause-min: ${DISPATCH_GROUP_PAUSE_MIN:20s}
+    group-pause-max: ${DISPATCH_GROUP_PAUSE_MAX:60s}
+    typing-min: ${DISPATCH_TYPING_MIN:2s}
+    typing-max: ${DISPATCH_TYPING_MAX:6s}
+    idle-poll: ${DISPATCH_IDLE_POLL:5s}
+    window-start: ${DISPATCH_WINDOW_START:08:00}
+    window-end: ${DISPATCH_WINDOW_END:21:00}
+    weekends-enabled: ${DISPATCH_WEEKENDS_ENABLED:true}
+  warmup:
+    enabled: ${WARMUP_ENABLED:true}
+    daily-limits: ${WARMUP_DAILY_LIMITS:50,100,150,250}
+  risk:
+    window: ${RISK_WINDOW:1h}
+    warn-threshold: ${RISK_WARN_THRESHOLD:5}
+    critical-threshold: ${RISK_CRITICAL_THRESHOLD:10}
+    pause-multiplier: ${RISK_PAUSE_MULTIPLIER:2.0}
+  notify:
+    channel: ${NOTIFY_CHANNEL:telegram}
+    cooldown: ${NOTIFY_COOLDOWN:15m}
+    telegram:
+      bot-token: ${TELEGRAM_BOT_TOKEN:}
+      chat-id: ${TELEGRAM_CHAT_ID:}
+      api-url: ${TELEGRAM_API_URL:https://api.telegram.org}
+    email:
+      from: ${NOTIFY_EMAIL_FROM:}
+      to: ${NOTIFY_EMAIL_TO:}
+      subject: ${NOTIFY_EMAIL_SUBJECT:wa-group-sender: alert}
+  security:
+    admin-token: ${ADMIN_TOKEN:}
+    header: ${ADMIN_TOKEN_HEADER:X-Admin-Token}
+  fake:
+    groups: ${FAKE_GROUPS:30}
+    unarchived-groups: ${FAKE_UNARCHIVED_GROUPS:3}
+    admin-only-groups: ${FAKE_ADMIN_ONLY_GROUPS:2}
+    failure-rate: ${FAKE_FAILURE_RATE:0.0}
+    seed-requests: ${FAKE_SEED_REQUESTS:1}
