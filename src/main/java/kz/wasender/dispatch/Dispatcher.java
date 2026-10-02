@@ -214,8 +214,11 @@ public class Dispatcher {
     }
 
     private boolean plan(RequestRecord request) {
-        var active = new ArrayList<>(groups.activeJids());
-        if (active.isEmpty()) {
+        // A request with chosen groups is planned for exactly them, even if none can be written to now:
+        // those are skipped at send time, and the request never falls back to every active group.
+        var targeted = requests.isTargeted(request.id());
+        var active = new ArrayList<>(targeted ? requests.targets(request.id()) : groups.activeJids());
+        if (active.isEmpty() && !targeted) {
             return false;
         }
         Collections.shuffle(active, Random.from(random));
@@ -242,7 +245,7 @@ public class Dispatcher {
     private void send(RequestRecord request, DeliveryRecord delivery, Duration pause) throws InterruptedException {
         var jid = delivery.groupJid();
         var wave = delivery.position() / properties.waveSize() + 1;
-        if (!groups.isActive(jid)) {
+        if (requests.isTargeted(request.id()) ? !groups.isSendable(jid) : !groups.isActive(jid)) {
             deliveries.updateStatus(delivery.id(), DeliveryStatus.SKIPPED, "group inactive", Instant.now(clock));
             log.info("SEND request_id={} group_jid={} status=SKIPPED position={} wave={} reason=group-inactive", request.id(), jid, delivery.position(), wave);
             afterDelivery(request, delivery);

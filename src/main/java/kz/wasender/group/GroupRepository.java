@@ -42,6 +42,11 @@ public class GroupRepository {
         return jdbc.sql("select count(*) from wa_group where jid = ? and active").param(jid).query(Integer.class).single() > 0;
     }
 
+    /** The number is in the group and may write there; unlike active, the group need not be archived. */
+    public boolean isSendable(String jid) {
+        return jdbc.sql("select count(*) from wa_group where jid = ? and member and can_send").param(jid).query(Integer.class).single() > 0;
+    }
+
     public void upsert(GroupInfo group, Instant at) {
         jdbc.sql("merge into wa_group(jid, name, archived, member, can_send, active, last_sync) key (jid) values (?, ?, ?, ?, ?, ?, ?)")
                 .params(group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.eligible(), at)

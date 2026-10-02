@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,10 +43,22 @@ public class RequestRepository {
                 .update();
     }
 
-    public void insert(String id, String message, Instant queuedAt) {
-        jdbc.sql("insert into request(id, message, status, queued_at) values (?, ?, 'QUEUED', ?)")
-                .params(id, message, queuedAt)
+    /** A request entered in the admin page; with target groups it goes only to them, otherwise to every active group. */
+    public void insert(String id, String message, Instant queuedAt, Collection<String> targetGroups) {
+        jdbc.sql("insert into request(id, message, status, queued_at, targeted) values (?, ?, 'QUEUED', ?, ?)")
+                .params(id, message, queuedAt, !targetGroups.isEmpty())
                 .update();
+        for (var jid : new LinkedHashSet<>(targetGroups)) {
+            jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
+        }
+    }
+
+    public boolean isTargeted(String id) {
+        return jdbc.sql("select targeted from request where id = ?").param(id).query(Boolean.class).optional().orElse(false);
+    }
+
+    public List<String> targets(String id) {
+        return jdbc.sql("select group_jid from request_target where request_id = ? order by group_jid").param(id).query(String.class).list();
     }
 
     public void updateRow(String id, int sheetRow) {

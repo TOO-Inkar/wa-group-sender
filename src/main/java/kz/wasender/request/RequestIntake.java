@@ -1,15 +1,19 @@
 package kz.wasender.request;
 
+import kz.wasender.group.GroupRepository;
 import kz.wasender.sheets.SheetField;
 import kz.wasender.sheets.SheetRow;
 import kz.wasender.template.TemplateRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -26,9 +30,12 @@ public class RequestIntake {
     private final RequestValidator validator;
     private final RequestIdGenerator ids;
     private final TemplateRenderer renderer;
+    private final GroupRepository groups;
     private final Clock clock;
 
-    public RequestIntake(RequestRepository requests, RequestValidator validator, RequestIdGenerator ids, TemplateRenderer renderer, Clock clock) {
+    public RequestIntake(RequestRepository requests, RequestValidator validator, RequestIdGenerator ids, TemplateRenderer renderer,
+                         GroupRepository groups, Clock clock) {
+        this.groups = groups;
         this.requests = requests;
         this.validator = validator;
         this.ids = ids;
@@ -36,15 +43,25 @@ public class RequestIntake {
         this.clock = clock;
     }
 
-    public synchronized RequestRecord create(Map<SheetField, String> fields) {
+    /**
+     * Queues the request. With target groups it goes only to them, and each must be a group the number can write to
+     * (it need not be archived, so a test group works); without targets it goes to every active group.
+     */
+    @Transactional
+    public synchronized RequestRecord create(Map<SheetField, String> fields, Collection<String> targetGroups) {
         var row = row(fields);
         var missing = validator.missingFields(row);
         if (!missing.isEmpty()) {
-            throw new MissingFieldsException(missing);
+            throw new RejectedException("не заполнено: " + String.join(", ", missing.stream().map(SheetField::title).toList()));
+        }
+        var targets = new LinkedHashSet<>(targetGroups == null ? List.<String>of() : targetGroups);
+        var unavailable = targets.stream().filter(jid -> !groups.isSendable(jid)).toList();
+        if (!unavailable.isEmpty()) {
+            throw new RejectedException("в эти группы писать нельзя (номер не участник или пишут только админы): " + String.join(", ", unavailable));
         }
         var id = ids.next(List.of());
-        requests.insert(id, renderer.render(row.with(SheetField.ID, id)), Instant.now(clock));
-        log.info("QUEUED request_id={} source=web", id);
+        requests.insert(id, renderer.render(row.with(SheetField.ID, id)), Instant.now(clock), targets);
+        log.info("QUEUED request_id={} source=web targets={}", id, targets.isEmpty() ? "all-active" : targets.size());
         return requests.find(id).orElseThrow();
     }
 
@@ -62,17 +79,11 @@ public class RequestIntake {
         return new SheetRow(0, content);
     }
 
-    public static class MissingFieldsException extends RuntimeException {
+    /** The request was not queued; the message says why, in words for the admin page. */
+    public static class RejectedException extends RuntimeException {
 
-        private final List<SheetField> missing;
-
-        public MissingFieldsException(List<SheetField> missing) {
-            super("не заполнено: " + String.join(", ", missing.stream().map(SheetField::title).toList()));
-            this.missing = List.copyOf(missing);
-        }
-
-        public List<SheetField> missing() {
-            return missing;
+        public RejectedException(String message) {
+            super(message);
         }
     }
 }

@@ -23,6 +23,9 @@ let token = readToken();
 let currentTab = 'status';
 let health = null;
 let groups = [];
+let lists = [];
+let shownJids = [];
+const selected = new Set();
 let requests = [];
 let openRequest = null;
 let qrUrl = null;
@@ -119,9 +122,9 @@ function showTab(tab) {
   currentTab = tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== `tab-${tab}`; });
-  if (tab === 'new') renderNewNote();
+  if (tab === 'new') { renderTargets(); refreshLists(); }
   if (tab === 'pairing') refreshQr();
-  if (tab === 'groups') refreshGroups();
+  if (tab === 'groups') { refreshGroups(); refreshLists(); }
   if (tab === 'requests') refreshRequests();
 }
 
@@ -164,7 +167,7 @@ function renderHealth() {
   $('status-cards').innerHTML = cards.join('');
   $('status-time').textContent = `Время сервиса: ${formatTime(h.time)}`;
   if (currentTab === 'pairing') renderQrState();
-  if (currentTab === 'new') renderNewNote();
+  if (currentTab === 'new') renderTargets();
 }
 
 function card(label, value, note) {
@@ -227,14 +230,76 @@ function renderGroups() {
   const archived = groups.filter((g) => g.archived).length;
   const active = groups.filter((g) => g.active).length;
   $('group-summary').textContent = `Всего ${groups.length}, в архиве ${archived}, активных ${active}. Показано ${shown.length}.`;
+  shownJids = shown.filter(sendable).map((g) => g.jid);
+  $('group-selected').textContent = `Отмечено: ${selected.size}`;
   $('group-rows').innerHTML = shown.map((g) => `<tr>
+      <td><input type="checkbox" data-jid="${esc(g.jid)}" ${selected.has(g.jid) ? 'checked' : ''} ${sendable(g) ? '' : 'disabled'}></td>
       <td>${esc(g.name || '—')}<span class="jid">${esc(g.jid)}</span></td>
       <td>${yesNo(g.archived)}</td>
       <td>${yesNo(g.member)}</td>
       <td>${yesNo(g.canSend)}</td>
       <td>${g.active ? pill('да', 'ok') : pill('нет', 'neutral')}</td>
       <td class="muted">${esc(formatTime(g.lastSync))}</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="muted">Групп нет</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="7" class="muted">Групп нет</td></tr>';
+}
+
+// Отметить можно только группу, куда номер может писать; архив для этого не обязателен.
+function sendable(group) {
+  return group.member === true && group.canSend === true;
+}
+
+async function refreshLists() {
+  try {
+    lists = await api('/api/admin/group-lists');
+    renderLists();
+    renderTargets();
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+function renderLists() {
+  $('list-chips').innerHTML = lists.map((list) => `<span class="chip">
+      <button data-list="${esc(list.id)}" title="Отметить группы этого списка">${esc(list.name)} (${list.groups.length})</button>
+      <button class="del" data-del="${esc(list.id)}" title="Удалить список">×</button>
+    </span>`).join('') || '<span class="muted small">Сохранённых списков пока нет: отметьте группы и нажмите «Сохранить список».</span>';
+}
+
+async function saveList() {
+  const name = $('list-name').value.trim();
+  if (!name) { toast('Введите название списка'); return; }
+  if (!selected.size) { toast('Отметьте хотя бы одну группу'); return; }
+  const existing = lists.find((list) => list.name === name);
+  if (existing && !confirm(`Список «${name}» уже есть. Заменить его группы на отмеченные (${selected.size})?`)) return;
+  try {
+    await api('/api/admin/group-lists', { method: 'PUT', body: { name, groups: [...selected] } });
+    toast(`Список «${name}» сохранён: ${selected.size} групп`);
+    await refreshLists();
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+async function onListClick(event) {
+  const button = event.target.closest('button');
+  if (!button) return;
+  if (button.dataset.del) {
+    const list = lists.find((item) => String(item.id) === button.dataset.del);
+    if (!list || !confirm(`Удалить список «${list.name}»?`)) return;
+    try {
+      await api(`/api/admin/group-lists/${list.id}`, { method: 'DELETE' });
+      await refreshLists();
+    } catch (error) {
+      handleError(error);
+    }
+    return;
+  }
+  const list = lists.find((item) => String(item.id) === button.dataset.list);
+  if (!list) return;
+  selected.clear();
+  list.groups.forEach((jid) => selected.add(jid));
+  $('list-name').value = list.name;
+  renderGroups();
 }
 
 async function syncGroups() {
@@ -276,7 +341,8 @@ function renderRequests() {
     const percent = p.total ? Math.round((p.sent / p.total) * 100) : 0;
     const tone = r.status === 'DONE' ? 'ok' : r.status === 'FAILED' ? 'bad' : r.status === 'SENDING' ? 'warn' : 'neutral';
     rows.push(`<tr class="clickable" data-id="${esc(r.id)}">
-        <td><b>${esc(r.id)}</b>${r.sheetRow ? `<span class="jid">строка ${esc(r.sheetRow)}</span>` : ''}</td>
+        <td><b>${esc(r.id)}</b>${r.sheetRow ? `<span class="jid">строка ${esc(r.sheetRow)}</span>` : ''}
+          <span class="jid">${r.targetGroups == null ? 'все активные' : `выбрано групп: ${esc(r.targetGroups)}`}</span></td>
         <td>${pill(REQUEST_TEXT[r.status] || r.status, tone)}</td>
         <td>${esc(p.sent)} / ${esc(p.total)}${p.failed ? ` <span class="error">ошибок ${esc(p.failed)}</span>` : ''}
           <div class="bar"><span style="width:${percent}%"></span></div></td>
@@ -302,13 +368,44 @@ function newRequestBody() {
   return body;
 }
 
+// Куда уйдёт заявка: null — во все активные группы, иначе список JID.
+function currentTarget() {
+  const value = $('new-target').value || 'all';
+  if (value === 'selected') return { label: `отмеченные группы (${selected.size})`, groups: [...selected] };
+  if (value.startsWith('list:')) {
+    const list = lists.find((item) => `list:${item.id}` === value);
+    if (list) return { label: `список «${list.name}» (${list.groups.length})`, groups: list.groups };
+  }
+  const active = health ? health.activeGroups : 0;
+  return { label: `все активные группы (${active})`, groups: null, count: active };
+}
+
+function renderTargets() {
+  const select = $('new-target');
+  const previous = select.value || 'all';
+  const active = health ? health.activeGroups : 0;
+  const options = [`<option value="all">Все активные группы (${active})</option>`];
+  options.push(`<option value="selected" ${selected.size ? '' : 'disabled'}>Отмеченные на вкладке «Группы» (${selected.size})</option>`);
+  for (const list of lists) {
+    options.push(`<option value="list:${esc(list.id)}">Список «${esc(list.name)}» (${list.groups.length})</option>`);
+  }
+  const html = options.join('');
+  // Состояние обновляется каждые 5 секунд: список пересобирается, только если изменился, иначе он закрывался бы в руках.
+  if (select.dataset.html !== html) {
+    select.dataset.html = html;
+    select.innerHTML = html;
+    select.value = [...select.options].some((o) => o.value === previous && !o.disabled) ? previous : 'all';
+  }
+  renderNewNote();
+}
+
 function renderNewNote() {
   if (!health) return;
-  const groups = health.activeGroups;
+  const target = currentTarget();
   const state = DISPATCHER_TEXT[health.dispatcher] || health.dispatcher;
-  $('new-note').textContent = groups > 0
-    ? `Заявка встанет в очередь и уйдёт в ${groups} активных групп с паузами, в рабочее окно и в пределах дневного лимита. Диспетчер сейчас: ${state}.`
-    : `Активных групп сейчас нет (диспетчер: ${state}). Заявка встанет в очередь и уйдёт, когда появятся группы.`;
+  const where = target.groups ? `в ${target.label}` : `во ${target.label}`;
+  $('new-note').textContent = `Заявка встанет в очередь и уйдёт ${where} с паузами, в рабочее окно и в пределах дневного лимита. `
+    + `Диспетчер сейчас: ${state}.`;
 }
 
 function showNewError(message) {
@@ -330,15 +427,18 @@ async function previewNew() {
 async function submitNew(event) {
   event.preventDefault();
   showNewError('');
-  const groups = health ? health.activeGroups : 0;
-  const question = groups > 0
-    ? `Отправить заявку в ${groups} активных групп?`
+  const target = currentTarget();
+  if (target.groups && !target.groups.length) { showNewError('В выбранном списке нет групп.'); return; }
+  const question = target.groups || target.count > 0
+    ? `Отправить заявку: ${target.label}?`
     : 'Активных групп сейчас нет. Поставить заявку в очередь?';
   if (!confirm(question)) return;
   const button = $('new-submit');
   button.disabled = true;
   try {
-    const created = await api('/api/admin/requests', { method: 'POST', body: newRequestBody() });
+    const body = newRequestBody();
+    if (target.groups) body.groups = target.groups;
+    const created = await api('/api/admin/requests', { method: 'POST', body });
     $('new-form').reset();
     $('new-preview-text').textContent = created.message;
     toast(`Заявка ${created.id} поставлена в очередь`);
@@ -448,6 +548,18 @@ $('tabs').addEventListener('click', (event) => {
 });
 ['group-search', 'group-active', 'group-archived'].forEach((id) => $(id).addEventListener('input', renderGroups));
 $('group-sync').addEventListener('click', syncGroups);
+$('group-rows').addEventListener('change', (event) => {
+  const jid = event.target.dataset.jid;
+  if (!jid) return;
+  if (event.target.checked) selected.add(jid);
+  else selected.delete(jid);
+  $('group-selected').textContent = `Отмечено: ${selected.size}`;
+});
+$('group-select-shown').addEventListener('click', () => { shownJids.forEach((jid) => selected.add(jid)); renderGroups(); });
+$('group-clear').addEventListener('click', () => { selected.clear(); renderGroups(); });
+$('list-save').addEventListener('click', saveList);
+$('list-chips').addEventListener('click', onListClick);
+$('new-target').addEventListener('change', renderNewNote);
 $('request-status').addEventListener('change', renderRequests);
 $('request-refresh').addEventListener('click', refreshRequests);
 $('request-rows').addEventListener('click', (event) => {

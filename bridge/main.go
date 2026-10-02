@@ -46,6 +46,10 @@ import (
 const (
 	maxEvents       = 500
 	appStateTimeout = 150 * time.Second
+	// Пауза между отдельными запросами названий групп, чтобы не упереться в лимит запросов.
+	nameQueryDelay = 300 * time.Millisecond
+	// Сколько всего времени одна выдача /groups может потратить на названия; остальное доберётся в следующий раз.
+	nameQueryBudget = 80 * time.Second
 )
 
 type event struct {
@@ -74,6 +78,9 @@ type bridge struct {
 
 	undecryptable atomic.Int64
 	decrypted     atomic.Int64
+
+	nameMu sync.Mutex
+	names  map[string]string
 }
 
 func main() {
@@ -100,7 +107,8 @@ func main() {
 		slog.Error("store", "err", err)
 		os.Exit(1)
 	}
-	b := &bridge{container: container, waLog: waLog.Stdout("WA", logLevel, false), instance: randomID(), state: "STARTING"}
+	b := &bridge{container: container, waLog: waLog.Stdout("WA", logLevel, false), instance: randomID(), state: "STARTING",
+		names: map[string]string{}}
 	b.evCond = sync.NewCond(&b.evMu)
 
 	mux := http.NewServeMux()
@@ -417,6 +425,7 @@ func (b *bridge) handleGroups(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "get joined groups: " + err.Error()})
 		return
 	}
+	b.fillNames(ctx, cli, groups)
 	out := make([]groupDTO, 0, len(groups))
 	archived := 0
 	for _, g := range groups {
@@ -443,6 +452,55 @@ func (b *bridge) handleGroups(w http.ResponseWriter, r *http.Request) {
 	}
 	slog.Info("GROUPS listed", "total", len(out), "archived", archived)
 	writeJSON(w, http.StatusOK, out)
+}
+
+// fillNames дополняет названия: в общем списке групп сервер отдаёт название не для всех.
+// Для остальных группа запрашивается отдельно, результат запоминается до перезапуска.
+func (b *bridge) fillNames(ctx context.Context, cli *whatsmeow.Client, groups []*types.GroupInfo) {
+	deadline := time.Now().Add(nameQueryBudget)
+	queried, missing := 0, 0
+	for _, g := range groups {
+		key := g.JID.String()
+		b.nameMu.Lock()
+		if g.Name != "" {
+			b.names[key] = g.Name
+		} else {
+			g.Name = b.names[key]
+		}
+		b.nameMu.Unlock()
+		if g.Name != "" {
+			continue
+		}
+		if time.Now().After(deadline) || ctx.Err() != nil {
+			missing++
+			continue
+		}
+		if queried > 0 {
+			time.Sleep(nameQueryDelay)
+		}
+		queried++
+		info, err := cli.GetGroupInfo(ctx, g.JID)
+		if err != nil {
+			slog.Warn("GROUPS name query failed", "jid", key, "err", err)
+			missing++
+			if errors.Is(err, whatsmeow.ErrIQRateOverLimit) {
+				// Сервер просит притормозить: остальные названия доберём в следующую синхронизацию.
+				deadline = time.Now()
+			}
+			continue
+		}
+		if info.Name == "" {
+			missing++
+			continue
+		}
+		g.Name = info.Name
+		b.nameMu.Lock()
+		b.names[key] = info.Name
+		b.nameMu.Unlock()
+	}
+	if queried > 0 || missing > 0 {
+		slog.Info("GROUPS names", "queried", queried, "still_missing", missing)
+	}
 }
 
 func waitAppState(ctx context.Context, cli *whatsmeow.Client, name appstate.WAPatchName) error {

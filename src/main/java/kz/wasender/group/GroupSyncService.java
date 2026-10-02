@@ -4,6 +4,7 @@ import kz.wasender.config.GroupsProperties;
 import kz.wasender.risk.RiskMonitor;
 import kz.wasender.risk.RiskType;
 import kz.wasender.whatsapp.GatewayEvent;
+import kz.wasender.whatsapp.GroupInfo;
 import kz.wasender.whatsapp.SessionState;
 import kz.wasender.whatsapp.WhatsAppGateway;
 import org.slf4j.Logger;
@@ -54,9 +55,10 @@ public class GroupSyncService {
             return new SyncResult(false, 0, 0, (int) previouslyActive);
         }
         var seen = new HashSet<String>();
-        for (var group : fetched) {
+        for (var fetchedGroup : fetched) {
+            var previous = before.get(fetchedGroup.jid());
+            var group = named(fetchedGroup, previous);
             seen.add(group.jid());
-            var previous = before.get(group.jid());
             groups.upsert(group, now);
             if (previous == null) {
                 log.info("GROUP added group_jid={} name=\"{}\" archived={} member={} can_send={} active={}",
@@ -78,6 +80,15 @@ public class GroupSyncService {
         var active = (int) groups.activeCount();
         log.info("GROUPS sync done total={} archived={} active={}", fetched.size(), archived, active);
         return new SyncResult(true, fetched.size(), archived, active);
+    }
+
+    /** The server does not always send a group's name; a blank one must not erase the name already known. */
+    private static GroupInfo named(GroupInfo group, GroupRecord previous) {
+        var blank = group.name() == null || group.name().isBlank();
+        if (!blank || previous == null || previous.name() == null || previous.name().isBlank()) {
+            return group;
+        }
+        return new GroupInfo(group.jid(), previous.name(), group.archived(), group.member(), group.canSend());
     }
 
     public void syncQuietly() {

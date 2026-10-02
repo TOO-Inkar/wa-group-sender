@@ -158,6 +158,12 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
 .form textarea { resize: vertical; }
 .form .preview { margin-top: 0; }
 
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.chip { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.chip button { background: none; border: none; color: var(--text); padding: 4px 10px; border-radius: 0; }
+.chip button.del { color: var(--muted); padding: 4px 9px 4px 4px; }
+.form select { width: 100%; font-weight: 400; }
+
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
 .toolbar input[type=search] { flex: 1; min-width: 200px; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

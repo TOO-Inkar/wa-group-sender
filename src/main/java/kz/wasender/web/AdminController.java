@@ -2,6 +2,7 @@ package kz.wasender.web;
 
 import kz.wasender.dispatch.DeliveryRepository;
 import kz.wasender.dispatch.Dispatcher;
+import kz.wasender.group.GroupListRepository;
 import kz.wasender.group.GroupSyncService;
 import kz.wasender.notify.AlertService;
 import kz.wasender.request.RequestIntake;
@@ -14,8 +15,11 @@ import kz.wasender.template.PreviewService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,9 +44,11 @@ public class AdminController {
     private final PreviewService preview;
     private final DeliveryRepository deliveries;
     private final RequestIntake intake;
+    private final GroupListRepository groupLists;
 
     public AdminController(Dispatcher dispatcher, RiskMonitor risk, GroupSyncService groupSync, AlertService alerts,
-                           RequestRepository requests, PreviewService preview, DeliveryRepository deliveries, RequestIntake intake) {
+                           RequestRepository requests, PreviewService preview, DeliveryRepository deliveries, RequestIntake intake,
+                           GroupListRepository groupLists) {
         this.dispatcher = dispatcher;
         this.risk = risk;
         this.groupSync = groupSync;
@@ -51,6 +57,7 @@ public class AdminController {
         this.preview = preview;
         this.deliveries = deliveries;
         this.intake = intake;
+        this.groupLists = groupLists;
     }
 
     @PostMapping("/resume")
@@ -96,18 +103,42 @@ public class AdminController {
 
     @GetMapping("/requests")
     public List<RequestView> requests() {
-        return requests.findAll().stream().map(request -> RequestView.of(request, deliveries.progress(request.id()))).toList();
+        return requests.findAll().stream().map(this::view).toList();
     }
 
-    /** Queues a request entered in the admin page for every active group. */
+    /** Queues a request entered in the admin page: for the chosen groups, or for every active group when none are given. */
     @PostMapping("/requests")
     public ResponseEntity<?> createRequest(@RequestBody NewRequest request) {
         try {
-            var created = intake.create(request.fields());
-            return ResponseEntity.status(HttpStatus.CREATED).body(RequestView.of(created, deliveries.progress(created.id())));
-        } catch (RequestIntake.MissingFieldsException e) {
+            var created = intake.create(request.fields(), request.groups());
+            return ResponseEntity.status(HttpStatus.CREATED).body(view(created));
+        } catch (RequestIntake.RejectedException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
+    }
+
+    private RequestView view(RequestRecord request) {
+        var targets = requests.isTargeted(request.id()) ? requests.targets(request.id()).size() : null;
+        return RequestView.of(request, deliveries.progress(request.id()), targets);
+    }
+
+    @GetMapping("/group-lists")
+    public List<GroupListRepository.GroupList> groupLists() {
+        return groupLists.findAll();
+    }
+
+    /** Creates the list or replaces the groups of the list with this name. */
+    @PutMapping("/group-lists")
+    public ResponseEntity<?> saveGroupList(@RequestBody GroupListRequest request) {
+        if (request.name() == null || request.name().isBlank() || request.groups() == null || request.groups().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "нужны название и хотя бы одна группа"));
+        }
+        return ResponseEntity.ok(groupLists.save(request.name().strip(), request.groups(), Instant.now()));
+    }
+
+    @DeleteMapping("/group-lists/{id}")
+    public ResponseEntity<?> deleteGroupList(@PathVariable long id) {
+        return groupLists.delete(id) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
     }
 
     @PostMapping("/requests/preview")
@@ -118,7 +149,11 @@ public class AdminController {
     public record PreviewRequest(String id, Map<String, String> fields) {
     }
 
-    public record NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions) {
+    public record GroupListRequest(String name, List<String> groups) {
+    }
+
+    public record NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions,
+                             List<String> groups) {
 
         Map<SheetField, String> fields() {
             var fields = new EnumMap<SheetField, String>(SheetField.class);
@@ -133,11 +168,13 @@ public class AdminController {
     }
 
     public record RequestView(String id, Integer sheetRow, String message, RequestStatus status, String error,
-                              Instant queuedAt, Instant startedAt, Instant completedAt, DeliveryRepository.Progress progress) {
+                              Instant queuedAt, Instant startedAt, Instant completedAt, DeliveryRepository.Progress progress,
+                              Integer targetGroups) {
 
-        static RequestView of(RequestRecord request, DeliveryRepository.Progress progress) {
+        /** targetGroups is the number of chosen groups, or null when the request goes to every active group. */
+        static RequestView of(RequestRecord request, DeliveryRepository.Progress progress, Integer targetGroups) {
             return new RequestView(request.id(), request.sheetRow(), request.message(), request.status(), request.error(),
-                    request.queuedAt(), request.startedAt(), request.completedAt(), progress);
+                    request.queuedAt(), request.startedAt(), request.completedAt(), progress, targetGroups);
         }
     }
 }

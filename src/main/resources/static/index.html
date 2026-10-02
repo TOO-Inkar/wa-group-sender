@@ -62,9 +62,12 @@
           <label>Доп. условия <span class="muted small">необязательно, можно несколько строк</span>
             <textarea name="conditions" rows="3"></textarea>
           </label>
+          <label>Куда отправить
+            <select id="new-target"></select>
+          </label>
           <div class="row">
             <button type="button" id="new-preview" class="secondary">Предпросмотр</button>
-            <button type="submit" id="new-submit">Отправить по всем группам</button>
+            <button type="submit" id="new-submit">Отправить</button>
           </div>
           <p id="new-error" class="error" hidden></p>
         </form>
@@ -99,10 +102,18 @@
         <label><input id="group-archived" type="checkbox"> только в архиве</label>
         <button id="group-sync">Синхронизировать</button>
       </div>
+      <div class="toolbar">
+        <span id="group-selected" class="muted">Отмечено: 0</span>
+        <button id="group-select-shown" class="secondary">Отметить показанные</button>
+        <button id="group-clear" class="secondary">Сбросить</button>
+        <input id="list-name" placeholder="Название списка, например Тест">
+        <button id="list-save">Сохранить список</button>
+      </div>
+      <div id="list-chips" class="chips"></div>
       <p id="group-summary" class="muted"></p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Название</th><th>Архив</th><th>Участник</th><th>Может писать</th><th>Активна</th><th>Синхронизация</th></tr></thead>
+          <thead><tr><th></th><th>Название</th><th>Архив</th><th>Участник</th><th>Может писать</th><th>Активна</th><th>Синхронизация</th></tr></thead>
           <tbody id="group-rows"></tbody>
         </table>
       </div>
