@@ -7,169 +7,242 @@
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
+
 <div id="login" class="login" hidden>
   <form id="login-form" class="card login-card">
+    <div class="logo big">W</div>
     <h1>wa-group-sender</h1>
     <p class="muted">Введите ADMIN_TOKEN из <code>/etc/wa-group-sender/.env</code></p>
     <input id="token" type="password" autocomplete="current-password" placeholder="ADMIN_TOKEN" required>
-    <button type="submit">Войти</button>
+    <button type="submit" class="primary">Войти</button>
     <p id="login-error" class="error" hidden></p>
   </form>
 </div>
 
-<div id="app" hidden>
-  <header class="top">
-    <div class="brand">wa-group-sender</div>
-    <nav id="tabs">
-      <button data-tab="status" class="active">Состояние</button>
-      <button data-tab="new">Новая заявка</button>
-      <button data-tab="pairing">Привязка</button>
-      <button data-tab="groups">Группы</button>
-      <button data-tab="requests">Заявки</button>
-      <button data-tab="control">Управление</button>
-    </nav>
-    <div class="top-right">
-      <span id="session-pill" class="pill">…</span>
-      <button id="logout" class="link">Выйти</button>
+<div id="app" class="shell" hidden>
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">W</div>
+      <div>
+        <div class="brand-name">wa-group-sender</div>
+        <div id="side-session" class="side-status">…</div>
+      </div>
     </div>
-  </header>
+    <nav id="nav">
+      <button data-view="compose" class="active">Отправить</button>
+      <button data-view="requests">Заявки <span id="nav-queue" class="badge" hidden></span></button>
+      <button data-view="groups">Группы</button>
+      <button data-view="connection">Подключение <span id="nav-conn" class="dot"></span></button>
+      <button data-view="control">Управление</button>
+    </nav>
+    <button id="logout" class="link side-logout">Выйти</button>
+  </aside>
 
   <main>
-    <section id="tab-status">
-      <div id="status-cards" class="cards"></div>
-      <p class="muted small">Обновляется каждые 5 секунд. <span id="status-time"></span></p>
-    </section>
+    <div id="banner" class="banner" hidden>
+      <div id="banner-text"></div>
+      <button id="banner-action" class="secondary" hidden></button>
+    </div>
 
-    <section id="tab-new" hidden>
-      <div class="new-request">
-        <form id="new-form" class="card form">
-          <h2>Новая заявка</h2>
-          <label>Маршрут *
-            <input name="route" placeholder="ХОРГОС → БАКУ" required>
+    <!-- Отправить -->
+    <section id="view-compose">
+      <div class="page-head">
+        <h1>Новая заявка</h1>
+        <p class="muted">Заполните форму. Справа видно, как сообщение будет выглядеть в WhatsApp.</p>
+      </div>
+      <div class="compose">
+        <form id="new-form" class="card form" novalidate>
+          <label>Маршрут <span class="req">*</span>
+            <input name="route" placeholder="ХОРГОС → БАКУ" autocomplete="off">
           </label>
-          <label>Дата / срочность *
-            <input name="date" placeholder="Срочно, груз готов" required>
+          <label>Дата / срочность <span class="req">*</span>
+            <input name="date" placeholder="Срочно, груз готов" autocomplete="off">
           </label>
-          <label>Машины и тоннаж * <span class="muted small">каждая строка — отдельная строка сообщения</span>
-            <textarea name="vehicles" rows="3" placeholder="120 м³ / 5 осей — 20 т" required></textarea>
+          <label>Машины и тоннаж <span class="req">*</span>
+            <textarea name="vehicles" rows="3" placeholder="120 м³ / 5 осей — 20 т"></textarea>
+            <span class="hint">Каждая строка поля — отдельная строка сообщения.</span>
           </label>
-          <label>Груз *
-            <input name="cargo" placeholder="Цемент" required>
-          </label>
-          <label>Фрахт *
-            <input name="freight" placeholder="450 000 ₸" required>
-          </label>
-          <label>Доп. условия <span class="muted small">необязательно, можно несколько строк</span>
-            <textarea name="conditions" rows="3"></textarea>
-          </label>
-          <label>Куда отправить
-            <select id="new-target"></select>
-          </label>
-          <div class="row">
-            <button type="button" id="new-preview" class="secondary">Предпросмотр</button>
-            <button type="submit" id="new-submit">Отправить</button>
+          <div class="two">
+            <label>Груз <span class="req">*</span>
+              <input name="cargo" placeholder="Цемент" autocomplete="off">
+            </label>
+            <label>Фрахт <span class="req">*</span>
+              <input name="freight" placeholder="450 000 ₸" autocomplete="off">
+            </label>
           </div>
+          <label>Доп. условия
+            <textarea name="conditions" rows="2" placeholder="Необязательно"></textarea>
+          </label>
+
+          <fieldset class="target">
+            <legend>Куда отправить</legend>
+            <label class="option">
+              <input type="radio" name="target" value="all" checked>
+              <span class="option-body"><b>Все активные группы</b><span id="target-all-note" class="hint"></span></span>
+            </label>
+            <label class="option">
+              <input type="radio" name="target" value="list">
+              <span class="option-body"><b>Сохранённый список</b>
+                <select id="target-list"></select>
+              </span>
+            </label>
+            <label class="option">
+              <input type="radio" name="target" value="pick">
+              <span class="option-body"><b>Выбрать группы</b><span id="target-pick-note" class="hint"></span>
+                <button type="button" id="target-pick-open" class="secondary small">Выбрать…</button>
+              </span>
+            </label>
+          </fieldset>
+
           <p id="new-error" class="error" hidden></p>
+          <div class="form-actions">
+            <button type="button" id="new-clear" class="link">Очистить форму</button>
+            <button type="submit" id="new-submit" class="primary">Отправить</button>
+          </div>
         </form>
-        <div class="card">
-          <h2>Как это уйдёт в WhatsApp</h2>
-          <pre id="new-preview-text" class="preview">Заполните форму и нажмите «Предпросмотр».</pre>
+
+        <div class="preview-col">
+          <div class="phone">
+            <div class="phone-head">Предпросмотр</div>
+            <div class="chat"><div id="new-preview" class="bubble empty">Начните заполнять форму — здесь появится сообщение.</div></div>
+          </div>
           <p id="new-note" class="muted small"></p>
         </div>
       </div>
     </section>
 
-    <section id="tab-pairing" hidden>
-      <div class="card pairing">
-        <div id="qr-box" class="qr-box"></div>
+    <!-- Заявки -->
+    <section id="view-requests" hidden>
+      <div class="page-head row-head">
         <div>
-          <h2>Привязка номера</h2>
-          <ol>
-            <li>WhatsApp на телефоне с <b>тестовым</b> номером → Настройки → Связанные устройства.</li>
-            <li>«Привязка устройства» → наведите камеру на QR слева.</li>
-            <li>QR обновляется примерно раз в 20 секунд, страница подхватит новый сама.</li>
-          </ol>
-          <p class="muted">Перед привязкой: «Оставлять чаты в архиве» включено, нужные группы лежат в «Архиве».</p>
-          <p id="qr-state" class="muted"></p>
+          <h1>Заявки</h1>
+          <p class="muted">Нажмите на заявку, чтобы увидеть текст и что ушло в каждую группу.</p>
+        </div>
+        <button id="request-new" class="primary">Новая заявка</button>
+      </div>
+      <div id="request-filters" class="chips">
+        <button class="chip active" data-status="">Все</button>
+        <button class="chip" data-status="QUEUED">В очереди</button>
+        <button class="chip" data-status="SENDING">Отправляются</button>
+        <button class="chip" data-status="DONE">Отправлены</button>
+        <button class="chip" data-status="FAILED">С ошибкой</button>
+      </div>
+      <div id="request-list" class="stack"></div>
+    </section>
+
+    <!-- Группы -->
+    <section id="view-groups" hidden>
+      <div class="page-head row-head">
+        <div>
+          <h1>Группы</h1>
+          <p id="group-summary" class="muted"></p>
+        </div>
+        <button id="group-sync" class="secondary">Обновить из WhatsApp</button>
+      </div>
+      <div class="groups-layout">
+        <div>
+          <input id="group-search" type="search" placeholder="Поиск по названию или номеру группы">
+          <div id="group-filters" class="chips">
+            <button class="chip active" data-filter="all">Все</button>
+            <button class="chip" data-filter="active">В рассылке</button>
+            <button class="chip" data-filter="writable">Можно писать</button>
+            <button class="chip" data-filter="unarchived">Не в архиве</button>
+            <button class="chip" data-filter="noname">Без названия</button>
+            <button class="chip" data-filter="selected">Отмеченные</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th class="check"><input id="group-all" type="checkbox" title="Отметить все показанные"></th>
+                <th>Группа</th><th>Состояние</th>
+              </tr></thead>
+              <tbody id="group-rows"></tbody>
+            </table>
+          </div>
+        </div>
+        <aside class="card lists">
+          <h2>Списки групп</h2>
+          <p class="muted small">Список — это набор групп, куда можно отправить заявку вместо рассылки по всем. Отметьте группы слева и сохраните.</p>
+          <div id="list-items" class="stack"></div>
+        </aside>
+      </div>
+      <div id="selection-bar" class="selection-bar" hidden>
+        <span id="selection-text"></span>
+        <div class="row">
+          <button id="selection-send" class="primary">Отправить заявку в отмеченные</button>
+          <button id="selection-save" class="secondary">Сохранить как список</button>
+          <button id="selection-clear" class="link">Сбросить</button>
         </div>
       </div>
     </section>
 
-    <section id="tab-groups" hidden>
-      <div class="toolbar">
-        <input id="group-search" type="search" placeholder="Поиск по названию или JID">
-        <label><input id="group-active" type="checkbox"> только активные</label>
-        <label><input id="group-archived" type="checkbox"> только в архиве</label>
-        <button id="group-sync">Синхронизировать</button>
+    <!-- Подключение -->
+    <section id="view-connection" hidden>
+      <div class="page-head">
+        <h1>Подключение к WhatsApp</h1>
+        <p id="conn-lead" class="muted"></p>
       </div>
-      <div class="toolbar">
-        <span id="group-selected" class="muted">Отмечено: 0</span>
-        <button id="group-select-shown" class="secondary">Отметить показанные</button>
-        <button id="group-clear" class="secondary">Сбросить</button>
-        <input id="list-name" placeholder="Название списка, например Тест">
-        <button id="list-save">Сохранить список</button>
-      </div>
-      <div id="list-chips" class="chips"></div>
-      <p id="group-summary" class="muted"></p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th></th><th>Название</th><th>Архив</th><th>Участник</th><th>Может писать</th><th>Активна</th><th>Синхронизация</th></tr></thead>
-          <tbody id="group-rows"></tbody>
-        </table>
+      <div class="card connection">
+        <div id="qr-box" class="qr-box"></div>
+        <div id="conn-body"></div>
       </div>
     </section>
 
-    <section id="tab-requests" hidden>
-      <div class="toolbar">
-        <select id="request-status">
-          <option value="">Все статусы</option>
-          <option value="QUEUED">В очереди</option>
-          <option value="SENDING">Отправляется</option>
-          <option value="DONE">Отправлено</option>
-          <option value="FAILED">Ошибка</option>
-        </select>
-        <button id="request-refresh">Обновить</button>
+    <!-- Управление -->
+    <section id="view-control" hidden>
+      <div class="page-head">
+        <h1>Управление</h1>
+        <p class="muted">Состояние рассылки и служебные действия.</p>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>ID</th><th>Статус</th><th>Прогресс</th><th>В очереди с</th><th>Завершено</th><th>Ошибка</th></tr></thead>
-          <tbody id="request-rows"></tbody>
-        </table>
-      </div>
-      <p class="muted small">Нажмите на строку, чтобы увидеть текст сообщения.</p>
-    </section>
-
-    <section id="tab-control" hidden>
-      <div class="cards">
+      <div id="stats" class="cards"></div>
+      <div class="cards two-cards">
         <div class="card">
           <h2>Рассылка</h2>
-          <p class="muted">Пауза останавливает диспетчер после текущей отправки. «Возобновить» снимает и паузу, и остановку по риску.</p>
+          <p id="dispatch-state" class="muted"></p>
           <div class="row">
-            <button id="btn-pause" class="warn">Пауза</button>
-            <button id="btn-resume">Возобновить</button>
+            <button id="btn-pause" class="secondary">Поставить на паузу</button>
+            <button id="btn-resume" class="primary">Возобновить</button>
           </div>
-          <p id="dispatch-result" class="muted"></p>
+          <p class="hint">Пауза срабатывает после текущей отправки. «Возобновить» снимает и паузу, и остановку по риску.</p>
         </div>
         <div class="card">
-          <h2>Telegram</h2>
-          <p class="muted">Отправляет тестовый алерт во все чаты из TELEGRAM_CHAT_IDS.</p>
-          <button id="btn-alert">Тестовый алерт</button>
-          <p id="alert-result" class="muted"></p>
-        </div>
-        <div class="card wide">
-          <h2>Предпросмотр сообщения</h2>
-          <p class="muted">Текст уже созданной заявки по её ID, без отправки.</p>
-          <form id="preview-form" class="row">
-            <input id="preview-id" placeholder="ID заявки, например 17" required>
-            <button type="submit">Показать</button>
-          </form>
-          <pre id="preview-text" class="preview" hidden></pre>
-          <p id="preview-error" class="error" hidden></p>
+          <h2>Уведомления в Telegram</h2>
+          <p class="muted">Проверка: отправить тестовое сообщение во все чаты из настроек.</p>
+          <button id="btn-alert" class="secondary">Отправить тестовый алерт</button>
+          <p id="alert-result" class="hint"></p>
         </div>
       </div>
     </section>
   </main>
 </div>
+
+<!-- Выбор групп -->
+<dialog id="picker" class="modal wide">
+  <form method="dialog" class="modal-body">
+    <h2>Выберите группы</h2>
+    <input id="picker-search" type="search" placeholder="Поиск по названию или номеру группы">
+    <label class="inline"><input id="picker-active" type="checkbox"> только группы из рассылки (в архиве)</label>
+    <div id="picker-list" class="picker-list"></div>
+    <div class="modal-actions">
+      <span id="picker-count" class="muted"></span>
+      <button type="button" id="picker-clear" class="link">Сбросить</button>
+      <button type="submit" class="primary">Готово</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Подтверждение и ввод -->
+<dialog id="ask" class="modal">
+  <form id="ask-form" method="dialog" class="modal-body">
+    <h2 id="ask-title"></h2>
+    <div id="ask-text" class="ask-text"></div>
+    <input id="ask-input" hidden>
+    <div class="modal-actions">
+      <button type="button" id="ask-cancel" class="link">Отмена</button>
+      <button type="submit" id="ask-ok" class="primary">ОК</button>
+    </div>
+  </form>
+</dialog>
 
 <div id="toast" class="toast" hidden></div>
 <script src="app.js"></script>

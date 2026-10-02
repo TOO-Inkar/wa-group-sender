@@ -4,32 +4,44 @@
 // Токен хранится в localStorage этого браузера и уходит в заголовке X-Admin-Token.
 
 const TOKEN_KEY = 'wa-admin-token';
+const DRAFT_KEY = 'wa-request-draft';
 const ZONE = 'Asia/Almaty';
+const FIELDS = ['route', 'date', 'vehicles', 'cargo', 'freight', 'conditions'];
+const REQUIRED = { route: 'Маршрут', date: 'Дата / срочность', vehicles: 'Машины и тоннаж', cargo: 'Груз', freight: 'Фрахт' };
 
 const SESSION_TEXT = {
-  STARTING: 'запуск', CONNECTING: 'подключение', WAITING_QR: 'ждёт QR', CONNECTED: 'подключено',
-  RECONNECTING: 'переподключение', DISCONNECTED: 'отключено', LOGGED_OUT: 'разлогинено', BANNED: 'заблокирован',
+  STARTING: 'запуск', CONNECTING: 'подключение…', WAITING_QR: 'номер не привязан', CONNECTED: 'подключено',
+  RECONNECTING: 'переподключение…', DISCONNECTED: 'нет связи', LOGGED_OUT: 'номер не привязан', BANNED: 'номер заблокирован',
 };
 const DISPATCHER_TEXT = {
-  starting: 'запуск', idle: 'ждёт заявок', running: 'рассылает', paused: 'на паузе', 'outside-window': 'вне рабочего окна',
-  'daily-limit-reached': 'дневной лимит исчерпан', 'waiting-session': 'ждёт сессию', 'no-active-groups': 'нет активных групп',
-  'stopped-by-risk': 'остановлено по риску', stopped: 'остановлено',
+  starting: 'запускается', idle: 'ждёт заявок', running: 'идёт рассылка', paused: 'на паузе', 'outside-window': 'вне рабочего окна',
+  'daily-limit-reached': 'дневной лимит исчерпан', 'waiting-session': 'ждёт подключения', 'no-active-groups': 'нет групп для рассылки',
+  'stopped-by-risk': 'остановлена по риску', stopped: 'остановлена',
 };
 const REQUEST_TEXT = { QUEUED: 'В очереди', SENDING: 'Отправляется', DONE: 'Отправлено', FAILED: 'Ошибка' };
+const REQUEST_TONE = { QUEUED: '', SENDING: 'info', DONE: 'ok', FAILED: 'bad' };
+const DELIVERY_TEXT = { PENDING: 'ждёт', SENDING: 'отправляется', SENT: 'отправлено', FAILED: 'ошибка', SKIPPED: 'пропущено' };
+const DELIVERY_TONE = { PENDING: '', SENDING: 'info', SENT: 'ok', FAILED: 'bad', SKIPPED: 'warn' };
 
 const $ = (id) => document.getElementById(id);
 
-let token = readToken();
-let currentTab = 'status';
+let token = readStore(TOKEN_KEY);
+let view = 'compose';
 let health = null;
+let schedule = null;
 let groups = [];
 let lists = [];
-let shownJids = [];
-const selected = new Set();
 let requests = [];
+let requestStatus = '';
+let groupFilter = 'all';
 let openRequest = null;
+let deliveries = {};
+let shownJids = [];
 let qrUrl = null;
 let timers = [];
+let previewTimer = null;
+let previewSeq = 0;
+const selected = new Set();
 
 // --- API ---------------------------------------------------------------------
 
@@ -44,7 +56,7 @@ async function api(path, { method = 'GET', body, raw = false } = {}) {
   const type = response.headers.get('Content-Type') || '';
   const data = type.includes('application/json') ? await response.json() : await response.text();
   if (!response.ok) {
-    const message = typeof data === 'object' && data && data.message ? data.message : `HTTP ${response.status}`;
+    const message = typeof data === 'object' && data && data.message ? data.message : `Ошибка сервера (HTTP ${response.status})`;
     throw new Error(message);
   }
   return data;
@@ -55,35 +67,37 @@ function handleError(error) {
     logout('Токен не подошёл, войдите заново');
     return;
   }
-  toast(error.message || String(error));
+  toast(error.message || String(error), true);
 }
 
-// --- вход --------------------------------------------------------------------
+// --- хранилище браузера ------------------------------------------------------
 
-function readToken() {
+function readStore(key) {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
 
-function saveToken(value) {
+function writeStore(key, value) {
   try {
-    if (value) localStorage.setItem(TOKEN_KEY, value);
-    else localStorage.removeItem(TOKEN_KEY);
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
   } catch {
-    // без localStorage токен живёт до перезагрузки страницы
+    // без localStorage значение живёт до перезагрузки страницы
   }
 }
+
+// --- вход --------------------------------------------------------------------
 
 async function login(event) {
   event.preventDefault();
   token = $('token').value.trim();
   $('login-error').hidden = true;
   try {
-    await api('/api/admin/requests');
-    saveToken(token);
+    await api('/api/admin/schedule');
+    writeStore(TOKEN_KEY, token);
     start();
   } catch (error) {
     token = null;
@@ -96,36 +110,55 @@ function logout(message) {
   timers.forEach(clearInterval);
   timers = [];
   token = null;
-  saveToken(null);
+  writeStore(TOKEN_KEY, null);
   $('app').hidden = true;
   $('login').hidden = false;
   $('token').value = '';
-  if (message) {
-    $('login-error').textContent = message;
-    $('login-error').hidden = false;
+  $('login-error').textContent = message || '';
+  $('login-error').hidden = !message;
+}
+
+async function start() {
+  $('login').hidden = true;
+  $('app').hidden = false;
+  restoreDraft();
+  showView(view);
+  await refreshHealth();
+  loadSchedule();
+  refreshGroups();
+  refreshLists();
+  timers.forEach(clearInterval);
+  timers = [
+    setInterval(refreshHealth, 5000),
+    setInterval(() => { if (view === 'connection') refreshQr(); }, 3000),
+    setInterval(() => { if (view === 'requests') refreshRequests(); }, 8000),
+  ];
+}
+
+async function loadSchedule() {
+  try {
+    schedule = await api('/api/admin/schedule');
+    renderBanner();
+    renderComposeNote();
+  } catch (error) {
+    handleError(error);
   }
 }
 
-function start() {
-  $('login').hidden = true;
-  $('app').hidden = false;
-  showTab(currentTab);
-  refreshHealth();
-  timers.push(setInterval(refreshHealth, 5000));
-  timers.push(setInterval(() => { if (currentTab === 'pairing') refreshQr(); }, 3000));
-  timers.push(setInterval(() => { if (currentTab === 'requests') refreshRequests(); }, 15000));
-}
+// --- навигация ---------------------------------------------------------------
 
-// --- вкладки -----------------------------------------------------------------
-
-function showTab(tab) {
-  currentTab = tab;
-  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== `tab-${tab}`; });
-  if (tab === 'new') { renderTargets(); refreshLists(); }
-  if (tab === 'pairing') refreshQr();
-  if (tab === 'groups') { refreshGroups(); refreshLists(); }
-  if (tab === 'requests') refreshRequests();
+function showView(name) {
+  view = name;
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+  document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== `view-${name}`; });
+  renderSelectionBar();
+  renderBanner();
+  if (name === 'compose') { renderTargets(); schedulePreview(0); }
+  if (name === 'requests') refreshRequests();
+  if (name === 'groups') { refreshGroups(); refreshLists(); }
+  if (name === 'connection') { renderConnection(); refreshQr(); }
+  if (name === 'control') renderControl();
+  window.scrollTo(0, 0);
 }
 
 // --- состояние ---------------------------------------------------------------
@@ -134,84 +167,428 @@ async function refreshHealth() {
   try {
     const response = await fetch('/api/health');
     health = await response.json();
-    renderHealth();
-  } catch (error) {
-    $('session-pill').textContent = 'нет связи';
-    $('session-pill').className = 'pill bad';
+  } catch {
+    health = null;
   }
+  renderHealth();
 }
 
 function sessionTone(session) {
   if (session === 'CONNECTED') return 'ok';
-  if (session === 'LOGGED_OUT' || session === 'BANNED' || session === 'DISCONNECTED') return 'bad';
+  if (session === 'WAITING_QR' || session === 'LOGGED_OUT' || session === 'BANNED') return 'bad';
   return 'warn';
 }
 
 function renderHealth() {
-  const h = health;
-  $('session-pill').textContent = SESSION_TEXT[h.session] || h.session;
-  $('session-pill').className = `pill ${sessionTone(h.session)}`;
-
-  const dispatcherTone = h.dispatcher === 'running' || h.dispatcher === 'idle' ? 'ok'
-    : h.dispatcher === 'stopped-by-risk' ? 'bad' : 'warn';
-  const limit = h.warmupLimitToday == null ? 'весь список' : h.warmupLimitToday;
-  const cards = [
-    card('Сессия WhatsApp', pill(SESSION_TEXT[h.session] || h.session, sessionTone(h.session)), h.session),
-    card('Диспетчер', pill(DISPATCHER_TEXT[h.dispatcher] || h.dispatcher, dispatcherTone), h.dispatcher),
-    card('Очередь', esc(h.queueLength), 'заявок в очереди и в работе'),
-    card('Отправлено сегодня', esc(h.sentToday), `лимит: ${esc(limit)}`),
-    card('День прогрева', esc(h.warmupDay), 'от первой отправки'),
-    card('Активных групп', esc(h.activeGroups), 'в архиве, участник, может писать'),
-    card('Сигналы риска', esc(h.riskEventsInWindow), h.stoppedByRisk ? 'рассылка остановлена по риску' : `паузы ×${esc(h.pauseMultiplier)}`),
-  ];
-  $('status-cards').innerHTML = cards.join('');
-  $('status-time').textContent = `Время сервиса: ${formatTime(h.time)}`;
-  if (currentTab === 'pairing') renderQrState();
-  if (currentTab === 'new') renderTargets();
+  const side = $('side-session');
+  if (!health) {
+    side.textContent = 'сервис недоступен';
+    side.className = 'side-status bad';
+    $('nav-conn').className = 'dot bad';
+    renderBanner();
+    return;
+  }
+  const tone = sessionTone(health.session);
+  side.textContent = SESSION_TEXT[health.session] || health.session;
+  side.className = `side-status ${tone}`;
+  $('nav-conn').className = `dot ${tone}`;
+  $('nav-queue').textContent = health.queueLength;
+  $('nav-queue').hidden = !health.queueLength;
+  renderBanner();
+  if (view === 'compose') renderTargets();
+  if (view === 'connection') renderConnection();
+  if (view === 'control') renderControl();
 }
 
-function card(label, value, note) {
-  return `<div class="card"><div class="stat-label">${esc(label)}</div><div class="stat-value">${value}</div>`
-    + `<div class="stat-note">${esc(note)}</div></div>`;
+function windowText() {
+  if (!schedule) return 'в рабочее окно';
+  const days = schedule.weekendsEnabled ? 'ежедневно' : 'по будням';
+  return `${schedule.windowStart}–${schedule.windowEnd} ${days}`;
 }
 
-function pill(text, tone) {
-  return `<span class="pill ${tone}">${esc(text)}</span>`;
+// Одна строка наверху: что сейчас мешает рассылке и что с этим сделать.
+function renderBanner() {
+  const banner = $('banner');
+  const action = $('banner-action');
+  let tone = '';
+  let text = '';
+  let button = null;
+  if (!health) {
+    tone = 'bad';
+    text = '<b>Сервис не отвечает.</b> Страница попробует ещё раз через несколько секунд.';
+  } else if (health.session === 'BANNED') {
+    tone = 'bad';
+    text = '<b>Номер заблокирован WhatsApp.</b> Рассылка остановлена.';
+  } else if (health.session === 'WAITING_QR' || health.session === 'LOGGED_OUT') {
+    tone = 'bad';
+    text = '<b>Номер не привязан.</b> Заявки можно создавать, но они не уйдут, пока не отсканирован QR.';
+    button = { label: 'Привязать номер', view: 'connection' };
+  } else if (health.session !== 'CONNECTED') {
+    tone = 'warn';
+    text = '<b>Подключаемся к WhatsApp…</b> Обычно это занимает до минуты.';
+  } else if (health.stoppedByRisk) {
+    tone = 'bad';
+    text = `<b>Рассылка остановлена по риску:</b> сигналов за час — ${esc(health.riskEventsInWindow)}. Проверьте телефон и возобновите.`;
+    button = { label: 'Открыть управление', view: 'control' };
+  } else if (health.dispatcher === 'paused') {
+    tone = 'warn';
+    text = '<b>Рассылка на паузе.</b> Заявки ждут в очереди.';
+    button = { label: 'Открыть управление', view: 'control' };
+  } else if (health.dispatcher === 'outside-window') {
+    tone = 'info';
+    text = `<b>Сейчас вне рабочего окна.</b> Заявки уйдут, когда оно откроется (${esc(windowText())}).`;
+  } else if (health.dispatcher === 'daily-limit-reached') {
+    tone = 'info';
+    text = `<b>Дневной лимит исчерпан:</b> отправлено ${esc(health.sentToday)} из ${esc(health.warmupLimitToday)}. Остальное уйдёт завтра.`;
+  } else if (health.dispatcher === 'running') {
+    tone = 'ok';
+    text = `<b>Идёт рассылка.</b> Заявок в работе: ${esc(health.queueLength)}, отправлено сегодня: ${esc(health.sentToday)}.`;
+    button = { label: 'Смотреть заявки', view: 'requests' };
+  }
+  banner.hidden = !text;
+  if (!text) return;
+  banner.className = `banner ${tone}`;
+  $('banner-text').innerHTML = text;
+  action.hidden = !button || button.view === view;
+  if (button) {
+    action.textContent = button.label;
+    action.dataset.view = button.view;
+  }
 }
 
-// --- привязка ----------------------------------------------------------------
+// --- новая заявка ------------------------------------------------------------
 
-async function refreshQr() {
-  try {
-    const response = await api('/api/qr', { raw: true });
-    if (response.ok) {
-      const blob = await response.blob();
-      if (qrUrl) URL.revokeObjectURL(qrUrl);
-      qrUrl = URL.createObjectURL(blob);
-      $('qr-box').innerHTML = `<img alt="QR для привязки" src="${qrUrl}">`;
-    } else {
-      if (qrUrl) URL.revokeObjectURL(qrUrl);
-      qrUrl = null;
-      const session = health ? health.session : '';
-      $('qr-box').textContent = session === 'CONNECTED' ? 'Номер привязан, QR не нужен' : 'QR пока нет, ждём от WhatsApp…';
+function formBody() {
+  const data = new FormData($('new-form'));
+  const body = {};
+  for (const name of FIELDS) body[name] = String(data.get(name) || '').trim();
+  return body;
+}
+
+function targetMode() {
+  return new FormData($('new-form')).get('target') || 'all';
+}
+
+function setTargetMode(mode) {
+  const radio = document.querySelector(`#new-form input[name=target][value=${mode}]`);
+  if (radio) radio.checked = true;
+}
+
+// Куда уйдёт заявка: groups === null — во все активные группы, иначе список JID.
+function currentTarget() {
+  const mode = targetMode();
+  if (mode === 'pick') {
+    return { groups: [...selected], count: selected.size, label: `${plural(selected.size, 'выбранную группу', 'выбранные группы', 'выбранных групп')}` };
+  }
+  if (mode === 'list') {
+    const list = lists.find((item) => String(item.id) === $('target-list').value);
+    if (list) {
+      return { groups: list.groups, count: list.groups.length, label: `список «${list.name}» (${plural(list.groups.length, 'группа', 'группы', 'групп')})` };
     }
-    renderQrState();
+    return { groups: [], count: 0, label: 'список не выбран' };
+  }
+  const active = health ? health.activeGroups : 0;
+  return { groups: null, count: active, label: `все активные группы (${active})` };
+}
+
+function renderTargets() {
+  const active = health ? health.activeGroups : 0;
+  $('target-all-note').textContent = active
+    ? `${plural(active, 'группа', 'группы', 'групп')} из «Архива», где номер может писать`
+    : 'сейчас таких групп нет — заявка подождёт в очереди';
+
+  const select = $('target-list');
+  const html = lists.length
+    ? lists.map((list) => `<option value="${esc(list.id)}">${esc(list.name)} — ${plural(list.groups.length, 'группа', 'группы', 'групп')}</option>`).join('')
+    : '<option value="">Списков пока нет — создайте на вкладке «Группы»</option>';
+  // Состояние обновляется каждые 5 секунд: список пересобирается, только если изменился, иначе он закрывался бы в руках.
+  if (select.dataset.html !== html) {
+    const previous = select.value;
+    select.dataset.html = html;
+    select.innerHTML = html;
+    if ([...select.options].some((o) => o.value === previous)) select.value = previous;
+  }
+  select.disabled = !lists.length;
+
+  $('target-pick-note').textContent = selected.size
+    ? `выбрано: ${plural(selected.size, 'группа', 'группы', 'групп')}`
+    : 'можно выбрать любые группы, куда номер может писать, — например одну тестовую';
+
+  const target = currentTarget();
+  $('new-submit').textContent = target.count
+    ? `Отправить в ${plural(target.count, 'группу', 'группы', 'групп')}`
+    : (target.groups === null ? 'Поставить в очередь' : 'Отправить');
+  renderComposeNote();
+}
+
+function renderComposeNote() {
+  const limit = health && health.warmupLimitToday != null
+    ? ` Сегодня можно отправить ещё ${Math.max(0, health.warmupLimitToday - health.sentToday)} из ${health.warmupLimitToday}.`
+    : '';
+  $('new-note').textContent = `Сообщения уходят не сразу, а по одному с паузами, ${windowText()}.${limit}`;
+}
+
+function showFormError(message) {
+  $('new-error').textContent = message || '';
+  $('new-error').hidden = !message;
+}
+
+function saveDraft() {
+  const body = formBody();
+  writeStore(DRAFT_KEY, FIELDS.some((name) => body[name]) ? JSON.stringify(body) : null);
+}
+
+function restoreDraft() {
+  try {
+    const draft = JSON.parse(readStore(DRAFT_KEY) || 'null');
+    if (!draft) return;
+    for (const name of FIELDS) {
+      const field = $('new-form').elements[name];
+      if (field && typeof draft[name] === 'string') field.value = draft[name];
+    }
+  } catch {
+    writeStore(DRAFT_KEY, null);
+  }
+}
+
+function clearForm() {
+  for (const name of FIELDS) {
+    const field = $('new-form').elements[name];
+    field.value = '';
+    field.classList.remove('invalid');
+  }
+  writeStore(DRAFT_KEY, null);
+  showFormError('');
+  schedulePreview(0);
+}
+
+function schedulePreview(delay = 350) {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(renderPreview, delay);
+}
+
+async function renderPreview() {
+  const body = formBody();
+  const box = $('new-preview');
+  if (!FIELDS.some((name) => body[name])) {
+    box.className = 'bubble empty';
+    box.textContent = 'Начните заполнять форму — здесь появится сообщение.';
+    return;
+  }
+  const seq = ++previewSeq;
+  try {
+    const text = await api('/api/admin/requests/preview', { method: 'POST', body });
+    if (seq !== previewSeq) return;
+    box.className = 'bubble';
+    box.innerHTML = waFormat(text);
+  } catch (error) {
+    if (error instanceof Unauthorized) handleError(error);
+  }
+}
+
+// WhatsApp показывает *текст* жирным; остальная разметка остаётся как есть.
+function waFormat(text) {
+  return esc(text).replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+}
+
+async function submitRequest(event) {
+  event.preventDefault();
+  showFormError('');
+  const body = formBody();
+  const missing = [];
+  for (const [name, title] of Object.entries(REQUIRED)) {
+    const empty = !body[name];
+    $('new-form').elements[name].classList.toggle('invalid', empty);
+    if (empty) missing.push(title);
+  }
+  if (missing.length) {
+    showFormError(`Заполните: ${missing.join(', ')}.`);
+    return;
+  }
+  const target = currentTarget();
+  if (target.groups && !target.groups.length) {
+    showFormError(targetMode() === 'pick' ? 'Выберите хотя бы одну группу.' : 'Выберите список групп.');
+    return;
+  }
+  let text = '';
+  try {
+    text = await api('/api/admin/requests/preview', { method: 'POST', body });
+  } catch (error) {
+    handleError(error);
+    return;
+  }
+  const ok = await ask({
+    title: target.count ? `Отправить в ${plural(target.count, 'группу', 'группы', 'групп')}?` : 'Поставить заявку в очередь?',
+    html: `<p>Куда: ${esc(target.label)}.</p><div class="chat"><div class="bubble">${waFormat(text)}</div></div>`
+      + (target.count ? '' : '<p>Активных групп сейчас нет: заявка уйдёт, когда они появятся.</p>'),
+    ok: target.count ? 'Отправить' : 'Поставить в очередь',
+  });
+  if (!ok) return;
+
+  const button = $('new-submit');
+  button.disabled = true;
+  try {
+    if (target.groups) body.groups = target.groups;
+    const created = await api('/api/admin/requests', { method: 'POST', body });
+    clearForm();
+    toast(`Заявка №${created.id} принята`);
+    openRequest = created.id;
+    showView('requests');
+    refreshHealth();
+  } catch (error) {
+    if (error instanceof Unauthorized) handleError(error);
+    else showFormError(error.message);
+  } finally {
+    button.disabled = false;
+    renderTargets();
+  }
+}
+
+// --- выбор групп в окне ------------------------------------------------------
+
+function openPicker() {
+  setTargetMode('pick');
+  $('picker-search').value = '';
+  renderPicker();
+  $('picker').showModal();
+}
+
+function renderPicker() {
+  const query = $('picker-search').value.trim().toLowerCase();
+  const onlyActive = $('picker-active').checked;
+  const shown = sortGroups(groups
+    .filter((g) => !onlyActive || g.active)
+    .filter((g) => matches(g, query)));
+  $('picker-list').innerHTML = shown.map((g) => `<label class="picker-item ${sendable(g) ? '' : 'disabled'}">
+      <input type="checkbox" data-jid="${esc(g.jid)}" ${selected.has(g.jid) ? 'checked' : ''} ${sendable(g) ? '' : 'disabled'}>
+      <span>${groupLabel(g)}</span>
+      <span class="tags">${groupTags(g)}</span>
+    </label>`).join('') || '<div class="empty-state">Ничего не найдено</div>';
+  $('picker-count').textContent = `Выбрано: ${selected.size}`;
+}
+
+// --- заявки ------------------------------------------------------------------
+
+async function refreshRequests() {
+  try {
+    requests = await api('/api/admin/requests');
+    if (openRequest) await loadDeliveries(openRequest);
+    renderRequests();
   } catch (error) {
     handleError(error);
   }
 }
 
-function renderQrState() {
-  if (!health) return;
-  $('qr-state').textContent = `Сессия: ${SESSION_TEXT[health.session] || health.session}`;
+async function loadDeliveries(id) {
+  try {
+    deliveries[id] = await api(`/api/admin/requests/${encodeURIComponent(id)}/deliveries`);
+  } catch (error) {
+    if (error instanceof Unauthorized) throw error;
+    deliveries[id] = [];
+  }
+}
+
+function requestTitle(request) {
+  const first = String(request.message || '').split('\n').find((line) => line.trim()) || '';
+  return first.replace(/[*_~]/g, '').trim() || `Заявка №${request.id}`;
+}
+
+function renderRequests() {
+  const shown = requests
+    .filter((r) => !requestStatus || r.status === requestStatus)
+    .sort((a, b) => timeValue(b.queuedAt) - timeValue(a.queuedAt));
+  if (!shown.length) {
+    $('request-list').innerHTML = `<div class="card empty-state">
+        <div>${requests.length ? 'С таким статусом заявок нет.' : 'Заявок пока нет.'}</div>
+        ${requests.length ? '' : '<button class="primary" data-go="compose">Создать первую заявку</button>'}
+      </div>`;
+    return;
+  }
+  $('request-list').innerHTML = shown.map((r) => {
+    const p = r.progress || { total: 0, sent: 0, failed: 0, skipped: 0, pending: 0 };
+    const percent = p.total ? Math.round(((p.sent + p.failed + p.skipped) / p.total) * 100) : 0;
+    const where = r.targetGroups == null ? 'все активные группы' : plural(r.targetGroups, 'выбранная группа', 'выбранные группы', 'выбранных групп');
+    const counts = p.total
+      ? `отправлено ${p.sent} из ${p.total}${p.failed ? `, ошибок ${p.failed}` : ''}${p.skipped ? `, пропущено ${p.skipped}` : ''}`
+      : 'ещё не начата';
+    const body = openRequest === r.id ? `<div class="request-body">
+        <div class="chat"><div class="bubble">${waFormat(r.message || '')}</div></div>
+        <div class="deliveries">${renderDeliveries(r.id)}</div>
+      </div>` : '';
+    return `<div class="card request">
+        <button class="request-head" data-id="${esc(r.id)}">
+          <div class="request-top">
+            <span class="pill ${REQUEST_TONE[r.status] || ''}">${esc(REQUEST_TEXT[r.status] || r.status)}</span>
+            <span class="request-title">№${esc(r.id)} · ${esc(requestTitle(r))}</span>
+          </div>
+          <div class="bar"><span style="width:${percent}%"></span></div>
+          <div class="request-meta">${esc(counts)} · ${esc(where)} · создана ${esc(formatTime(r.queuedAt))}`
+          + `${r.completedAt ? ` · завершена ${esc(formatTime(r.completedAt))}` : ''}`
+          + `${r.error ? ` · <span class="error">${esc(r.error)}</span>` : ''}</div>
+        </button>${body}
+      </div>`;
+  }).join('');
+}
+
+function renderDeliveries(id) {
+  const items = deliveries[id];
+  if (!items) return '<span class="muted">Загрузка…</span>';
+  if (!items.length) return '<span class="muted">Группы ещё не распределены: рассылка этой заявки не начиналась.</span>';
+  return items.map((d) => `<div class="delivery">
+      <span class="delivery-name">${esc(d.groupName || d.groupJid)}${d.error ? `<span class="jid">${esc(d.error)}</span>` : ''}</span>
+      <span class="pill ${DELIVERY_TONE[d.status] || ''}">${esc(DELIVERY_TEXT[d.status] || d.status)}</span>
+    </div>`).join('');
+}
+
+async function toggleRequest(id) {
+  openRequest = openRequest === id ? null : id;
+  renderRequests();
+  if (openRequest) {
+    try {
+      await loadDeliveries(id);
+      renderRequests();
+    } catch (error) {
+      handleError(error);
+    }
+  }
 }
 
 // --- группы ------------------------------------------------------------------
+
+// Отметить можно только группу, куда номер может писать; архив для этого не обязателен.
+function sendable(group) {
+  return group.member === true && group.canSend === true;
+}
+
+function matches(group, query) {
+  return !query || (group.name || '').toLowerCase().includes(query) || group.jid.toLowerCase().includes(query);
+}
+
+function sortGroups(list) {
+  return list.sort((a, b) => Number(!a.name) - Number(!b.name) || (a.name || a.jid).localeCompare(b.name || b.jid, 'ru'));
+}
+
+function groupLabel(group) {
+  return group.name
+    ? `<span class="group-name">${esc(group.name)}</span>`
+    : `<span class="group-name noname">Без названия</span><span class="jid">${esc(group.jid)}</span>`;
+}
+
+function groupTags(group) {
+  const tags = [];
+  if (group.active) tags.push('<span class="pill ok">в рассылке</span>');
+  else if (!group.archived) tags.push('<span class="pill">не в архиве</span>');
+  if (group.member === false) tags.push('<span class="pill bad">номер не в группе</span>');
+  else if (group.canSend === false) tags.push('<span class="pill warn">пишут только админы</span>');
+  else if (group.member == null || group.canSend == null) tags.push('<span class="pill">не проверена</span>');
+  return tags.join('');
+}
 
 async function refreshGroups() {
   try {
     groups = await api('/api/groups');
     renderGroups();
+    if (view === 'compose') renderTargets();
   } catch (error) {
     handleError(error);
   }
@@ -219,61 +596,93 @@ async function refreshGroups() {
 
 function renderGroups() {
   const query = $('group-search').value.trim().toLowerCase();
-  const onlyActive = $('group-active').checked;
-  const onlyArchived = $('group-archived').checked;
-  const shown = groups
-    .filter((g) => !onlyActive || g.active)
-    .filter((g) => !onlyArchived || g.archived)
-    .filter((g) => !query || (g.name || '').toLowerCase().includes(query) || g.jid.toLowerCase().includes(query))
-    .sort((a, b) => Number(b.active) - Number(a.active) || (a.name || a.jid).localeCompare(b.name || b.jid, 'ru'));
-
-  const archived = groups.filter((g) => g.archived).length;
-  const active = groups.filter((g) => g.active).length;
-  $('group-summary').textContent = `Всего ${groups.length}, в архиве ${archived}, активных ${active}. Показано ${shown.length}.`;
+  const filters = {
+    all: () => true,
+    active: (g) => g.active,
+    writable: (g) => sendable(g),
+    unarchived: (g) => !g.archived,
+    noname: (g) => !g.name,
+    selected: (g) => selected.has(g.jid),
+  };
+  const shown = sortGroups(groups.filter(filters[groupFilter] || filters.all).filter((g) => matches(g, query)));
   shownJids = shown.filter(sendable).map((g) => g.jid);
-  $('group-selected').textContent = `Отмечено: ${selected.size}`;
+
+  const active = groups.filter((g) => g.active).length;
+  const lastSync = groups.reduce((max, g) => Math.max(max, timeValue(g.lastSync)), 0);
+  $('group-summary').textContent = groups.length
+    ? `Всего ${groups.length}, в рассылке ${active}. Обновлено ${formatTime(lastSync)}.`
+    : 'Групп пока нет: привяжите номер и нажмите «Обновить из WhatsApp».';
+
   $('group-rows').innerHTML = shown.map((g) => `<tr>
-      <td><input type="checkbox" data-jid="${esc(g.jid)}" ${selected.has(g.jid) ? 'checked' : ''} ${sendable(g) ? '' : 'disabled'}></td>
-      <td>${esc(g.name || '—')}<span class="jid">${esc(g.jid)}</span></td>
-      <td>${yesNo(g.archived)}</td>
-      <td>${yesNo(g.member)}</td>
-      <td>${yesNo(g.canSend)}</td>
-      <td>${g.active ? pill('да', 'ok') : pill('нет', 'neutral')}</td>
-      <td class="muted">${esc(formatTime(g.lastSync))}</td>
-    </tr>`).join('') || '<tr><td colspan="7" class="muted">Групп нет</td></tr>';
+      <td class="check"><input type="checkbox" data-jid="${esc(g.jid)}" ${selected.has(g.jid) ? 'checked' : ''} ${sendable(g) ? '' : 'disabled'}></td>
+      <td>${groupLabel(g)}</td>
+      <td><span class="tags">${groupTags(g)}</span></td>
+    </tr>`).join('') || '<tr><td colspan="3" class="muted">Ничего не найдено</td></tr>';
+  $('group-all').checked = shownJids.length > 0 && shownJids.every((jid) => selected.has(jid));
+  renderSelectionBar();
 }
 
-// Отметить можно только группу, куда номер может писать; архив для этого не обязателен.
-function sendable(group) {
-  return group.member === true && group.canSend === true;
+function renderSelectionBar() {
+  $('selection-bar').hidden = view !== 'groups' || !selected.size;
+  $('selection-text').textContent = `Отмечено: ${plural(selected.size, 'группа', 'группы', 'групп')}`;
 }
+
+async function syncGroups() {
+  const button = $('group-sync');
+  button.disabled = true;
+  button.textContent = 'Обновляем… до пары минут';
+  try {
+    const result = await api('/api/admin/groups/sync', { method: 'POST' });
+    toast(result.done
+      ? `Готово: всего ${result.total}, в архиве ${result.archived}, в рассылке ${result.active}`
+      : 'Не получилось: WhatsApp не подключён', !result.done);
+    await refreshGroups();
+    refreshHealth();
+  } catch (error) {
+    handleError(error);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Обновить из WhatsApp';
+  }
+}
+
+// --- списки ------------------------------------------------------------------
 
 async function refreshLists() {
   try {
     lists = await api('/api/admin/group-lists');
     renderLists();
-    renderTargets();
+    if (view === 'compose') renderTargets();
   } catch (error) {
     handleError(error);
   }
 }
 
 function renderLists() {
-  $('list-chips').innerHTML = lists.map((list) => `<span class="chip">
-      <button data-list="${esc(list.id)}" title="Отметить группы этого списка">${esc(list.name)} (${list.groups.length})</button>
-      <button class="del" data-del="${esc(list.id)}" title="Удалить список">×</button>
-    </span>`).join('') || '<span class="muted small">Сохранённых списков пока нет: отметьте группы и нажмите «Сохранить список».</span>';
+  $('list-items').innerHTML = lists.map((list) => `<div class="list-item">
+      <div class="list-item-head">
+        <span class="list-item-name">${esc(list.name)}</span>
+        <span class="muted small">${plural(list.groups.length, 'группа', 'группы', 'групп')}</span>
+      </div>
+      <div class="row">
+        <button class="primary small" data-send="${esc(list.id)}">Отправить заявку</button>
+        <button class="secondary small" data-load="${esc(list.id)}">Показать</button>
+        <button class="link small danger" data-del="${esc(list.id)}">Удалить</button>
+      </div>
+    </div>`).join('') || '<p class="muted small">Списков пока нет.</p>';
 }
 
-async function saveList() {
-  const name = $('list-name').value.trim();
-  if (!name) { toast('Введите название списка'); return; }
-  if (!selected.size) { toast('Отметьте хотя бы одну группу'); return; }
-  const existing = lists.find((list) => list.name === name);
-  if (existing && !confirm(`Список «${name}» уже есть. Заменить его группы на отмеченные (${selected.size})?`)) return;
+async function saveSelectionAsList() {
+  const name = await ask({
+    title: 'Сохранить список',
+    html: `<p>${plural(selected.size, 'группа', 'группы', 'групп')}. Если список с таким названием уже есть, его группы заменятся.</p>`,
+    input: 'Название, например Тест',
+    ok: 'Сохранить',
+  });
+  if (!name) return;
   try {
     await api('/api/admin/group-lists', { method: 'PUT', body: { name, groups: [...selected] } });
-    toast(`Список «${name}» сохранён: ${selected.size} групп`);
+    toast(`Список «${name}» сохранён`);
     await refreshLists();
   } catch (error) {
     handleError(error);
@@ -283,182 +692,94 @@ async function saveList() {
 async function onListClick(event) {
   const button = event.target.closest('button');
   if (!button) return;
-  if (button.dataset.del) {
-    const list = lists.find((item) => String(item.id) === button.dataset.del);
-    if (!list || !confirm(`Удалить список «${list.name}»?`)) return;
+  const id = button.dataset.send || button.dataset.load || button.dataset.del;
+  const list = lists.find((item) => String(item.id) === id);
+  if (!list) return;
+  if (button.dataset.send) {
+    setTargetMode('list');
+    showView('compose');
+    $('target-list').value = String(list.id);
+    renderTargets();
+  } else if (button.dataset.load) {
+    selected.clear();
+    list.groups.forEach((jid) => selected.add(jid));
+    groupFilter = 'selected';
+    setChip('group-filters', 'filter', groupFilter);
+    renderGroups();
+  } else if (await ask({ title: `Удалить список «${list.name}»?`, html: '<p>Сами группы и уже созданные заявки не изменятся.</p>', ok: 'Удалить' })) {
     try {
       await api(`/api/admin/group-lists/${list.id}`, { method: 'DELETE' });
       await refreshLists();
     } catch (error) {
       handleError(error);
     }
+  }
+}
+
+// --- подключение -------------------------------------------------------------
+
+async function refreshQr() {
+  if (health && health.session === 'CONNECTED') {
+    renderConnection();
     return;
   }
-  const list = lists.find((item) => String(item.id) === button.dataset.list);
-  if (!list) return;
-  selected.clear();
-  list.groups.forEach((jid) => selected.add(jid));
-  $('list-name').value = list.name;
-  renderGroups();
-}
-
-async function syncGroups() {
-  const button = $('group-sync');
-  button.disabled = true;
-  button.textContent = 'Синхронизация…';
   try {
-    const result = await api('/api/admin/groups/sync', { method: 'POST' });
-    toast(result.done ? `Готово: всего ${result.total}, в архиве ${result.archived}, активных ${result.active}`
-      : 'Синхронизация не выполнена: сессия не подключена');
-    await refreshGroups();
-  } catch (error) {
-    handleError(error);
-  } finally {
-    button.disabled = false;
-    button.textContent = 'Синхронизировать';
-  }
-}
-
-// --- заявки ------------------------------------------------------------------
-
-async function refreshRequests() {
-  try {
-    requests = await api('/api/admin/requests');
-    renderRequests();
+    const response = await api('/api/qr', { raw: true });
+    if (qrUrl) URL.revokeObjectURL(qrUrl);
+    qrUrl = response.ok ? URL.createObjectURL(await response.blob()) : null;
+    renderConnection();
   } catch (error) {
     handleError(error);
   }
 }
 
-function renderRequests() {
-  const status = $('request-status').value;
-  const shown = requests
-    .filter((r) => !status || r.status === status)
-    .sort((a, b) => timeValue(b.queuedAt) - timeValue(a.queuedAt));
-  const rows = [];
-  for (const r of shown) {
-    const p = r.progress || { total: 0, sent: 0, failed: 0, skipped: 0 };
-    const percent = p.total ? Math.round((p.sent / p.total) * 100) : 0;
-    const tone = r.status === 'DONE' ? 'ok' : r.status === 'FAILED' ? 'bad' : r.status === 'SENDING' ? 'warn' : 'neutral';
-    rows.push(`<tr class="clickable" data-id="${esc(r.id)}">
-        <td><b>${esc(r.id)}</b>${r.sheetRow ? `<span class="jid">строка ${esc(r.sheetRow)}</span>` : ''}
-          <span class="jid">${r.targetGroups == null ? 'все активные' : `выбрано групп: ${esc(r.targetGroups)}`}</span></td>
-        <td>${pill(REQUEST_TEXT[r.status] || r.status, tone)}</td>
-        <td>${esc(p.sent)} / ${esc(p.total)}${p.failed ? ` <span class="error">ошибок ${esc(p.failed)}</span>` : ''}
-          <div class="bar"><span style="width:${percent}%"></span></div></td>
-        <td class="muted">${esc(formatTime(r.queuedAt))}</td>
-        <td class="muted">${esc(formatTime(r.completedAt))}</td>
-        <td class="error">${esc(r.error || '')}</td>
-      </tr>`);
-    if (openRequest === r.id) {
-      rows.push(`<tr class="detail"><td colspan="6"><pre class="preview">${esc(r.message || '')}</pre></td></tr>`);
-    }
+function renderConnection() {
+  const box = $('qr-box');
+  const session = health ? health.session : '';
+  if (session === 'CONNECTED') {
+    box.className = 'qr-box done';
+    box.textContent = 'Номер привязан';
+    $('conn-lead').textContent = 'WhatsApp подключён, сканировать ничего не нужно.';
+    $('conn-body').innerHTML = `<p>Групп в рассылке: <b>${esc(health.activeGroups)}</b>.</p>
+      <p class="muted">Если на телефоне поменялся состав «Архива», обновите список групп.</p>
+      <div class="row"><button class="secondary" data-go="groups">Открыть группы</button></div>`;
+    return;
   }
-  $('request-rows').innerHTML = rows.join('') || '<tr><td colspan="6" class="muted">Заявок нет</td></tr>';
-}
-
-// --- новая заявка ------------------------------------------------------------
-
-function newRequestBody() {
-  const data = new FormData($('new-form'));
-  const body = {};
-  for (const name of ['route', 'date', 'vehicles', 'cargo', 'freight', 'conditions']) {
-    body[name] = String(data.get(name) || '').trim();
-  }
-  return body;
-}
-
-// Куда уйдёт заявка: null — во все активные группы, иначе список JID.
-function currentTarget() {
-  const value = $('new-target').value || 'all';
-  if (value === 'selected') return { label: `отмеченные группы (${selected.size})`, groups: [...selected] };
-  if (value.startsWith('list:')) {
-    const list = lists.find((item) => `list:${item.id}` === value);
-    if (list) return { label: `список «${list.name}» (${list.groups.length})`, groups: list.groups };
-  }
-  const active = health ? health.activeGroups : 0;
-  return { label: `все активные группы (${active})`, groups: null, count: active };
-}
-
-function renderTargets() {
-  const select = $('new-target');
-  const previous = select.value || 'all';
-  const active = health ? health.activeGroups : 0;
-  const options = [`<option value="all">Все активные группы (${active})</option>`];
-  options.push(`<option value="selected" ${selected.size ? '' : 'disabled'}>Отмеченные на вкладке «Группы» (${selected.size})</option>`);
-  for (const list of lists) {
-    options.push(`<option value="list:${esc(list.id)}">Список «${esc(list.name)}» (${list.groups.length})</option>`);
-  }
-  const html = options.join('');
-  // Состояние обновляется каждые 5 секунд: список пересобирается, только если изменился, иначе он закрывался бы в руках.
-  if (select.dataset.html !== html) {
-    select.dataset.html = html;
-    select.innerHTML = html;
-    select.value = [...select.options].some((o) => o.value === previous && !o.disabled) ? previous : 'all';
-  }
-  renderNewNote();
-}
-
-function renderNewNote() {
-  if (!health) return;
-  const target = currentTarget();
-  const state = DISPATCHER_TEXT[health.dispatcher] || health.dispatcher;
-  const where = target.groups ? `в ${target.label}` : `во ${target.label}`;
-  $('new-note').textContent = `Заявка встанет в очередь и уйдёт ${where} с паузами, в рабочее окно и в пределах дневного лимита. `
-    + `Диспетчер сейчас: ${state}.`;
-}
-
-function showNewError(message) {
-  $('new-error').textContent = message;
-  $('new-error').hidden = !message;
-}
-
-async function previewNew() {
-  showNewError('');
-  try {
-    $('new-preview-text').textContent = await api('/api/admin/requests/preview', { method: 'POST', body: newRequestBody() })
-      || 'Форма пустая.';
-  } catch (error) {
-    if (error instanceof Unauthorized) handleError(error);
-    else showNewError(error.message);
-  }
-}
-
-async function submitNew(event) {
-  event.preventDefault();
-  showNewError('');
-  const target = currentTarget();
-  if (target.groups && !target.groups.length) { showNewError('В выбранном списке нет групп.'); return; }
-  const question = target.groups || target.count > 0
-    ? `Отправить заявку: ${target.label}?`
-    : 'Активных групп сейчас нет. Поставить заявку в очередь?';
-  if (!confirm(question)) return;
-  const button = $('new-submit');
-  button.disabled = true;
-  try {
-    const body = newRequestBody();
-    if (target.groups) body.groups = target.groups;
-    const created = await api('/api/admin/requests', { method: 'POST', body });
-    $('new-form').reset();
-    $('new-preview-text').textContent = created.message;
-    toast(`Заявка ${created.id} поставлена в очередь`);
-    openRequest = created.id;
-    showTab('requests');
-    refreshHealth();
-  } catch (error) {
-    if (error instanceof Unauthorized) handleError(error);
-    else showNewError(error.message);
-  } finally {
-    button.disabled = false;
-  }
+  box.className = 'qr-box';
+  if (qrUrl) box.innerHTML = `<img alt="QR для привязки" src="${qrUrl}">`;
+  else box.textContent = session === 'BANNED' ? 'Номер заблокирован' : 'Ждём QR от WhatsApp…';
+  $('conn-lead').textContent = `Состояние: ${SESSION_TEXT[session] || session || 'неизвестно'}.`;
+  $('conn-body').innerHTML = `<ol>
+      <li>На телефоне с <b>тестовым</b> номером: WhatsApp → Настройки → Связанные устройства.</li>
+      <li>«Привязка устройства» → наведите камеру на QR.</li>
+      <li>QR меняется примерно раз в 20 секунд, страница подхватит новый сама.</li>
+    </ol>
+    <p class="muted">Перед привязкой включите «Оставлять чаты в архиве» и положите нужные группы в «Архив».</p>`;
 }
 
 // --- управление --------------------------------------------------------------
 
+function stat(label, value, note) {
+  return `<div class="card"><div class="stat-label">${esc(label)}</div><div class="stat-value">${esc(value)}</div>`
+    + `<div class="stat-note">${esc(note)}</div></div>`;
+}
+
+function renderControl() {
+  if (!health) return;
+  const limit = health.warmupLimitToday == null ? 'без лимита' : `лимит ${health.warmupLimitToday}`;
+  $('stats').innerHTML = [
+    stat('Отправлено сегодня', health.sentToday, `${limit}, день прогрева ${health.warmupDay}`),
+    stat('В очереди', health.queueLength, 'заявок ждут или отправляются'),
+    stat('Групп в рассылке', health.activeGroups, 'в архиве и можно писать'),
+    stat('Сигналы риска', health.riskEventsInWindow, health.stoppedByRisk ? 'рассылка остановлена' : `паузы ×${health.pauseMultiplier}`),
+  ].join('');
+  $('dispatch-state').textContent = `Сейчас: ${DISPATCHER_TEXT[health.dispatcher] || health.dispatcher}. Рабочее окно: ${windowText()}.`;
+}
+
 async function pause() {
   try {
     await api('/api/admin/pause', { method: 'POST' });
-    $('dispatch-result').textContent = 'Рассылка поставлена на паузу.';
+    toast('Рассылка поставлена на паузу');
     refreshHealth();
   } catch (error) {
     handleError(error);
@@ -471,7 +792,7 @@ async function resume() {
     const parts = [];
     if (result.resumedFromRisk) parts.push('снята остановка по риску');
     if (result.resumedFromPause) parts.push('снята пауза');
-    $('dispatch-result').textContent = parts.length ? `Готово: ${parts.join(', ')}.` : 'Рассылка и так не была остановлена.';
+    toast(parts.length ? `Готово: ${parts.join(', ')}` : 'Рассылка и так не была остановлена');
     refreshHealth();
   } catch (error) {
     handleError(error);
@@ -481,28 +802,38 @@ async function resume() {
 async function testAlert() {
   try {
     const result = await api('/api/admin/test-alert', { method: 'POST' });
-    $('alert-result').textContent = `Доставлено в чатов: ${result.deliveredChats}.`;
+    $('alert-result').textContent = result.deliveredChats
+      ? `Доставлено в ${plural(result.deliveredChats, 'чат', 'чата', 'чатов')}.`
+      : 'Не доставлено ни в один чат: проверьте TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_IDS.';
   } catch (error) {
     handleError(error);
   }
 }
 
-async function preview(event) {
-  event.preventDefault();
-  $('preview-error').hidden = true;
-  $('preview-text').hidden = true;
-  try {
-    const text = await api('/api/admin/preview', { method: 'POST', body: { id: $('preview-id').value.trim() } });
-    $('preview-text').textContent = text;
-    $('preview-text').hidden = false;
-  } catch (error) {
-    if (error instanceof Unauthorized) {
-      handleError(error);
-      return;
-    }
-    $('preview-error').textContent = error.message;
-    $('preview-error').hidden = false;
-  }
+// --- окно подтверждения и ввода ----------------------------------------------
+
+let askResolve = null;
+
+function ask({ title, html = '', ok = 'ОК', input = null }) {
+  $('ask-title').textContent = title;
+  $('ask-text').innerHTML = html;
+  $('ask-ok').textContent = ok;
+  $('ask-input').hidden = input === null;
+  $('ask-input').value = '';
+  $('ask-input').placeholder = input || '';
+  $('ask-input').required = input !== null;
+  $('ask').returnValue = '';
+  $('ask').showModal();
+  if (input !== null) $('ask-input').focus();
+  return new Promise((resolve) => { askResolve = resolve; });
+}
+
+function finishAsk(accepted) {
+  const resolve = askResolve;
+  askResolve = null;
+  if (!resolve) return;
+  const withInput = !$('ask-input').hidden;
+  resolve(accepted ? (withInput ? $('ask-input').value.trim() : true) : (withInput ? '' : false));
 }
 
 // --- мелочи ------------------------------------------------------------------
@@ -511,10 +842,11 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function yesNo(value) {
-  if (value === true) return pill('да', 'ok');
-  if (value === false) return pill('нет', 'neutral');
-  return '<span class="muted">?</span>';
+function plural(n, one, few, many) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  const word = mod10 === 1 && mod100 !== 11 ? one : (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? few : many);
+  return `${n} ${word}`;
 }
 
 function timeValue(value) {
@@ -530,54 +862,110 @@ function formatTime(value) {
   return new Date(ms).toLocaleString('ru-RU', { timeZone: ZONE, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function setChip(containerId, key, value) {
+  document.querySelectorAll(`#${containerId} .chip`).forEach((chip) => chip.classList.toggle('active', chip.dataset[key] === value));
+}
+
 let toastTimer = null;
-function toast(message) {
+function toast(message, bad = false) {
   $('toast').textContent = message;
+  $('toast').className = bad ? 'toast bad' : 'toast';
   $('toast').hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4000);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, bad ? 6000 : 3500);
+}
+
+function toggleSelected(jid, on) {
+  if (on) selected.add(jid);
+  else selected.delete(jid);
 }
 
 // --- события -----------------------------------------------------------------
 
 $('login-form').addEventListener('submit', login);
 $('logout').addEventListener('click', () => logout());
-$('tabs').addEventListener('click', (event) => {
-  const tab = event.target.closest('button')?.dataset.tab;
-  if (tab) showTab(tab);
+$('nav').addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (button && button.dataset.view) showView(button.dataset.view);
 });
-['group-search', 'group-active', 'group-archived'].forEach((id) => $(id).addEventListener('input', renderGroups));
-$('group-sync').addEventListener('click', syncGroups);
-$('group-rows').addEventListener('change', (event) => {
-  const jid = event.target.dataset.jid;
-  if (!jid) return;
-  if (event.target.checked) selected.add(jid);
-  else selected.delete(jid);
-  $('group-selected').textContent = `Отмечено: ${selected.size}`;
+$('banner-action').addEventListener('click', () => showView($('banner-action').dataset.view));
+document.querySelector('main').addEventListener('click', (event) => {
+  const go = event.target.closest('[data-go]');
+  if (go) showView(go.dataset.go);
 });
-$('group-select-shown').addEventListener('click', () => { shownJids.forEach((jid) => selected.add(jid)); renderGroups(); });
-$('group-clear').addEventListener('click', () => { selected.clear(); renderGroups(); });
-$('list-save').addEventListener('click', saveList);
-$('list-chips').addEventListener('click', onListClick);
-$('new-target').addEventListener('change', renderNewNote);
-$('request-status').addEventListener('change', renderRequests);
-$('request-refresh').addEventListener('click', refreshRequests);
-$('request-rows').addEventListener('click', (event) => {
-  const row = event.target.closest('tr.clickable');
-  if (!row) return;
-  openRequest = openRequest === row.dataset.id ? null : row.dataset.id;
+
+$('new-form').addEventListener('submit', submitRequest);
+$('new-form').addEventListener('input', (event) => {
+  if (event.target.name === 'target') { renderTargets(); return; }
+  if (event.target.id === 'target-list') { setTargetMode('list'); renderTargets(); return; }
+  event.target.classList.remove('invalid');
+  saveDraft();
+  schedulePreview();
+});
+$('new-form').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) $('new-form').requestSubmit();
+});
+$('new-clear').addEventListener('click', clearForm);
+$('target-pick-open').addEventListener('click', openPicker);
+
+$('picker-search').addEventListener('input', renderPicker);
+$('picker-active').addEventListener('change', renderPicker);
+$('picker-list').addEventListener('change', (event) => {
+  if (!event.target.dataset.jid) return;
+  toggleSelected(event.target.dataset.jid, event.target.checked);
+  $('picker-count').textContent = `Выбрано: ${selected.size}`;
+});
+$('picker-clear').addEventListener('click', () => { selected.clear(); renderPicker(); });
+$('picker').addEventListener('close', () => { renderTargets(); renderGroups(); });
+
+$('request-new').addEventListener('click', () => showView('compose'));
+$('request-filters').addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (!chip) return;
+  requestStatus = chip.dataset.status;
+  setChip('request-filters', 'status', requestStatus);
   renderRequests();
 });
-$('new-form').addEventListener('submit', submitNew);
-$('new-preview').addEventListener('click', previewNew);
+$('request-list').addEventListener('click', (event) => {
+  const head = event.target.closest('.request-head');
+  if (head) toggleRequest(head.dataset.id);
+});
+
+$('group-search').addEventListener('input', renderGroups);
+$('group-filters').addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (!chip) return;
+  groupFilter = chip.dataset.filter;
+  setChip('group-filters', 'filter', groupFilter);
+  renderGroups();
+});
+$('group-rows').addEventListener('change', (event) => {
+  if (!event.target.dataset.jid) return;
+  toggleSelected(event.target.dataset.jid, event.target.checked);
+  $('group-all').checked = shownJids.length > 0 && shownJids.every((jid) => selected.has(jid));
+  renderSelectionBar();
+});
+$('group-all').addEventListener('change', (event) => {
+  shownJids.forEach((jid) => toggleSelected(jid, event.target.checked));
+  renderGroups();
+});
+$('group-sync').addEventListener('click', syncGroups);
+$('list-items').addEventListener('click', onListClick);
+$('selection-send').addEventListener('click', () => { setTargetMode('pick'); showView('compose'); });
+$('selection-save').addEventListener('click', saveSelectionAsList);
+$('selection-clear').addEventListener('click', () => { selected.clear(); renderGroups(); });
+
 $('btn-pause').addEventListener('click', pause);
 $('btn-resume').addEventListener('click', resume);
 $('btn-alert').addEventListener('click', testAlert);
-$('preview-form').addEventListener('submit', preview);
+
+$('ask-form').addEventListener('submit', () => finishAsk(true));
+$('ask-cancel').addEventListener('click', () => { finishAsk(false); $('ask').close(); });
+$('ask').addEventListener('close', () => finishAsk(false));
 
 if (token) {
   // Админка показывается, только когда сервер принял сохранённый токен.
-  api('/api/admin/requests').then(start).catch((error) => {
+  api('/api/admin/schedule').then(start).catch((error) => {
     logout(error instanceof Unauthorized ? null : `Сервис недоступен: ${error.message}`);
   });
 } else {

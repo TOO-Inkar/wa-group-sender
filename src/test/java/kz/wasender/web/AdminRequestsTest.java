@@ -81,6 +81,11 @@ class AdminRequestsTest extends IntegrationTest {
         runUntilBlocked(500);
 
         assertThat(sentJids()).containsExactly(test);
+        assertThat(admin.deliveries("1")).singleElement().satisfies(delivery -> {
+            assertThat(delivery.groupName()).isEqualTo("Тестовая");
+            assertThat(delivery.status()).isEqualTo(kz.wasender.dispatch.DeliveryStatus.SENT);
+        });
+        assertThat(admin.schedule()).containsKeys("windowStart", "windowEnd", "weekendsEnabled");
         assertThat(admin.requests().getFirst().status()).isEqualTo(RequestStatus.DONE);
     }
 

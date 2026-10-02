@@ -1,8 +1,12 @@
 package kz.wasender.web;
 
+import kz.wasender.config.DispatchProperties;
 import kz.wasender.dispatch.DeliveryRepository;
+import kz.wasender.dispatch.DeliveryStatus;
 import kz.wasender.dispatch.Dispatcher;
 import kz.wasender.group.GroupListRepository;
+import kz.wasender.group.GroupRecord;
+import kz.wasender.group.GroupRepository;
 import kz.wasender.group.GroupSyncService;
 import kz.wasender.notify.AlertService;
 import kz.wasender.request.RequestIntake;
@@ -29,6 +33,7 @@ import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -45,10 +50,12 @@ public class AdminController {
     private final DeliveryRepository deliveries;
     private final RequestIntake intake;
     private final GroupListRepository groupLists;
+    private final GroupRepository groups;
+    private final DispatchProperties dispatch;
 
     public AdminController(Dispatcher dispatcher, RiskMonitor risk, GroupSyncService groupSync, AlertService alerts,
                            RequestRepository requests, PreviewService preview, DeliveryRepository deliveries, RequestIntake intake,
-                           GroupListRepository groupLists) {
+                           GroupListRepository groupLists, GroupRepository groups, DispatchProperties dispatch) {
         this.dispatcher = dispatcher;
         this.risk = risk;
         this.groupSync = groupSync;
@@ -58,6 +65,8 @@ public class AdminController {
         this.deliveries = deliveries;
         this.intake = intake;
         this.groupLists = groupLists;
+        this.groups = groups;
+        this.dispatch = dispatch;
     }
 
     @PostMapping("/resume")
@@ -122,6 +131,27 @@ public class AdminController {
         return RequestView.of(request, deliveries.progress(request.id()), targets);
     }
 
+    /** What happened to the request in each group, in sending order. */
+    @GetMapping("/requests/{id}/deliveries")
+    public List<DeliveryView> deliveries(@PathVariable String id) {
+        var names = groups.findAll().stream()
+                .filter(group -> group.name() != null)
+                .collect(Collectors.toMap(GroupRecord::jid, GroupRecord::name));
+        return deliveries.findByRequest(id).stream()
+                .map(delivery -> new DeliveryView(delivery.groupJid(), names.get(delivery.groupJid()), delivery.position(),
+                        delivery.status(), delivery.error()))
+                .toList();
+    }
+
+    /** The dispatch schedule the admin page explains to the user. */
+    @GetMapping("/schedule")
+    public Map<String, Object> schedule() {
+        return Map.of(
+                "windowStart", dispatch.windowStart().toString(),
+                "windowEnd", dispatch.windowEnd().toString(),
+                "weekendsEnabled", dispatch.weekendsEnabled());
+    }
+
     @GetMapping("/group-lists")
     public List<GroupListRepository.GroupList> groupLists() {
         return groupLists.findAll();
@@ -150,6 +180,9 @@ public class AdminController {
     }
 
     public record GroupListRequest(String name, List<String> groups) {
+    }
+
+    public record DeliveryView(String groupJid, String groupName, int position, DeliveryStatus status, String error) {
     }
 
     public record NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions,
