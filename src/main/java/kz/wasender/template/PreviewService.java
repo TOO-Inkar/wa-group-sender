@@ -1,6 +1,8 @@
 package kz.wasender.template;
 
 import kz.wasender.config.SheetsProperties;
+import kz.wasender.request.RequestRecord;
+import kz.wasender.request.RequestRepository;
 import kz.wasender.sheets.ColumnLayout;
 import kz.wasender.sheets.RequestSource;
 import kz.wasender.sheets.SheetField;
@@ -17,14 +19,23 @@ public class PreviewService {
     private final RequestSource source;
     private final TemplateRenderer renderer;
     private final SheetsProperties.Columns columns;
+    private final RequestRepository requests;
+    private final boolean sheetsEnabled;
 
-    public PreviewService(RequestSource source, TemplateRenderer renderer, SheetsProperties sheets) {
+    public PreviewService(RequestSource source, TemplateRenderer renderer, SheetsProperties sheets, RequestRepository requests) {
         this.source = source;
         this.renderer = renderer;
         this.columns = sheets.columns();
+        this.requests = requests;
+        this.sheetsEnabled = sheets.enabled();
     }
 
+    /** The text of a queued or sent request; a sheet row not queued yet is rendered when the sheet is in use. */
     public Optional<String> byId(String id) {
+        var stored = requests.find(id.strip()).map(RequestRecord::message);
+        if (stored.isPresent() || !sheetsEnabled) {
+            return stored;
+        }
         return source.readRows().stream()
                 .filter(row -> row.get(SheetField.ID).equals(id.strip()))
                 .findFirst()

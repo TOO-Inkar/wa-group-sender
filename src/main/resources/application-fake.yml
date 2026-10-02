@@ -2,6 +2,7 @@ app:
   groups:
     initial-sync-delay: 2s
   sheets:
+    enabled: ${SHEETS_ENABLED:true}
     poll-interval: 5s
     progress-flush-interval: 5s
   dispatch:

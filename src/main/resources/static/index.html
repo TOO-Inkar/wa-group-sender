@@ -22,6 +22,7 @@
     <div class="brand">wa-group-sender</div>
     <nav id="tabs">
       <button data-tab="status" class="active">Состояние</button>
+      <button data-tab="new">Новая заявка</button>
       <button data-tab="pairing">Привязка</button>
       <button data-tab="groups">Группы</button>
       <button data-tab="requests">Заявки</button>
@@ -37,6 +38,42 @@
     <section id="tab-status">
       <div id="status-cards" class="cards"></div>
       <p class="muted small">Обновляется каждые 5 секунд. <span id="status-time"></span></p>
+    </section>
+
+    <section id="tab-new" hidden>
+      <div class="new-request">
+        <form id="new-form" class="card form">
+          <h2>Новая заявка</h2>
+          <label>Маршрут *
+            <input name="route" placeholder="ХОРГОС → БАКУ" required>
+          </label>
+          <label>Дата / срочность *
+            <input name="date" placeholder="Срочно, груз готов" required>
+          </label>
+          <label>Машины и тоннаж * <span class="muted small">каждая строка — отдельная строка сообщения</span>
+            <textarea name="vehicles" rows="3" placeholder="120 м³ / 5 осей — 20 т" required></textarea>
+          </label>
+          <label>Груз *
+            <input name="cargo" placeholder="Цемент" required>
+          </label>
+          <label>Фрахт *
+            <input name="freight" placeholder="450 000 ₸" required>
+          </label>
+          <label>Доп. условия <span class="muted small">необязательно, можно несколько строк</span>
+            <textarea name="conditions" rows="3"></textarea>
+          </label>
+          <div class="row">
+            <button type="button" id="new-preview" class="secondary">Предпросмотр</button>
+            <button type="submit" id="new-submit">Отправить по всем группам</button>
+          </div>
+          <p id="new-error" class="error" hidden></p>
+        </form>
+        <div class="card">
+          <h2>Как это уйдёт в WhatsApp</h2>
+          <pre id="new-preview-text" class="preview">Заполните форму и нажмите «Предпросмотр».</pre>
+          <p id="new-note" class="muted small"></p>
+        </div>
+      </div>
     </section>
 
     <section id="tab-pairing" hidden>
@@ -110,7 +147,7 @@
         </div>
         <div class="card wide">
           <h2>Предпросмотр сообщения</h2>
-          <p class="muted">Текст по ID строки таблицы, без отправки.</p>
+          <p class="muted">Текст уже созданной заявки по её ID, без отправки.</p>
           <form id="preview-form" class="row">
             <input id="preview-id" placeholder="ID заявки, например 17" required>
             <button type="submit">Показать</button>

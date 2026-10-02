@@ -36,7 +36,7 @@ app:
     max-delay: ${WATCHDOG_MAX_DELAY:15m}
     connect-timeout: ${WATCHDOG_CONNECT_TIMEOUT:3m}
   sheets:
-    enabled: ${SHEETS_ENABLED:true}
+    enabled: ${SHEETS_ENABLED:false}
     spreadsheet-id: ${SHEETS_SPREADSHEET_ID:}
     sheet-name: ${SHEETS_SHEET_NAME:Заявки}
     credentials-path: ${GOOGLE_CREDENTIALS_PATH:/run/secrets/google.json}

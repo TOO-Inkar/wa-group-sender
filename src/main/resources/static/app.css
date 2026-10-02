@@ -68,7 +68,9 @@ button:disabled { opacity: .55; cursor: default; }
 button.warn { background: transparent; color: var(--warn); border-color: var(--warn); }
 button.link { background: none; border: none; color: var(--muted); padding: 4px 6px; }
 
-input, select {
+button.secondary { background: transparent; color: var(--accent); }
+
+input, select, textarea {
   font: inherit;
   color: var(--text);
   background: var(--surface);
@@ -147,6 +149,14 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
   .pairing { grid-template-columns: 1fr; }
   .qr-box { width: 100%; max-width: 300px; height: auto; aspect-ratio: 1; }
 }
+
+.new-request { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 800px) { .new-request { grid-template-columns: 1fr; } }
+.form { display: grid; gap: 12px; }
+.form label { display: grid; gap: 4px; font-weight: 600; }
+.form input, .form textarea { width: 100%; font-weight: 400; }
+.form textarea { resize: vertical; }
+.form .preview { margin-top: 0; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
 .toolbar input[type=search] { flex: 1; min-width: 200px; }

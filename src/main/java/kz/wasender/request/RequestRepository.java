@@ -41,6 +41,12 @@ public class RequestRepository {
                 .update();
     }
 
+    public void insert(String id, String message, Instant queuedAt) {
+        jdbc.sql("insert into request(id, message, status, queued_at) values (?, ?, 'QUEUED', ?)")
+                .params(id, message, queuedAt)
+                .update();
+    }
+
     public void updateRow(String id, int sheetRow) {
         jdbc.sql("update request set sheet_row = ? where id = ? and (sheet_row is null or sheet_row <> ?)")
                 .params(sheetRow, id, sheetRow)

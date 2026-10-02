@@ -119,6 +119,7 @@ function showTab(tab) {
   currentTab = tab;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== `tab-${tab}`; });
+  if (tab === 'new') renderNewNote();
   if (tab === 'pairing') refreshQr();
   if (tab === 'groups') refreshGroups();
   if (tab === 'requests') refreshRequests();
@@ -163,6 +164,7 @@ function renderHealth() {
   $('status-cards').innerHTML = cards.join('');
   $('status-time').textContent = `Время сервиса: ${formatTime(h.time)}`;
   if (currentTab === 'pairing') renderQrState();
+  if (currentTab === 'new') renderNewNote();
 }
 
 function card(label, value, note) {
@@ -289,6 +291,68 @@ function renderRequests() {
   $('request-rows').innerHTML = rows.join('') || '<tr><td colspan="6" class="muted">Заявок нет</td></tr>';
 }
 
+// --- новая заявка ------------------------------------------------------------
+
+function newRequestBody() {
+  const data = new FormData($('new-form'));
+  const body = {};
+  for (const name of ['route', 'date', 'vehicles', 'cargo', 'freight', 'conditions']) {
+    body[name] = String(data.get(name) || '').trim();
+  }
+  return body;
+}
+
+function renderNewNote() {
+  if (!health) return;
+  const groups = health.activeGroups;
+  const state = DISPATCHER_TEXT[health.dispatcher] || health.dispatcher;
+  $('new-note').textContent = groups > 0
+    ? `Заявка встанет в очередь и уйдёт в ${groups} активных групп с паузами, в рабочее окно и в пределах дневного лимита. Диспетчер сейчас: ${state}.`
+    : `Активных групп сейчас нет (диспетчер: ${state}). Заявка встанет в очередь и уйдёт, когда появятся группы.`;
+}
+
+function showNewError(message) {
+  $('new-error').textContent = message;
+  $('new-error').hidden = !message;
+}
+
+async function previewNew() {
+  showNewError('');
+  try {
+    $('new-preview-text').textContent = await api('/api/admin/requests/preview', { method: 'POST', body: newRequestBody() })
+      || 'Форма пустая.';
+  } catch (error) {
+    if (error instanceof Unauthorized) handleError(error);
+    else showNewError(error.message);
+  }
+}
+
+async function submitNew(event) {
+  event.preventDefault();
+  showNewError('');
+  const groups = health ? health.activeGroups : 0;
+  const question = groups > 0
+    ? `Отправить заявку в ${groups} активных групп?`
+    : 'Активных групп сейчас нет. Поставить заявку в очередь?';
+  if (!confirm(question)) return;
+  const button = $('new-submit');
+  button.disabled = true;
+  try {
+    const created = await api('/api/admin/requests', { method: 'POST', body: newRequestBody() });
+    $('new-form').reset();
+    $('new-preview-text').textContent = created.message;
+    toast(`Заявка ${created.id} поставлена в очередь`);
+    openRequest = created.id;
+    showTab('requests');
+    refreshHealth();
+  } catch (error) {
+    if (error instanceof Unauthorized) handleError(error);
+    else showNewError(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 // --- управление --------------------------------------------------------------
 
 async function pause() {
@@ -392,6 +456,8 @@ $('request-rows').addEventListener('click', (event) => {
   openRequest = openRequest === row.dataset.id ? null : row.dataset.id;
   renderRequests();
 });
+$('new-form').addEventListener('submit', submitNew);
+$('new-preview').addEventListener('click', previewNew);
 $('btn-pause').addEventListener('click', pause);
 $('btn-resume').addEventListener('click', resume);
 $('btn-alert').addEventListener('click', testAlert);
