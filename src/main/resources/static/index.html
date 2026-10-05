@@ -117,7 +117,10 @@
           <h1>Заявки</h1>
           <p class="muted">Нажмите на заявку, чтобы увидеть текст и что ушло в каждую группу.</p>
         </div>
-        <button id="request-new" class="primary">Новая заявка</button>
+        <div class="row">
+          <button id="report-open" class="secondary">Отчёт для заказчика</button>
+          <button id="request-new" class="primary">Новая заявка</button>
+        </div>
       </div>
       <div id="request-filters" class="chips">
         <button class="chip active" data-status="">Все</button>
@@ -226,6 +229,28 @@
       <span id="picker-count" class="muted"></span>
       <button type="button" id="picker-clear" class="link">Сбросить</button>
       <button type="submit" class="primary">Готово</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Отчёт за период -->
+<dialog id="report" class="modal">
+  <form id="report-form" method="dialog" class="modal-body">
+    <h2>Отчёт для заказчика</h2>
+    <p class="muted small">Заявки за период: сколько отправлено, куда, ошибки понятными словами. Без технических номеров групп.</p>
+    <div id="report-presets" class="chips">
+      <button type="button" class="chip" data-days="0">Сегодня</button>
+      <button type="button" class="chip active" data-days="6">7 дней</button>
+      <button type="button" class="chip" data-days="29">30 дней</button>
+    </div>
+    <div class="two">
+      <label class="field">С <input id="report-from" type="date" required></label>
+      <label class="field">По <input id="report-to" type="date" required></label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="report-cancel" class="link">Закрыть</button>
+      <button type="button" id="report-xlsx" class="secondary">Скачать Excel</button>
+      <button type="button" id="report-pdf" class="primary">Скачать PDF</button>
     </div>
   </form>
 </dialog>

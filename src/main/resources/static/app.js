@@ -615,11 +615,14 @@ function renderRequests() {
       ? `отправлено ${p.sent} из ${p.total}${p.failed ? `, ошибок ${p.failed}` : ''}${p.skipped ? `, пропущено ${p.skipped}` : ''}`
       : 'ещё не начата';
     const canRetry = (r.status === 'DONE' || r.status === 'FAILED') && p.failed > 0;
-    const retry = canRetry
-      ? `<button class="secondary small" data-retry="${esc(r.id)}">Повторить в группы с ошибкой (${p.failed})</button>` : '';
+    const actions = `<div class="request-actions">
+        <button class="secondary small" data-report="${esc(r.id)}" data-format="xlsx">Отчёт Excel</button>
+        <button class="secondary small" data-report="${esc(r.id)}" data-format="pdf">Отчёт PDF</button>
+        ${canRetry ? `<button class="secondary small" data-retry="${esc(r.id)}">Повторить в группы с ошибкой (${p.failed})</button>` : ''}
+      </div>`;
     const body = openRequest === r.id ? `<div class="request-body">
         <div class="chat"><div class="bubble">${waFormat(r.message || '')}</div></div>
-        <div class="deliveries">${retry}${renderDeliveries(r.id)}</div>
+        <div class="deliveries">${actions}${renderDeliveries(r.id)}</div>
       </div>` : '';
     return `<div class="card request">
         <button class="request-head" data-id="${esc(r.id)}">
@@ -650,6 +653,62 @@ function renderDeliveries(id) {
       <span class="pill ${tone}">${esc(text)}</span>
     </div>`;
   }).join('');
+}
+
+// --- отчёты ------------------------------------------------------------------
+
+function isoDay(date) {
+  // Дата в часовом поясе сервиса, в виде 2026-10-05.
+  return date.toLocaleDateString('sv-SE', { timeZone: ZONE });
+}
+
+function setReportPreset(days) {
+  const today = new Date();
+  $('report-to').value = isoDay(today);
+  $('report-from').value = isoDay(new Date(today.getTime() - days * 86400000));
+  document.querySelectorAll('#report-presets .chip').forEach((chip) => chip.classList.toggle('active', Number(chip.dataset.days) === days));
+}
+
+function openReport() {
+  setReportPreset(6);
+  $('report').showModal();
+}
+
+function downloadPeriod(format, button) {
+  const from = $('report-from').value;
+  const to = $('report-to').value;
+  if (!from || !to) { toast('Укажите обе даты', true); return; }
+  if (to < from) { toast('Дата «по» раньше даты «с»', true); return; }
+  download(`/api/admin/reports/period?from=${from}&to=${to}&format=${format}`, `wa-report-${from}_${to}.${format}`, button);
+}
+
+// Файл скачивается через fetch: ссылка не может передать токен в заголовке.
+async function download(url, fallbackName, button) {
+  const label = button ? button.textContent : '';
+  if (button) { button.disabled = true; button.textContent = 'Готовим…'; }
+  try {
+    const response = await api(url, { raw: true });
+    if (!response.ok) {
+      let message = `Ошибка сервера (HTTP ${response.status})`;
+      try { message = (await response.json()).message || message; } catch { /* не JSON */ }
+      throw new Error(message);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = /filename\*=UTF-8''([^;]+)/i.exec(disposition) || /filename="?([^";]+)"?/i.exec(disposition);
+    const name = match ? decodeURIComponent(match[1]) : fallbackName;
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  } catch (error) {
+    handleError(error);
+  } finally {
+    if (button) { button.disabled = false; button.textContent = label; }
+  }
 }
 
 async function retryFailed(id) {
@@ -1069,6 +1128,17 @@ $('picker-clear').addEventListener('click', () => { selected.clear(); renderPick
 $('picker').addEventListener('close', () => { renderTargets(); renderGroups(); });
 
 $('request-new').addEventListener('click', () => showView('compose'));
+$('report-open').addEventListener('click', openReport);
+$('report-presets').addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (chip) setReportPreset(Number(chip.dataset.days));
+});
+['report-from', 'report-to'].forEach((id) => $(id).addEventListener('input', () => {
+  document.querySelectorAll('#report-presets .chip').forEach((chip) => chip.classList.remove('active'));
+}));
+$('report-xlsx').addEventListener('click', (event) => downloadPeriod('xlsx', event.currentTarget));
+$('report-pdf').addEventListener('click', (event) => downloadPeriod('pdf', event.currentTarget));
+$('report-cancel').addEventListener('click', () => $('report').close());
 $('request-filters').addEventListener('click', (event) => {
   const chip = event.target.closest('.chip');
   if (!chip) return;
@@ -1077,6 +1147,12 @@ $('request-filters').addEventListener('click', (event) => {
   renderRequests();
 });
 $('request-list').addEventListener('click', (event) => {
+  const report = event.target.closest('[data-report]');
+  if (report) {
+    download(`/api/admin/reports/requests/${encodeURIComponent(report.dataset.report)}?format=${report.dataset.format}`,
+      `wa-report-request-${report.dataset.report}.${report.dataset.format}`, report);
+    return;
+  }
   const retry = event.target.closest('[data-retry]');
   if (retry) { retryFailed(retry.dataset.retry); return; }
   const head = event.target.closest('.request-head');

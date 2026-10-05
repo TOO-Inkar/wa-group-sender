@@ -27,6 +27,10 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     runtimeOnly("com.h2database:h2")
 
+    // Выгрузка отчётов: Excel и PDF
+    implementation("org.apache.poi:poi-ooxml:5.4.1")
+    implementation("com.github.librepdf:openpdf:2.0.3")
+
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.google.zxing:javase:3.5.4")
 

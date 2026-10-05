@@ -67,6 +67,13 @@ public class RequestRepository {
                 .update();
     }
 
+    public List<RequestRecord> findQueuedBetween(Instant from, Instant to) {
+        return jdbc.sql("select * from request where queued_at >= ? and queued_at < ? order by queued_at, id")
+                .params(from, to)
+                .query(MAPPER)
+                .list();
+    }
+
     public Optional<RequestRecord> nextInQueue() {
         // The request already being sent goes first: a finished one put back for a retry must not cut in.
         return jdbc.sql("select * from request where status in ('QUEUED', 'SENDING') "

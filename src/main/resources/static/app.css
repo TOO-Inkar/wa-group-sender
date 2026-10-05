@@ -370,6 +370,9 @@ dialog::backdrop { background: rgba(10, 14, 20, .5); }
 .modal-actions .muted { margin-right: auto; }
 .ask-text { color: var(--muted); display: grid; gap: 8px; }
 .ask-text .chat { border-radius: 10px; min-height: 0; max-height: 240px; overflow: auto; }
+.field { display: grid; gap: 4px; font-weight: 600; font-size: 14px; }
+.request-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+
 .inline { display: flex; gap: 8px; align-items: center; font-size: 14px; }
 
 .picker-list { max-height: min(48vh, 420px); overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
