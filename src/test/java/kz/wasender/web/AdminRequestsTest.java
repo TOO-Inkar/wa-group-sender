@@ -162,4 +162,40 @@ class AdminRequestsTest extends IntegrationTest {
         assertThat(response.getBody().toString()).contains("заявка 2").contains("Дата / срочность").contains("Фрахт")
                 .doesNotContain("заявка 3");
     }
+
+    @Test
+    void rejectedGroupIsRetriedAfterTheOthersAndDoesNotCountAsRisk() throws Exception {
+        useGroups(3);
+        var rejected = "12036399000002@g.us";
+        gateway.rejectFor(rejected, 1);
+
+        admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → АСТАНА", "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
+        runUntilBlocked(500);
+
+        assertThat(sentJids()).hasSize(3).doesNotHaveDuplicates().contains(rejected);
+        assertThat(admin.requests().getFirst().progress().failed()).isZero();
+        assertThat(risk.eventsInWindow()).isZero();
+    }
+
+    @Test
+    void failedGroupsCanBeRetriedAfterTheRequestFinished() throws Exception {
+        useGroups(3);
+        var broken = "12036399000001@g.us";
+        gateway.failFor(broken);
+        admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → АСТАНА", "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
+        runUntilBlocked(500);
+        assertThat(admin.requests().getFirst().progress().failed()).isEqualTo(1);
+
+        gateway.stopFailing(broken);
+        var retried = admin.retryFailed("1");
+        assertThat(retried.getStatusCode().value()).isEqualTo(200);
+        runUntilBlocked(500);
+
+        var request = admin.requests().getFirst();
+        assertThat(request.status()).isEqualTo(RequestStatus.DONE);
+        assertThat(request.progress().sent()).isEqualTo(3);
+        assertThat(request.progress().failed()).isZero();
+        assertThat(sentJids()).hasSize(3).doesNotHaveDuplicates();
+        assertThat(admin.retryFailed("1").getStatusCode().value()).isEqualTo(409);
+    }
 }

@@ -33,6 +33,7 @@ import java.util.random.RandomGenerator;
 public class Dispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(Dispatcher.class);
+    private static final int REJECTED_RETRIES = 2;
 
     private final RequestRepository requests;
     private final DeliveryRepository deliveries;
@@ -265,6 +266,15 @@ public class Dispatcher {
                     request.id(), jid, delivery.position(), wave, typing.toMillis(), pause.toMillis(), warmup.sentToday());
         } catch (SendException e) {
             lastSendAt = Instant.now(clock);
+            if (e.rejectedByServer() && deliveries.attempts(delivery.id()) < REJECTED_RETRIES) {
+                // Server rejections (479) came in bursts while the session store was busy and went away later,
+                // so the group is tried again after the others instead of being marked failed at once.
+                deliveries.requeueLast(delivery.id(), e.getMessage(), lastSendAt);
+                log.warn("SEND request_id={} group_jid={} status=RETRY_LATER position={} wave={} error={}",
+                        request.id(), jid, delivery.position(), wave, e.getMessage());
+                afterDelivery(request, delivery);
+                return;
+            }
             deliveries.updateStatus(delivery.id(), DeliveryStatus.FAILED, e.getMessage(), lastSendAt);
             log.warn("SEND request_id={} group_jid={} status=FAILED position={} wave={} error={}", request.id(), jid, delivery.position(), wave, e.getMessage());
             if (e.groupUnavailable()) {

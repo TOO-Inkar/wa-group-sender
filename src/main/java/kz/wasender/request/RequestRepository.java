@@ -68,7 +68,9 @@ public class RequestRepository {
     }
 
     public Optional<RequestRecord> nextInQueue() {
-        return jdbc.sql("select * from request where status in ('QUEUED', 'SENDING') order by queued_at, id limit 1")
+        // The request already being sent goes first: a finished one put back for a retry must not cut in.
+        return jdbc.sql("select * from request where status in ('QUEUED', 'SENDING') "
+                        + "order by case when status = 'SENDING' then 0 else 1 end, queued_at, id limit 1")
                 .query(MAPPER)
                 .optional();
     }
@@ -81,6 +83,11 @@ public class RequestRepository {
         jdbc.sql("update request set status = 'SENDING', started_at = coalesce(started_at, ?) where id = ?")
                 .params(at, id)
                 .update();
+    }
+
+    /** A finished request goes back to the queue to retry the groups that failed. */
+    public void requeue(String id) {
+        jdbc.sql("update request set status = 'QUEUED', error = null, completed_at = null where id = ?").param(id).update();
     }
 
     public void complete(String id, RequestStatus status, String error, Instant at) {

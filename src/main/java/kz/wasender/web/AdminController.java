@@ -135,6 +135,24 @@ public class AdminController {
         return RequestView.of(request, deliveries.progress(request.id()), targets);
     }
 
+    /** Sends a finished request again to the groups where it failed; the groups it reached are not touched. */
+    @PostMapping("/requests/{id}/retry")
+    public ResponseEntity<?> retryFailed(@PathVariable String id) {
+        var request = requests.find(id).orElse(null);
+        if (request == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (request.status() == RequestStatus.QUEUED || request.status() == RequestStatus.SENDING) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "заявка ещё отправляется — повтор будет доступен после её завершения"));
+        }
+        var count = deliveries.retryFailed(id, Instant.now());
+        if (count == 0) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "в этой заявке нет групп с ошибкой"));
+        }
+        requests.requeue(id);
+        return ResponseEntity.ok(view(requests.find(id).orElseThrow()));
+    }
+
     /** What happened to the request in each group, in sending order. */
     @GetMapping("/requests/{id}/deliveries")
     public List<DeliveryView> deliveries(@PathVariable String id) {

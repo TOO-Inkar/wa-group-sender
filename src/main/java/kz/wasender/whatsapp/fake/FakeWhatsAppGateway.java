@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -29,6 +30,7 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
     private final List<SentMessage> sent = new CopyOnWriteArrayList<>();
     private final List<String> typing = new CopyOnWriteArrayList<>();
     private final Set<String> failing = ConcurrentHashMap.newKeySet();
+    private final Map<String, Integer> rejecting = new ConcurrentHashMap<>();
 
     public FakeWhatsAppGateway(FakeProperties properties, RandomGenerator random) {
         this.properties = properties;
@@ -63,6 +65,9 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         if (failing.contains(groupJid)) {
             throw new SendException("fake failure for " + groupJid, false, null);
         }
+        if (rejecting.merge(groupJid, -1, Integer::sum) >= 0) {
+            throw new SendException("server returned error 479", false, true, null);
+        }
         if (properties.failureRate() > 0 && random.nextDouble() < properties.failureRate()) {
             throw new SendException("fake random failure", false, null);
         }
@@ -90,6 +95,15 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         typing.clear();
         failing.clear();
         resetGroups();
+    }
+
+    /** The next {@code times} sends to the group are rejected by the server (error 479). */
+    public void rejectFor(String groupJid, int times) {
+        rejecting.put(groupJid, times);
+    }
+
+    public void stopFailing(String groupJid) {
+        failing.remove(groupJid);
     }
 
     public void failFor(String groupJid) {

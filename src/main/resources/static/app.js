@@ -614,9 +614,12 @@ function renderRequests() {
     const counts = p.total
       ? `отправлено ${p.sent} из ${p.total}${p.failed ? `, ошибок ${p.failed}` : ''}${p.skipped ? `, пропущено ${p.skipped}` : ''}`
       : 'ещё не начата';
+    const canRetry = (r.status === 'DONE' || r.status === 'FAILED') && p.failed > 0;
+    const retry = canRetry
+      ? `<button class="secondary small" data-retry="${esc(r.id)}">Повторить в группы с ошибкой (${p.failed})</button>` : '';
     const body = openRequest === r.id ? `<div class="request-body">
         <div class="chat"><div class="bubble">${waFormat(r.message || '')}</div></div>
-        <div class="deliveries">${renderDeliveries(r.id)}</div>
+        <div class="deliveries">${retry}${renderDeliveries(r.id)}</div>
       </div>` : '';
     return `<div class="card request">
         <button class="request-head" data-id="${esc(r.id)}">
@@ -637,10 +640,36 @@ function renderDeliveries(id) {
   const items = deliveries[id];
   if (!items) return '<span class="muted">Загрузка…</span>';
   if (!items.length) return '<span class="muted">Группы ещё не распределены: рассылка этой заявки не начиналась.</span>';
-  return items.map((d) => `<div class="delivery">
+  // PENDING с ошибкой — сервер отклонил отправку, группа ждёт повтора после остальных.
+  return items.map((d) => {
+    const retrying = d.status === 'PENDING' && d.error;
+    const text = retrying ? 'повтор позже' : (DELIVERY_TEXT[d.status] || d.status);
+    const tone = retrying ? 'warn' : (DELIVERY_TONE[d.status] || '');
+    return `<div class="delivery">
       <span class="delivery-name">${esc(d.groupName || d.groupJid)}${d.error ? `<span class="jid">${esc(d.error)}</span>` : ''}</span>
-      <span class="pill ${DELIVERY_TONE[d.status] || ''}">${esc(DELIVERY_TEXT[d.status] || d.status)}</span>
-    </div>`).join('');
+      <span class="pill ${tone}">${esc(text)}</span>
+    </div>`;
+  }).join('');
+}
+
+async function retryFailed(id) {
+  const request = requests.find((r) => r.id === id);
+  const failed = request && request.progress ? request.progress.failed : 0;
+  const ok = await ask({
+    title: `Повторить в ${plural(failed, 'группу', 'группы', 'групп')} с ошибкой?`,
+    html: '<p>Заявка снова встанет в очередь и уйдёт только в группы, где была ошибка. Где уже отправлено, повторно не придёт.</p>',
+    ok: 'Повторить',
+  });
+  if (!ok) return;
+  try {
+    await api(`/api/admin/requests/${encodeURIComponent(id)}/retry`, { method: 'POST' });
+    toast(`Заявка №${id} снова в очереди`);
+    delete deliveries[id];
+    await refreshRequests();
+    refreshHealth();
+  } catch (error) {
+    handleError(error);
+  }
 }
 
 async function toggleRequest(id) {
@@ -1048,6 +1077,8 @@ $('request-filters').addEventListener('click', (event) => {
   renderRequests();
 });
 $('request-list').addEventListener('click', (event) => {
+  const retry = event.target.closest('[data-retry]');
+  if (retry) { retryFailed(retry.dataset.retry); return; }
   const head = event.target.closest('.request-head');
   if (head) toggleRequest(head.dataset.id);
 });
