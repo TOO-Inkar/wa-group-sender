@@ -140,6 +140,7 @@ async function loadSchedule() {
     schedule = await api('/api/admin/schedule');
     renderBanner();
     renderComposeNote();
+    renderContactHint();
   } catch (error) {
     handleError(error);
   }
@@ -258,11 +259,98 @@ function renderBanner() {
 
 // --- новая заявка ------------------------------------------------------------
 
+const FIELD_VIEW = [
+  { name: 'route', title: 'Маршрут', placeholder: 'ХОРГОС → БАКУ' },
+  { name: 'date', title: 'Дата / срочность', placeholder: 'Срочно, груз готов' },
+  { name: 'vehicles', title: 'Машины и тоннаж', placeholder: '120 м³ / 5 осей — 20 т', area: 3, hint: 'Каждая строка поля — отдельная строка сообщения.' },
+  { name: 'cargo', title: 'Груз', placeholder: 'Цемент', half: true },
+  { name: 'freight', title: 'Фрахт', placeholder: '450 000 ₸', half: true },
+  { name: 'conditions', title: 'Доп. условия', placeholder: 'Необязательно, можно несколько строк', area: 2 },
+];
+
+let composeMode = 'fields';
+
+function fieldHtml(field) {
+  const required = REQUIRED[field.name] ? ' <span class="req">*</span>' : '';
+  const input = field.area
+    ? `<textarea data-field="${field.name}" rows="${field.area}" placeholder="${esc(field.placeholder)}"></textarea>`
+    : `<input data-field="${field.name}" placeholder="${esc(field.placeholder)}" autocomplete="off">`;
+  const hint = field.hint ? `<span class="hint">${esc(field.hint)}</span>` : '';
+  return `<label>${esc(field.title)}${required}${input}${hint}</label>`;
+}
+
+function itemHtml() {
+  const full = FIELD_VIEW.filter((f) => !f.half);
+  const half = FIELD_VIEW.filter((f) => f.half);
+  return `<div class="item-head"><b class="item-title"></b>
+      <button type="button" class="link small danger" data-remove>Убрать</button></div>`
+    + full.slice(0, 3).map(fieldHtml).join('')
+    + `<div class="two">${half.map(fieldHtml).join('')}</div>`
+    + full.slice(3).map(fieldHtml).join('');
+}
+
+function addItem(values = {}) {
+  const item = document.createElement('div');
+  item.className = 'item';
+  item.innerHTML = itemHtml();
+  for (const name of FIELDS) {
+    const field = item.querySelector(`[data-field=${name}]`);
+    if (typeof values[name] === 'string') field.value = values[name];
+  }
+  $('items').appendChild(item);
+  renumberItems();
+  return item;
+}
+
+function renumberItems() {
+  const items = [...document.querySelectorAll('#items .item')];
+  items.forEach((item, i) => {
+    item.querySelector('.item-title').textContent = items.length > 1 ? `Заявка ${i + 1}` : 'Заявка';
+    item.querySelector('[data-remove]').hidden = items.length === 1;
+  });
+}
+
+function itemValues(item) {
+  const values = {};
+  for (const name of FIELDS) values[name] = item.querySelector(`[data-field=${name}]`).value.trim();
+  return values;
+}
+
+function filledItems() {
+  return [...document.querySelectorAll('#items .item')]
+    .map((item) => ({ item, values: itemValues(item) }))
+    .filter(({ values }) => FIELDS.some((name) => values[name]));
+}
+
+function setComposeMode(mode) {
+  composeMode = mode;
+  document.querySelectorAll('#mode-switch button').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  $('mode-fields').hidden = mode !== 'fields';
+  $('mode-text').hidden = mode !== 'text';
+  showFormError('');
+  saveDraft();
+  schedulePreview(0);
+}
+
+// Тело запроса: готовый текст или заявки по полям (несколько уйдут одним сообщением).
 function formBody() {
-  const data = new FormData($('new-form'));
-  const body = {};
-  for (const name of FIELDS) body[name] = String(data.get(name) || '').trim();
+  if (composeMode === 'text') return { text: $('ready-text').value };
+  const body = { items: filledItems().map(({ values }) => values) };
+  const contact = $('contact').value.trim();
+  if (contact) body.contact = contact;
   return body;
+}
+
+function formIsEmpty() {
+  return composeMode === 'text' ? !$('ready-text').value.trim() : !filledItems().length;
+}
+
+function renderContactHint() {
+  const contact = schedule && schedule.contact ? schedule.contact : '';
+  $('contact').placeholder = contact || 'Не задан';
+  $('contact-hint').textContent = contact
+    ? 'Пусто — возьмётся контакт из настроек. В сообщении из нескольких заявок он будет один раз, в конце.'
+    : 'Контакт в настройках не задан: без этого поля строки с контактом не будет.';
 }
 
 function targetMode() {
@@ -334,32 +422,32 @@ function showFormError(message) {
 }
 
 function saveDraft() {
-  const body = formBody();
-  writeStore(DRAFT_KEY, FIELDS.some((name) => body[name]) ? JSON.stringify(body) : null);
+  const items = [...document.querySelectorAll('#items .item')].map(itemValues);
+  const draft = { mode: composeMode, items, text: $('ready-text').value, contact: $('contact').value };
+  const empty = !draft.text.trim() && !draft.contact.trim() && items.every((v) => FIELDS.every((name) => !v[name]));
+  writeStore(DRAFT_KEY, empty && composeMode === 'fields' ? null : JSON.stringify(draft));
 }
 
 function restoreDraft() {
+  $('items').innerHTML = '';
+  let draft = null;
   try {
-    const draft = JSON.parse(readStore(DRAFT_KEY) || 'null');
-    if (!draft) return;
-    for (const name of FIELDS) {
-      const field = $('new-form').elements[name];
-      if (field && typeof draft[name] === 'string') field.value = draft[name];
-    }
+    draft = JSON.parse(readStore(DRAFT_KEY) || 'null');
   } catch {
     writeStore(DRAFT_KEY, null);
   }
+  const items = draft && Array.isArray(draft.items) && draft.items.length ? draft.items : [{}];
+  items.forEach((values) => addItem(values || {}));
+  $('ready-text').value = draft && typeof draft.text === 'string' ? draft.text : '';
+  $('contact').value = draft && typeof draft.contact === 'string' ? draft.contact : '';
+  setComposeMode(draft && draft.mode === 'text' ? 'text' : 'fields');
 }
 
 function clearForm() {
-  for (const name of FIELDS) {
-    const field = $('new-form').elements[name];
-    field.value = '';
-    field.classList.remove('invalid');
-  }
   writeStore(DRAFT_KEY, null);
-  showFormError('');
-  schedulePreview(0);
+  const mode = composeMode;
+  restoreDraft();
+  setComposeMode(mode);
 }
 
 function schedulePreview(delay = 350) {
@@ -370,9 +458,11 @@ function schedulePreview(delay = 350) {
 async function renderPreview() {
   const body = formBody();
   const box = $('new-preview');
-  if (!FIELDS.some((name) => body[name])) {
+  if (formIsEmpty()) {
     box.className = 'bubble empty';
-    box.textContent = 'Начните заполнять форму — здесь появится сообщение.';
+    box.textContent = composeMode === 'text'
+      ? 'Вставьте текст — здесь появится сообщение.'
+      : 'Начните заполнять форму — здесь появится сообщение.';
     return;
   }
   const seq = ++previewSeq;
@@ -395,15 +485,26 @@ async function submitRequest(event) {
   event.preventDefault();
   showFormError('');
   const body = formBody();
-  const missing = [];
-  for (const [name, title] of Object.entries(REQUIRED)) {
-    const empty = !body[name];
-    $('new-form').elements[name].classList.toggle('invalid', empty);
-    if (empty) missing.push(title);
-  }
-  if (missing.length) {
-    showFormError(`Заполните: ${missing.join(', ')}.`);
+  if (formIsEmpty()) {
+    showFormError(composeMode === 'text' ? 'Вставьте текст сообщения.' : 'Заполните заявку.');
     return;
+  }
+  if (composeMode === 'fields') {
+    const filled = filledItems();
+    const problems = [];
+    filled.forEach(({ item, values }, i) => {
+      const missing = [];
+      for (const [name, title] of Object.entries(REQUIRED)) {
+        const empty = !values[name];
+        item.querySelector(`[data-field=${name}]`).classList.toggle('invalid', empty);
+        if (empty) missing.push(title);
+      }
+      if (missing.length) problems.push(filled.length > 1 ? `заявка ${i + 1}: ${missing.join(', ')}` : missing.join(', '));
+    });
+    if (problems.length) {
+      showFormError(`Заполните: ${problems.join('; ')}.`);
+      return;
+    }
   }
   const target = currentTarget();
   if (target.groups && !target.groups.length) {
@@ -419,7 +520,9 @@ async function submitRequest(event) {
   }
   const ok = await ask({
     title: target.count ? `Отправить в ${plural(target.count, 'группу', 'группы', 'групп')}?` : 'Поставить заявку в очередь?',
-    html: `<p>Куда: ${esc(target.label)}.</p><div class="chat"><div class="bubble">${waFormat(text)}</div></div>`
+    html: `<p>Куда: ${esc(target.label)}.${composeMode === 'fields' && filledItems().length > 1
+      ? ` В одном сообщении ${plural(filledItems().length, 'заявка', 'заявки', 'заявок')}.` : ''}</p>`
+      + `<div class="chat"><div class="bubble">${waFormat(text)}</div></div>`
       + (target.count ? '' : '<p>Активных групп сейчас нет: заявка уйдёт, когда они появятся.</p>'),
     ok: target.count ? 'Отправить' : 'Поставить в очередь',
   });
@@ -901,6 +1004,24 @@ $('new-form').addEventListener('input', (event) => {
   event.target.classList.remove('invalid');
   saveDraft();
   schedulePreview();
+});
+$('new-form').addEventListener('click', (event) => {
+  const remove = event.target.closest('[data-remove]');
+  if (remove) {
+    remove.closest('.item').remove();
+    renumberItems();
+    saveDraft();
+    schedulePreview(0);
+  }
+});
+$('mode-switch').addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (button && button.dataset.mode) setComposeMode(button.dataset.mode);
+});
+$('item-add').addEventListener('click', () => {
+  const item = addItem();
+  saveDraft();
+  item.querySelector('[data-field=route]').focus();
 });
 $('new-form').addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) $('new-form').requestSubmit();

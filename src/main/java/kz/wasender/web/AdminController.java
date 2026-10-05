@@ -1,6 +1,7 @@
 package kz.wasender.web;
 
 import kz.wasender.config.DispatchProperties;
+import kz.wasender.config.MessageProperties;
 import kz.wasender.dispatch.DeliveryRepository;
 import kz.wasender.dispatch.DeliveryStatus;
 import kz.wasender.dispatch.Dispatcher;
@@ -52,10 +53,12 @@ public class AdminController {
     private final GroupListRepository groupLists;
     private final GroupRepository groups;
     private final DispatchProperties dispatch;
+    private final MessageProperties message;
 
     public AdminController(Dispatcher dispatcher, RiskMonitor risk, GroupSyncService groupSync, AlertService alerts,
                            RequestRepository requests, PreviewService preview, DeliveryRepository deliveries, RequestIntake intake,
-                           GroupListRepository groupLists, GroupRepository groups, DispatchProperties dispatch) {
+                           GroupListRepository groupLists, GroupRepository groups, DispatchProperties dispatch,
+                           MessageProperties message) {
         this.dispatcher = dispatcher;
         this.risk = risk;
         this.groupSync = groupSync;
@@ -67,6 +70,7 @@ public class AdminController {
         this.groupLists = groupLists;
         this.groups = groups;
         this.dispatch = dispatch;
+        this.message = message;
     }
 
     @PostMapping("/resume")
@@ -119,7 +123,7 @@ public class AdminController {
     @PostMapping("/requests")
     public ResponseEntity<?> createRequest(@RequestBody NewRequest request) {
         try {
-            var created = intake.create(request.fields(), request.groups());
+            var created = intake.create(request.draft(), request.groups());
             return ResponseEntity.status(HttpStatus.CREATED).body(view(created));
         } catch (RequestIntake.RejectedException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
@@ -149,7 +153,8 @@ public class AdminController {
         return Map.of(
                 "windowStart", dispatch.windowStart().toString(),
                 "windowEnd", dispatch.windowEnd().toString(),
-                "weekendsEnabled", dispatch.weekendsEnabled());
+                "weekendsEnabled", dispatch.weekendsEnabled(),
+                "contact", message.contact() == null ? "" : message.contact());
     }
 
     @GetMapping("/group-lists")
@@ -173,7 +178,7 @@ public class AdminController {
 
     @PostMapping("/requests/preview")
     public ResponseEntity<String> previewRequest(@RequestBody NewRequest request) {
-        return ResponseEntity.ok().contentType(TEXT_UTF8).body(intake.preview(request.fields()));
+        return ResponseEntity.ok().contentType(TEXT_UTF8).body(intake.preview(request.draft()));
     }
 
     public record PreviewRequest(String id, Map<String, String> fields) {
@@ -182,11 +187,32 @@ public class AdminController {
     public record GroupListRequest(String name, List<String> groups) {
     }
 
+    public record Item(String route, String date, String vehicles, String cargo, String freight, String conditions) {
+
+        Map<SheetField, String> fields() {
+            return new NewRequest(route, date, vehicles, cargo, freight, conditions, null).fields();
+        }
+    }
+
     public record DeliveryView(String groupJid, String groupName, int position, DeliveryStatus status, String error) {
     }
 
+    /**
+     * A request from the admin page: either the fields of one request, or items (several requests combined into
+     * one message), or a ready text sent as is. contact overrides MESSAGE_CONTACT for this message.
+     */
     public record NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions,
-                             List<String> groups) {
+                             List<String> groups, List<Item> items, String text, String contact) {
+
+        public NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions,
+                          List<String> groups) {
+            this(route, date, vehicles, cargo, freight, conditions, groups, null, null, null);
+        }
+
+        RequestIntake.Draft draft() {
+            var rows = items == null || items.isEmpty() ? List.of(fields()) : items.stream().map(Item::fields).toList();
+            return new RequestIntake.Draft(rows, text, contact);
+        }
 
         Map<SheetField, String> fields() {
             var fields = new EnumMap<SheetField, String>(SheetField.class);

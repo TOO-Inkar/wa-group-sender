@@ -115,4 +115,51 @@ class AdminRequestsTest extends IntegrationTest {
         assertThat(admin.groupLists()).isEmpty();
         assertThat(admin.saveGroupList(new AdminController.GroupListRequest("", List.of("1@g.us"))).getStatusCode().value()).isEqualTo(400);
     }
+
+    @Test
+    void severalRequestsGoAsOneNumberedMessageWithTheContactOnce() throws Exception {
+        useGroups(2);
+        var items = List.of(
+                new AdminController.Item("КАЛЖАТ → БАКУ", "Срочно", "120 м³ / 5 осей — ⚖️ до 23 т", "Хозтовары", "🔥🔥", "⛴️ Через паром"),
+                new AdminController.Item("ХОРГОС → БАКУ", "Срочно, груз готов", "120 м³/5 осей", "Хозтовары", "🔥🔥", null));
+        var request = new AdminController.NewRequest(null, null, null, null, null, null, null, items, null, "+7 702 416 69 51 (Ернар)");
+
+        var created = (AdminController.RequestView) admin.createRequest(request).getBody();
+
+        var text = created.message();
+        assertThat(text).startsWith("1️⃣ 📍*КАЛЖАТ → БАКУ*");
+        assertThat(text).contains("\n\n━━━━━━━━━━━━━━━━━━━━\n\n2️⃣ 📍*ХОРГОС → БАКУ*");
+        assertThat(text).endsWith("📞 *+7 702 416 69 51 (Ернар)*");
+        assertThat(text.split("📞", -1)).hasSize(2);
+        assertThat(text).contains("⛴️ Через паром");
+        runUntilBlocked(500);
+        assertThat(gateway.sent()).hasSize(2).allMatch(message -> message.text().equals(text));
+    }
+
+    @Test
+    void readyTextIsSentAsIs() throws Exception {
+        useGroups(1);
+        var text = "1️⃣ 📍*ХОРГОС → МОСКВА*\n\n📐 130 м³ / 6 осей\n\n📞 *+7 702 416 69 51*";
+
+        var created = (AdminController.RequestView) admin.createRequest(
+                new AdminController.NewRequest(null, null, null, null, null, null, null, null, "\n" + text + "\n", null)).getBody();
+
+        assertThat(created.message()).isEqualTo(text);
+        runUntilBlocked(500);
+        assertThat(gateway.sent()).singleElement().satisfies(message -> assertThat(message.text()).isEqualTo(text));
+    }
+
+    @Test
+    void incompleteItemIsReportedByNumber() {
+        var items = List.of(
+                new AdminController.Item("КАЛЖАТ → БАКУ", "Срочно", "Тент", "Мука", "🔥", null),
+                new AdminController.Item("ХОРГОС → БАКУ", "", "Тент", "Мука", "", null),
+                new AdminController.Item(null, null, null, null, null, null));
+
+        var response = admin.createRequest(new AdminController.NewRequest(null, null, null, null, null, null, null, items, null, null));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody().toString()).contains("заявка 2").contains("Дата / срочность").contains("Фрахт")
+                .doesNotContain("заявка 3");
+    }
 }

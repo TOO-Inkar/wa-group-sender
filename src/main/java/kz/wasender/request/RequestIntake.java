@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -25,6 +26,7 @@ import java.util.Map;
 public class RequestIntake {
 
     private static final Logger log = LoggerFactory.getLogger(RequestIntake.class);
+    private static final int MAX_TEXT = 20_000;
 
     private final RequestRepository requests;
     private final RequestValidator validator;
@@ -49,24 +51,92 @@ public class RequestIntake {
      */
     @Transactional
     public synchronized RequestRecord create(Map<SheetField, String> fields, Collection<String> targetGroups) {
-        var row = row(fields);
-        var missing = validator.missingFields(row);
-        if (!missing.isEmpty()) {
-            throw new RejectedException("не заполнено: " + String.join(", ", missing.stream().map(SheetField::title).toList()));
-        }
+        return create(new Draft(List.of(fields), null, null), targetGroups);
+    }
+
+    @Transactional
+    public synchronized RequestRecord create(Draft draft, Collection<String> targetGroups) {
+        var rows = validate(draft);
         var targets = new LinkedHashSet<>(targetGroups == null ? List.<String>of() : targetGroups);
         var unavailable = targets.stream().filter(jid -> !groups.isSendable(jid)).toList();
         if (!unavailable.isEmpty()) {
             throw new RejectedException("в эти группы писать нельзя (номер не участник или пишут только админы): " + String.join(", ", unavailable));
         }
         var id = ids.next(List.of());
-        requests.insert(id, renderer.render(row.with(SheetField.ID, id)), Instant.now(clock), targets);
-        log.info("QUEUED request_id={} source=web targets={}", id, targets.isEmpty() ? "all-active" : targets.size());
+        requests.insert(id, message(draft, rows, id), Instant.now(clock), targets);
+        log.info("QUEUED request_id={} source=web kind={} targets={}", id, draft.isText() ? "text" : rows.size() + "-items",
+                targets.isEmpty() ? "all-active" : targets.size());
         return requests.find(id).orElseThrow();
     }
 
     public String preview(Map<SheetField, String> fields) {
         return renderer.render(row(fields));
+    }
+
+    /** The message as it will be sent, without checking that the fields are filled in. */
+    public String preview(Draft draft) {
+        if (draft.isText()) {
+            return text(draft.text());
+        }
+        var rows = draft.items().stream().map(RequestIntake::row).filter(row -> !row.isEmpty()).toList();
+        return rows.isEmpty() ? "" : message(draft, rows, null);
+    }
+
+    private List<SheetRow> validate(Draft draft) {
+        if (draft.isText()) {
+            if (text(draft.text()).length() > MAX_TEXT) {
+                throw new RejectedException("текст длиннее " + MAX_TEXT + " символов");
+            }
+            return List.of();
+        }
+        var rows = draft.items().stream().map(RequestIntake::row).filter(row -> !row.isEmpty()).toList();
+        if (rows.isEmpty()) {
+            throw new RejectedException("заявка пустая: заполните поля или вставьте готовый текст");
+        }
+        var problems = new ArrayList<String>();
+        for (var i = 0; i < rows.size(); i++) {
+            var missing = validator.missingFields(rows.get(i));
+            if (!missing.isEmpty()) {
+                var fields = String.join(", ", missing.stream().map(SheetField::title).toList());
+                problems.add(rows.size() == 1 ? "не заполнено: " + fields : "заявка " + (i + 1) + " — не заполнено: " + fields);
+            }
+        }
+        if (!problems.isEmpty()) {
+            throw new RejectedException(String.join("; ", problems));
+        }
+        return rows;
+    }
+
+    // One request keeps the old shape (numbered by its ID when MESSAGE_NUMBERING is on);
+    // several are numbered by position, separated, with the contact once at the end.
+    private String message(Draft draft, List<SheetRow> rows, String id) {
+        if (draft.isText()) {
+            return text(draft.text());
+        }
+        if (rows.size() == 1) {
+            var row = id == null ? rows.getFirst() : rows.getFirst().with(SheetField.ID, id);
+            return renderer.render(row, draft.contact());
+        }
+        return renderer.renderCombined(rows, draft.contact());
+    }
+
+    private static String text(String text) {
+        return text.replace("\r\n", "\n").replace('\r', '\n').strip();
+    }
+
+    /**
+     * What the admin page sends: several requests to combine into one message, or a ready text sent as is.
+     * contact replaces MESSAGE_CONTACT for this message when not blank.
+     */
+    public record Draft(List<Map<SheetField, String>> items, String text, String contact) {
+
+        public Draft {
+            items = items == null ? List.of() : items;
+        }
+
+        public boolean isText() {
+            return text != null && !text.isBlank();
+        }
     }
 
     private static SheetRow row(Map<SheetField, String> fields) {

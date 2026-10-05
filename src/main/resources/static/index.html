@@ -48,31 +48,30 @@
     <section id="view-compose">
       <div class="page-head">
         <h1>Новая заявка</h1>
-        <p class="muted">Заполните форму. Справа видно, как сообщение будет выглядеть в WhatsApp.</p>
+        <p class="muted">Заполните одну или несколько заявок — они уйдут одним сообщением. Или вставьте готовый текст. Справа видно, как это будет выглядеть в WhatsApp.</p>
       </div>
       <div class="compose">
         <form id="new-form" class="card form" novalidate>
-          <label>Маршрут <span class="req">*</span>
-            <input name="route" placeholder="ХОРГОС → БАКУ" autocomplete="off">
-          </label>
-          <label>Дата / срочность <span class="req">*</span>
-            <input name="date" placeholder="Срочно, груз готов" autocomplete="off">
-          </label>
-          <label>Машины и тоннаж <span class="req">*</span>
-            <textarea name="vehicles" rows="3" placeholder="120 м³ / 5 осей — 20 т"></textarea>
-            <span class="hint">Каждая строка поля — отдельная строка сообщения.</span>
-          </label>
-          <div class="two">
-            <label>Груз <span class="req">*</span>
-              <input name="cargo" placeholder="Цемент" autocomplete="off">
-            </label>
-            <label>Фрахт <span class="req">*</span>
-              <input name="freight" placeholder="450 000 ₸" autocomplete="off">
+          <div class="segmented" id="mode-switch">
+            <button type="button" class="active" data-mode="fields">По полям</button>
+            <button type="button" data-mode="text">Готовый текст</button>
+          </div>
+
+          <div id="mode-fields" class="form">
+            <div id="items" class="stack"></div>
+            <button type="button" id="item-add" class="secondary add-item">+ Добавить ещё заявку в это сообщение</button>
+            <label>Контакт в конце сообщения
+              <input id="contact" autocomplete="off">
+              <span id="contact-hint" class="hint"></span>
             </label>
           </div>
-          <label>Доп. условия
-            <textarea name="conditions" rows="2" placeholder="Необязательно"></textarea>
-          </label>
+
+          <div id="mode-text" class="form" hidden>
+            <label>Текст сообщения
+              <textarea id="ready-text" rows="16" placeholder="Вставьте готовое сообщение целиком — оно уйдёт как есть."></textarea>
+              <span class="hint">*текст* в WhatsApp станет жирным, эмодзи сохраняются.</span>
+            </label>
+          </div>
 
           <fieldset class="target">
             <legend>Куда отправить</legend>

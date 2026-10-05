@@ -27,6 +27,8 @@ public class TemplateRenderer {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([^{}\\n]+)}");
     private static final String KEYCAP = "️⃣";
+    /** Between requests combined into one message. */
+    public static final String SEPARATOR = "━━━━━━━━━━━━━━━━━━━━";
 
     private final MessageProperties properties;
     private final SheetsProperties.Columns columns;
@@ -37,12 +39,12 @@ public class TemplateRenderer {
     }
 
     public String render(SheetRow row) {
-        var values = values(row);
-        var lines = new ArrayList<String>();
-        for (var line : load().replace("\r\n", "\n").replace('\r', '\n').split("\n", -1)) {
-            lines.addAll(expand(line, values));
-        }
-        var result = collapseBlankLines(lines);
+        return render(row, null);
+    }
+
+    /** One request; contact null means the configured MESSAGE_CONTACT. */
+    public String render(SheetRow row, String contact) {
+        var result = renderLines(templateLines(), values(row, contactLines(contact)));
         if (properties.numbering() && !result.isEmpty()) {
             var id = row.get(SheetField.ID);
             if (id.matches("\\d+")) {
@@ -50,6 +52,53 @@ public class TemplateRenderer {
             }
         }
         return String.join("\n", result);
+    }
+
+    /**
+     * Several requests in one message: each is numbered by its position (1️⃣, 2️⃣…) and rendered without the
+     * contact line, they are separated by {@link #SEPARATOR}, and the contact follows once at the end.
+     */
+    public String renderCombined(List<SheetRow> rows, String contact) {
+        var template = templateLines();
+        var parts = new ArrayList<String>();
+        for (var i = 0; i < rows.size(); i++) {
+            var lines = renderLines(template.stream().filter(line -> !hasContact(line)).toList(), values(rows.get(i), List.of()));
+            if (lines.isEmpty()) {
+                continue;
+            }
+            lines.set(0, keycaps(Integer.toString(parts.size() + 1)) + " " + lines.getFirst());
+            parts.add(String.join("\n", lines));
+        }
+        var contactBlock = renderLines(template.stream().filter(TemplateRenderer::hasContact).toList(),
+                values(new SheetRow(0, Map.of()), contactLines(contact)));
+        var message = String.join("\n\n" + SEPARATOR + "\n\n", parts);
+        return contactBlock.isEmpty() ? message : message + "\n\n" + String.join("\n", contactBlock);
+    }
+
+    private List<String> templateLines() {
+        return List.of(load().replace("\r\n", "\n").replace('\r', '\n').split("\n", -1));
+    }
+
+    private List<String> renderLines(List<String> template, Map<String, List<String>> values) {
+        var lines = new ArrayList<String>();
+        for (var line : template) {
+            lines.addAll(expand(line, values));
+        }
+        return collapseBlankLines(lines);
+    }
+
+    private static boolean hasContact(String line) {
+        var matcher = PLACEHOLDER.matcher(line);
+        while (matcher.find()) {
+            if (normalize(matcher.group(1)).equals(normalize(CONTACT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<String> contactLines(String contact) {
+        return lines(contact == null || contact.isBlank() ? properties.contact() : contact);
     }
 
     private List<String> expand(String line, Map<String, List<String>> values) {
@@ -102,14 +151,14 @@ public class TemplateRenderer {
         return builder.toString();
     }
 
-    private Map<String, List<String>> values(SheetRow row) {
+    private Map<String, List<String>> values(SheetRow row, List<String> contact) {
         var values = new HashMap<String, List<String>>();
         for (var field : SheetField.CONTENT) {
             var lines = lines(row.get(field));
             values.put(normalize(field.title()), lines);
             values.put(normalize(columns.header(field)), lines);
         }
-        values.put(normalize(CONTACT), lines(properties.contact()));
+        values.put(normalize(CONTACT), contact);
         return values;
     }
 
