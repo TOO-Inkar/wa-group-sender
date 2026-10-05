@@ -102,7 +102,12 @@ func main() {
 	store.DeviceProps.RequireFullSync = proto.Bool(false)
 
 	logLevel := env("BRIDGE_LOG_LEVEL", "INFO")
-	container, err := sqlstore.New(ctx, "sqlite3", "file:"+env("BRIDGE_DB", "/data/bridge.db")+"?_foreign_keys=on&_busy_timeout=5000", waLog.Stdout("DB", "WARN", false))
+	// WAL и транзакции, сразу берущие блокировку на запись: когда сотни участников группы разом присылают
+	// retry receipt, отложенные транзакции упирались в «database is locked» — SQLite не ждёт busy_timeout,
+	// если чтение внутри транзакции пытается стать записью. Получатели тогда так и не получали сообщение.
+	dsn := "file:" + env("BRIDGE_DB", "/data/bridge.db") +
+		"?_foreign_keys=on&_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=30000&_txlock=immediate"
+	container, err := sqlstore.New(ctx, "sqlite3", dsn, waLog.Stdout("DB", "WARN", false))
 	if err != nil {
 		slog.Error("store", "err", err)
 		os.Exit(1)
@@ -544,10 +549,38 @@ func (b *bridge) handleSend(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := cli.SendMessage(r.Context(), jid, &waE2E.Message{Conversation: proto.String(req.Text)})
 	if err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unavailable": groupUnavailable(err)})
+		// Сервер отклонил само сообщение для этой группы (например, 479 smax-invalid): это не признак бана.
+		rejected := errors.Is(err, whatsmeow.ErrServerReturnedError)
+		if rejected {
+			go logRejectedGroup(cli, jid, err)
+		}
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unavailable": groupUnavailable(err), "rejected": rejected})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": resp.ID, "timestamp": resp.Timestamp})
+}
+
+// logRejectedGroup пишет свойства группы, в которую сервер не принял сообщение, чтобы найти общее у таких групп.
+func logRejectedGroup(cli *whatsmeow.Client, jid types.JID, sendErr error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	info, err := cli.GetGroupInfo(ctx, jid)
+	if err != nil {
+		slog.Warn("SEND rejected by server", "jid", jid.String(), "err", sendErr, "group_info_err", err)
+		return
+	}
+	lids, pns := 0, 0
+	for _, p := range info.Participants {
+		if p.JID.Server == types.HiddenUserServer {
+			lids++
+		} else {
+			pns++
+		}
+	}
+	slog.Warn("SEND rejected by server", "jid", jid.String(), "name", info.Name, "err", sendErr,
+		"addressing", string(info.AddressingMode), "participants", len(info.Participants), "participant_lid", lids, "participant_pn", pns,
+		"announce", info.IsAnnounce, "locked", info.IsLocked, "community", info.IsParent, "default_sub", info.IsDefaultSubGroup,
+		"linked_parent", info.LinkedParentJID.String(), "ephemeral", info.IsEphemeral, "incognito", info.IsIncognito)
 }
 
 func groupUnavailable(err error) bool {

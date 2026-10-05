@@ -271,7 +271,11 @@ public class Dispatcher {
                 groups.deactivate(jid, lastSendAt);
                 log.warn("GROUP deactivated group_jid={} reason=send-rejected", jid);
             }
-            risk.record(RiskType.SEND_FAILED, jid, request.id(), e.getMessage());
+            if (e.rejectedByServer()) {
+                log.warn("SEND request_id={} group_jid={} rejected by WhatsApp for this group, not counted as a risk signal", request.id(), jid);
+            } else {
+                risk.record(RiskType.SEND_FAILED, jid, request.id(), e.getMessage());
+            }
         }
         afterDelivery(request, delivery);
     }

@@ -112,7 +112,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
                     .toBodilessEntity();
         } catch (RestClientResponseException e) {
             var error = bridgeError(e);
-            throw new SendException(error.error(), Boolean.TRUE.equals(error.unavailable()), e);
+            throw new SendException(error.error(), Boolean.TRUE.equals(error.unavailable()), Boolean.TRUE.equals(error.rejected()), e);
         } catch (RestClientException e) {
             throw new SendException("bridge: " + e.getMessage(), false, e);
         }
@@ -200,7 +200,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
         } catch (RuntimeException ignored) {
             // not a bridge JSON body
         }
-        return new BridgeError(e.getStatusCode() + " " + e.getResponseBodyAsString(), false);
+        return new BridgeError(e.getStatusCode() + " " + e.getResponseBodyAsString(), false, false);
     }
 
     // Boxed: Jackson 3 rejects a missing field for a primitive, and the bridge omits empty ones.
@@ -213,6 +213,6 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     record Status(String state, Boolean connected) {
     }
 
-    record BridgeError(String error, Boolean unavailable) {
+    record BridgeError(String error, Boolean unavailable, Boolean rejected) {
     }
 }

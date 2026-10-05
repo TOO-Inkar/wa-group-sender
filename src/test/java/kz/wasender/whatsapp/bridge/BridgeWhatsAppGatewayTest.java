@@ -44,6 +44,19 @@ class BridgeWhatsAppGatewayTest {
     }
 
     @Test
+    void serverRejectionIsFlagged() {
+        server.expect(requestTo("http://bridge/send"))
+                .andRespond(withStatus(HttpStatus.UNPROCESSABLE_ENTITY).contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"error\":\"server returned error 479\",\"unavailable\":false,\"rejected\":true}"));
+
+        assertThatThrownBy(() -> gateway.sendText("1@g.us", "hi"))
+                .isInstanceOfSatisfying(SendException.class, e -> {
+                    assertThat(e.rejectedByServer()).isTrue();
+                    assertThat(e.groupUnavailable()).isFalse();
+                });
+    }
+
+    @Test
     void sendFailureWithoutFlagIsNotGroupUnavailable() {
         server.expect(requestTo("http://bridge/send"))
                 .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.APPLICATION_JSON)
