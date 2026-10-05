@@ -59,7 +59,7 @@ class ReportTest extends IntegrationTest {
     }
 
     @Test
-    void pdfIsBuiltForARequestAndAnEmptyPeriod() {
+    void pdfIsBuiltForARequestAndAnEmptyPeriod() throws Exception {
         useGroups(1);
         admin.createRequest(new AdminController.NewRequest("ХОРГОС → БАКУ", "Срочно", "Тент 20 т", "Мука", "🔥", null, null));
         runUntilBlocked(500);
