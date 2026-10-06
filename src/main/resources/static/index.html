@@ -59,7 +59,10 @@
 
           <div id="mode-fields" class="form">
             <div id="items" class="stack"></div>
-            <button type="button" id="item-add" class="secondary add-item">+ Добавить ещё заявку в это сообщение</button>
+            <div class="row">
+              <button type="button" id="item-add" class="secondary add-item">+ Добавить ещё заявку в это сообщение</button>
+              <button type="button" id="to-text" class="link">Редактировать как текст →</button>
+            </div>
             <label>Контакт в конце сообщения
               <input id="contact" autocomplete="off">
               <span id="contact-hint" class="hint"></span>
@@ -67,10 +70,28 @@
           </div>
 
           <div id="mode-text" class="form" hidden>
-            <label>Текст сообщения
-              <textarea id="ready-text" rows="16" placeholder="Вставьте готовое сообщение целиком — оно уйдёт как есть."></textarea>
-              <span class="hint">*текст* в WhatsApp станет жирным, эмодзи сохраняются.</span>
-            </label>
+            <div class="editor">
+              <div id="editor-toolbar" class="editor-toolbar" role="toolbar" aria-label="Форматирование">
+                <button type="button" data-wrap="*" title="Жирный (Ctrl+B)"><b>Ж</b></button>
+                <button type="button" data-wrap="_" title="Курсив (Ctrl+I)"><i>К</i></button>
+                <button type="button" data-wrap="~" title="Зачёркнутый"><s>З</s></button>
+                <button type="button" data-wrap="```" title="Моноширинный"><code>M</code></button>
+                <span class="tool-sep"></span>
+                <button type="button" id="emoji-open" title="Эмодзи и флаги" aria-expanded="false">😊 Эмодзи</button>
+                <button type="button" data-insert="separator" title="Линия-разделитель между заявками">━━ Разделитель</button>
+                <button type="button" data-insert="contact" title="Строка с контактом">📞 Контакт</button>
+                <button type="button" data-insert="skeleton" title="Заготовка одной заявки">📋 Шаблон заявки</button>
+              </div>
+              <div id="emoji-panel" class="emoji-panel" hidden>
+                <div id="emoji-tabs" class="emoji-tabs"></div>
+                <div id="emoji-grid" class="emoji-grid"></div>
+              </div>
+              <textarea id="ready-text" rows="16" aria-label="Текст сообщения" placeholder="Вставьте готовое сообщение или наберите его здесь. Выделите текст и нажмите Ж, чтобы сделать его жирным."></textarea>
+              <div class="editor-foot">
+                <span id="text-count" class="hint"></span>
+                <span class="hint">*жирный* · _курсив_ · ~зачёркнутый~ · ```моно```</span>
+              </div>
+            </div>
           </div>
 
           <fieldset class="target">

@@ -260,6 +260,25 @@ main { padding: 24px 28px 96px; max-width: 1180px; width: 100%; }
 .item-head b { font-size: 14px; }
 .add-item { justify-self: start; border-style: dashed; }
 
+.editor { border: 1px solid var(--border); border-radius: 10px; overflow: visible; background: var(--surface); position: relative; }
+.editor:focus-within { border-color: var(--accent); }
+.editor-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 6px; border-bottom: 1px solid var(--border); background: var(--surface-2); border-radius: 10px 10px 0 0; }
+.editor-toolbar button { padding: 5px 10px; font-size: 14px; border-radius: 6px; color: var(--text); }
+.editor-toolbar button:hover, .editor-toolbar button[aria-expanded="true"] { background: var(--surface); box-shadow: var(--shadow); }
+.editor-toolbar code { font-family: ui-monospace, Menlo, Consolas, monospace; background: none; padding: 0; }
+.tool-sep { width: 1px; background: var(--border); margin: 4px 4px; }
+.editor textarea { border: none; border-radius: 0 0 10px 10px; min-height: 320px; font-size: 15px; line-height: 1.5; }
+.editor textarea:focus-visible { outline: none; }
+.editor-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; padding: 6px 10px; border-top: 1px solid var(--border); }
+.emoji-panel { position: absolute; left: 6px; right: 6px; top: 46px; z-index: 5; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(16, 24, 40, .22); padding: 8px; display: grid; gap: 6px; }
+.emoji-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.emoji-tabs button { padding: 4px 10px; font-size: 13px; border-radius: 999px; color: var(--muted); }
+.emoji-tabs button.active { background: var(--accent-soft); color: var(--ok-text); font-weight: 600; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 2px; max-height: 220px; overflow: auto; }
+.emoji-grid button { font-size: 22px; line-height: 1; padding: 6px 0; border-radius: 8px; }
+.emoji-grid button:hover { background: var(--surface-2); }
+.bubble code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; }
+
 .target { border: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
 .target legend { font-weight: 600; font-size: 14px; padding: 0; margin-bottom: 6px; }
 .form label.option {

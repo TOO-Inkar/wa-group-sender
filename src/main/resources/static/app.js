@@ -439,6 +439,7 @@ function restoreDraft() {
   const items = draft && Array.isArray(draft.items) && draft.items.length ? draft.items : [{}];
   items.forEach((values) => addItem(values || {}));
   $('ready-text').value = draft && typeof draft.text === 'string' ? draft.text : '';
+  updateCount();
   $('contact').value = draft && typeof draft.contact === 'string' ? draft.contact : '';
   setComposeMode(draft && draft.mode === 'text' ? 'text' : 'fields');
 }
@@ -476,9 +477,133 @@ async function renderPreview() {
   }
 }
 
-// WhatsApp показывает *текст* жирным; остальная разметка остаётся как есть.
+// Разметка WhatsApp: ```моно```, *жирный*, _курсив_, ~зачёркнутый~. Как в самом WhatsApp, знак работает, если
+// снаружи к нему не прилегает буква или цифра, а внутри он касается текста: «📍*ХОРГОС*» жирный, «3 * 4» и snake_case — нет.
 function waFormat(text) {
-  return esc(text).replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+  const inline = (source, mark, tag) => {
+    const m = mark === '*' ? '\\*' : mark;
+    const re = new RegExp(`(?<![\\p{L}\\p{N}])${m}(?=\\S)([^\\n]*?\\S)${m}(?![\\p{L}\\p{N}])`, 'gu');
+    return source.replace(re, `<${tag}>$1</${tag}>`);
+  };
+  let html = esc(text).replace(/```([\s\S]+?)```/g, '<code>$1</code>');
+  html = inline(html, '*', 'b');
+  html = inline(html, '_', 'i');
+  html = inline(html, '~', 's');
+  return html;
+}
+
+// --- редактор готового текста -------------------------------------------------
+
+const EMOJI = {
+  'Заявка': ['📍', '📅', '✅', '🚛', '🚚', '🚐', '📦', '💰', '💵', '📞', '☎️', '⛴️', '🚢', '🚂', '✈️', '🛃', '⚖️', '📐', '📏',
+    '🔥', '⚡️', '⚠️', '❗️', '‼️', '⏰', '🗓️', '📋', '📝', '🧾', '➡️', '↔️', '🔁', '🌍', '🗺️', '🏭', '🧱', '🛢️', '❄️', '🌡️',
+    '🔒', '📌', '⭐', '🌟', '✨', '💫', '🟢', '🔴', '🟡', '⚪'],
+  'Флаги': ['🇨🇳', '🇰🇿', '🇷🇺', '🇺🇿', '🇰🇬', '🇹🇯', '🇹🇲', '🇦🇿', '🇬🇪', '🇦🇲', '🇧🇾', '🇺🇦', '🇹🇷', '🇮🇷', '🇦🇫', '🇲🇳', '🇪🇺',
+    '🇩🇪', '🇵🇱', '🇱🇹', '🇱🇻', '🇪🇪', '🇳🇱', '🇧🇪', '🇫🇷', '🇮🇹', '🇪🇸', '🇨🇿', '🇬🇧', '🇦🇪', '🇮🇳', '🇵🇰', '🇰🇷', '🇯🇵', '🇺🇸'],
+  'Цифры': ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '#️⃣', '🔢'],
+  'Прочее': ['👍', '👌', '🙏', '🤝', '💪', '👉', '👈', '👇', '☝️', '✋', '😊', '🙂', '😉', '🔔', '📣', '📢', '💬', '✍️',
+    '🎯', '🏁', '💯', '🆕', '🆓', '🔝', '⬆️', '⬇️'],
+};
+let emojiTab = 'Заявка';
+
+function editor() {
+  return $('ready-text');
+}
+
+function afterEdit() {
+  updateCount();
+  saveDraft();
+  schedulePreview();
+}
+
+function updateCount() {
+  const text = editor().value;
+  const chars = [...text].length;
+  const lines = text ? text.split('\n').length : 0;
+  $('text-count').textContent = `${chars} ${plural(chars, 'символ', 'символа', 'символов').split(' ')[1]} · ${plural(lines, 'строка', 'строки', 'строк')}`;
+}
+
+function insertText(text) {
+  const area = editor();
+  area.focus();
+  const { selectionStart: start, selectionEnd: end, value } = area;
+  area.value = value.slice(0, start) + text + value.slice(end);
+  area.selectionStart = area.selectionEnd = start + text.length;
+  afterEdit();
+}
+
+// Оборачивает выделение в знаки форматирования. Пробелы по краям выделения остаются снаружи, иначе WhatsApp
+// не распознает разметку; несколько строк оборачиваются построчно, кроме моноширинного блока.
+function wrapSelection(mark) {
+  const area = editor();
+  area.focus();
+  const { selectionStart: start, selectionEnd: end, value } = area;
+  const selected = value.slice(start, end);
+  if (!selected) {
+    area.value = value.slice(0, start) + mark + mark + value.slice(end);
+    area.selectionStart = area.selectionEnd = start + mark.length;
+    afterEdit();
+    return;
+  }
+  const wrapOne = (part) => {
+    const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(part);
+    if (!match[2]) return part;
+    const inner = match[2];
+    const already = inner.startsWith(mark) && inner.endsWith(mark) && inner.length > mark.length * 2;
+    return match[1] + (already ? inner.slice(mark.length, -mark.length) : mark + inner + mark) + match[3];
+  };
+  const wrapped = mark === '```' ? wrapOne(selected) : selected.split('\n').map(wrapOne).join('\n');
+  area.value = value.slice(0, start) + wrapped + value.slice(end);
+  area.selectionStart = start;
+  area.selectionEnd = start + wrapped.length;
+  afterEdit();
+}
+
+async function insertSnippet(kind) {
+  const area = editor();
+  const before = area.value.slice(0, area.selectionStart);
+  const lead = before && !before.endsWith('\n') ? '\n' : '';
+  if (kind === 'separator') {
+    insertText(`${lead}\n━━━━━━━━━━━━━━━━━━━━\n\n`);
+  } else if (kind === 'skeleton') {
+    insertText(`${lead}📍*МАРШРУТ*\n\n📅 *Дата / срочность*✅\n\n🚛 Машины и тоннаж\n\n📦 Груз\n💰 Фрахт \n`);
+  } else if (kind === 'contact') {
+    let contact = schedule && schedule.contact ? schedule.contact : '';
+    if (!contact) {
+      contact = await ask({ title: 'Контакт', html: '<p>Контакт в настройках не задан. Введите его для этого сообщения.</p>',
+        input: 'Имя +7 7xx xxx xx xx', ok: 'Вставить' });
+      if (!contact) return;
+    }
+    insertText(`${lead}\n📞 *${contact}*`);
+  }
+}
+
+function renderEmoji() {
+  $('emoji-tabs').innerHTML = Object.keys(EMOJI)
+    .map((tab) => `<button type="button" data-tab="${esc(tab)}" class="${tab === emojiTab ? 'active' : ''}">${esc(tab)}</button>`).join('');
+  $('emoji-grid').innerHTML = EMOJI[emojiTab].map((e) => `<button type="button" data-emoji="${esc(e)}" title="${esc(e)}">${e}</button>`).join('');
+}
+
+function toggleEmoji(open) {
+  const show = open ?? $('emoji-panel').hidden;
+  $('emoji-panel').hidden = !show;
+  $('emoji-open').setAttribute('aria-expanded', String(show));
+  if (show) renderEmoji();
+}
+
+// Сообщение, собранное из полей, переходит в редактор для ручной правки.
+async function fieldsToText() {
+  if (formIsEmpty()) { showFormError('Сначала заполните заявку.'); return; }
+  try {
+    const text = await api('/api/admin/requests/preview', { method: 'POST', body: formBody() });
+    if ($('ready-text').value.trim() && !(await ask({ title: 'Заменить текст в редакторе?',
+      html: '<p>В режиме «Готовый текст» уже есть сообщение. Оно заменится собранным из полей.</p>', ok: 'Заменить' }))) return;
+    $('ready-text').value = text;
+    setComposeMode('text');
+    updateCount();
+  } catch (error) {
+    handleError(error);
+  }
 }
 
 async function submitRequest(event) {
@@ -1102,6 +1227,33 @@ $('new-form').addEventListener('click', (event) => {
     schedulePreview(0);
   }
 });
+$('editor-toolbar').addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  if (button.dataset.wrap) wrapSelection(button.dataset.wrap);
+  else if (button.dataset.insert) insertSnippet(button.dataset.insert);
+  else if (button.id === 'emoji-open') toggleEmoji();
+});
+$('emoji-panel').addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  if (button.dataset.tab) { emojiTab = button.dataset.tab; renderEmoji(); return; }
+  if (button.dataset.emoji) insertText(button.dataset.emoji);
+});
+document.addEventListener('click', (event) => {
+  if (!$('emoji-panel').hidden && !event.target.closest('#emoji-panel, #emoji-open')) toggleEmoji(false);
+});
+$('ready-text').addEventListener('keydown', (event) => {
+  if (!(event.ctrlKey || event.metaKey)) {
+    if (event.key === 'Escape') toggleEmoji(false);
+    return;
+  }
+  const key = event.key.toLowerCase();
+  if (key === 'b' || key === 'и') { event.preventDefault(); wrapSelection('*'); }
+  if (key === 'i' || key === 'ш') { event.preventDefault(); wrapSelection('_'); }
+});
+$('ready-text').addEventListener('input', updateCount);
+$('to-text').addEventListener('click', fieldsToText);
 $('mode-switch').addEventListener('click', (event) => {
   const button = event.target.closest('button');
   if (button && button.dataset.mode) setComposeMode(button.dataset.mode);
