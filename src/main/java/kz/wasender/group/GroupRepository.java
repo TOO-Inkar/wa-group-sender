@@ -61,7 +61,7 @@ public class GroupRepository {
                         merge into wa_group(jid, name, archived, member, can_send, active, last_sync, participants, community, too_large)
                         key (jid) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
                 .params(group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.eligible() && !tooLarge, at,
-                        group.participants(), group.community(), tooLarge)
+                        group.participants(), group.isCommunity(), tooLarge)
                 .update();
     }
 
