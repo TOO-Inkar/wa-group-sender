@@ -232,6 +232,7 @@ docker compose up -d
 | Пороги риска | `RISK_WINDOW`, `RISK_WARN_THRESHOLD`, `RISK_CRITICAL_THRESHOLD`, `RISK_PAUSE_MULTIPLIER` |
 | Опрос таблицы | `SHEETS_POLL_INTERVAL`, `SHEETS_PROGRESS_FLUSH_INTERVAL` |
 | Синхронизация групп | `GROUPS_SYNC_INTERVAL` |
+| Предел размера группы для рассылки | `GROUPS_MAX_PARTICIPANTS=700` (0 — без предела): сервер отклоняет отправку в большие группы с ошибкой 479 |
 | Получатели алертов | `TELEGRAM_CHAT_IDS` |
 
 Длительности пишутся как `30s`, `10m`, `1h`, `500ms`. Что не влезло в окно или суточный лимит, продолжится со следующей группы в следующее окно / сутки. Ориентир с дефолтами: одна заявка на 250 групп — около 5 часов.

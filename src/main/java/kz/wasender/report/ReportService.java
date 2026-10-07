@@ -165,7 +165,13 @@ public class ReportService {
             return null;
         }
         var text = error == null ? "" : error.toLowerCase(Locale.ROOT);
-        if (text.contains("479") || text.contains("server returned error")) {
+        if (text.contains("479")) {
+            return "WhatsApp не принимает рассылку в группы такого размера";
+        }
+        if (text.contains("420")) {
+            return "в сообщество писать нельзя, только в его группу объявлений";
+        }
+        if (text.contains("server returned error")) {
             return "WhatsApp отклонил сообщение";
         }
         if (text.contains("not participating") || text.contains("forbidden") || text.contains("403") || text.contains("not-authorized")) {

@@ -58,19 +58,6 @@ public class DeliveryRepository {
                 .update();
     }
 
-    public int attempts(long id) {
-        return jdbc.sql("select attempts from delivery where id = ?").param(id).query(Integer.class).single();
-    }
-
-    /** Puts a rejected send back as pending at the end of the request, so it is retried after the other groups. */
-    public void requeueLast(long id, String error, Instant at) {
-        var requestId = jdbc.sql("select request_id from delivery where id = ?").param(id).query(String.class).single();
-        var last = jdbc.sql("select max(position) from delivery where request_id = ?").param(requestId).query(Integer.class).single();
-        jdbc.sql("update delivery set status = 'PENDING', attempts = attempts + 1, position = ?, error = ?, updated_at = ? where id = ?")
-                .params(last + 1, truncate(error), at, id)
-                .update();
-    }
-
     /** Puts every failed send of the request back as pending; returns how many. */
     public int retryFailed(String requestId, Instant at) {
         return jdbc.sql("update delivery set status = 'PENDING', attempts = 0, error = null, updated_at = ? where request_id = ? and status = 'FAILED'")

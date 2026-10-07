@@ -18,7 +18,10 @@ public class GroupRepository {
             (Boolean) rs.getObject("member"),
             (Boolean) rs.getObject("can_send"),
             rs.getBoolean("active"),
-            rs.getObject("last_sync", Instant.class));
+            rs.getObject("last_sync", Instant.class),
+            (Integer) rs.getObject("participants"),
+            rs.getBoolean("community"),
+            rs.getBoolean("too_large"));
 
     private final JdbcClient jdbc;
 
@@ -44,12 +47,21 @@ public class GroupRepository {
 
     /** The number is in the group and may write there; unlike active, the group need not be archived. */
     public boolean isSendable(String jid) {
-        return jdbc.sql("select count(*) from wa_group where jid = ? and member and can_send").param(jid).query(Integer.class).single() > 0;
+        return jdbc.sql("select count(*) from wa_group where jid = ? and member and can_send and not community and not too_large")
+                .param(jid).query(Integer.class).single() > 0;
     }
 
     public void upsert(GroupInfo group, Instant at) {
-        jdbc.sql("merge into wa_group(jid, name, archived, member, can_send, active, last_sync) key (jid) values (?, ?, ?, ?, ?, ?, ?)")
-                .params(group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.eligible(), at)
+        upsert(group, false, at);
+    }
+
+    /** Stores the group; it takes part in the dispatch when eligible and not too large. */
+    public void upsert(GroupInfo group, boolean tooLarge, Instant at) {
+        jdbc.sql("""
+                        merge into wa_group(jid, name, archived, member, can_send, active, last_sync, participants, community, too_large)
+                        key (jid) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+                .params(group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.eligible() && !tooLarge, at,
+                        group.participants(), group.community(), tooLarge)
                 .update();
     }
 

@@ -405,11 +405,13 @@ func (b *bridge) handleEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 type groupDTO struct {
-	JID      string `json:"jid"`
-	Name     string `json:"name"`
-	Archived bool   `json:"archived"`
-	Member   bool   `json:"member"`
-	CanSend  bool   `json:"canSend"`
+	JID          string `json:"jid"`
+	Name         string `json:"name"`
+	Archived     bool   `json:"archived"`
+	Member       bool   `json:"member"`
+	CanSend      bool   `json:"canSend"`
+	Participants int    `json:"participants"`
+	Community    bool   `json:"community"`
 }
 
 func (b *bridge) handleGroups(w http.ResponseWriter, r *http.Request) {
@@ -447,12 +449,19 @@ func (b *bridge) handleGroups(w http.ResponseWriter, r *http.Request) {
 		if settings.Archived {
 			archived++
 		}
+		participants := len(g.Participants)
+		if g.ParticipantCount > participants {
+			participants = g.ParticipantCount
+		}
 		out = append(out, groupDTO{
 			JID:      g.JID.String(),
 			Name:     g.Name,
 			Archived: settings.Archived,
 			Member:   true,
-			CanSend:  !g.IsAnnounce || admin,
+			// В само сообщество писать нельзя (сервер отвечает 420), только в его группу объявлений.
+			CanSend:      !g.IsParent && (!g.IsAnnounce || admin),
+			Participants: participants,
+			Community:    g.IsParent,
 		})
 	}
 	slog.Info("GROUPS listed", "total", len(out), "archived", archived)
@@ -549,9 +558,12 @@ func (b *bridge) handleSend(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := cli.SendMessage(r.Context(), jid, &waE2E.Message{Conversation: proto.String(req.Text)})
 	if err != nil {
-		// Сервер отклонил само сообщение для этой группы (например, 479 smax-invalid): это не признак бана.
-		rejected := errors.Is(err, whatsmeow.ErrServerReturnedError)
-		if rejected {
+		// 479 (smax-invalid) сервер возвращает для групп примерно от 700 участников: whatsmeow кладёт ключ группы
+		// для каждого устройства каждого участника в один пакет. Это свойство группы, а не признак бана.
+		// Остальные коды (например, 420) не разобраны, поэтому остаются обычной ошибкой и сигналом риска.
+		serverError := errors.Is(err, whatsmeow.ErrServerReturnedError)
+		rejected := serverError && strings.HasSuffix(err.Error(), " 479")
+		if serverError {
 			go logRejectedGroup(cli, jid, err)
 		}
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unavailable": groupUnavailable(err), "rejected": rejected})

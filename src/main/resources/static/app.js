@@ -873,7 +873,7 @@ async function toggleRequest(id) {
 
 // Отметить можно только группу, куда номер может писать; архив для этого не обязателен.
 function sendable(group) {
-  return group.member === true && group.canSend === true;
+  return group.member === true && group.canSend === true && !group.community && !group.tooLarge;
 }
 
 function matches(group, query) {
@@ -894,9 +894,14 @@ function groupTags(group) {
   const tags = [];
   if (group.active) tags.push('<span class="pill ok">в рассылке</span>');
   else if (!group.archived) tags.push('<span class="pill">не в архиве</span>');
-  if (group.member === false) tags.push('<span class="pill bad">номер не в группе</span>');
+  if (group.community) tags.push('<span class="pill warn" title="В само сообщество писать нельзя, только в его группу объявлений">сообщество</span>');
+  else if (group.member === false) tags.push('<span class="pill bad">номер не в группе</span>');
   else if (group.canSend === false) tags.push('<span class="pill warn">пишут только админы</span>');
   else if (group.member == null || group.canSend == null) tags.push('<span class="pill">не проверена</span>');
+  if (group.tooLarge) {
+    tags.push('<span class="pill bad" title="WhatsApp отклоняет отправку в группы такого размера (ошибка 479)">слишком большая</span>');
+  }
+  if (group.participants != null) tags.push(`<span class="pill">${esc(plural(group.participants, 'участник', 'участника', 'участников'))}</span>`);
   return tags.join('');
 }
 
@@ -918,6 +923,7 @@ function renderGroups() {
     writable: (g) => sendable(g),
     unarchived: (g) => !g.archived,
     noname: (g) => !g.name,
+    blocked: (g) => g.community || g.tooLarge,
     selected: (g) => selected.has(g.jid),
   };
   const shown = sortGroups(groups.filter(filters[groupFilter] || filters.all).filter((g) => matches(g, query)));

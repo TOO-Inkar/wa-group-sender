@@ -59,13 +59,16 @@ public class GroupSyncService {
             var previous = before.get(fetchedGroup.jid());
             var group = named(fetchedGroup, previous);
             seen.add(group.jid());
-            groups.upsert(group, now);
+            var tooLarge = tooLarge(group);
+            var active = group.eligible() && !tooLarge;
+            groups.upsert(group, tooLarge, now);
             if (previous == null) {
-                log.info("GROUP added group_jid={} name=\"{}\" archived={} member={} can_send={} active={}",
-                        group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.eligible());
-            } else if (previous.active() != group.eligible()) {
-                log.info("GROUP {} group_jid={} name=\"{}\" archived={} member={} can_send={}",
-                        group.eligible() ? "activated" : "deactivated", group.jid(), group.name(), group.archived(), group.member(), group.canSend());
+                log.info("GROUP added group_jid={} name=\"{}\" archived={} member={} can_send={} participants={} community={} active={}",
+                        group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.participants(), group.community(), active);
+            } else if (previous.active() != active) {
+                log.info("GROUP {} group_jid={} name=\"{}\" archived={} member={} can_send={} participants={} community={} too_large={}",
+                        active ? "activated" : "deactivated", group.jid(), group.name(), group.archived(), group.member(), group.canSend(),
+                        group.participants(), group.community(), tooLarge);
             } else if (previous.name() != null && !previous.name().equals(group.name())) {
                 log.info("GROUP renamed group_jid={} from=\"{}\" to=\"{}\"", group.jid(), previous.name(), group.name());
             }
@@ -88,7 +91,12 @@ public class GroupSyncService {
         if (!blank || previous == null || previous.name() == null || previous.name().isBlank()) {
             return group;
         }
-        return new GroupInfo(group.jid(), previous.name(), group.archived(), group.member(), group.canSend());
+        return new GroupInfo(group.jid(), previous.name(), group.archived(), group.member(), group.canSend(), group.participants(),
+                group.community());
+    }
+
+    private boolean tooLarge(GroupInfo group) {
+        return properties.maxParticipants() > 0 && group.participants() != null && group.participants() > properties.maxParticipants();
     }
 
     public void syncQuietly() {
