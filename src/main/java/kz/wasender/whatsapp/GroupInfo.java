@@ -9,7 +9,7 @@ public record GroupInfo(String jid, String name, boolean archived, Boolean membe
                         Boolean community) {
 
     public GroupInfo(String jid, String name, boolean archived, Boolean member, Boolean canSend) {
-        this(jid, name, archived, member, canSend, null, false);
+        this(jid, name, archived, member, canSend, null, null);
     }
 
     public boolean isCommunity() {
