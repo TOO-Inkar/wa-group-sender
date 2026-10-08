@@ -67,7 +67,7 @@ app:
   groups:
     sync-interval: ${GROUPS_SYNC_INTERVAL:1h}
     initial-sync-delay: ${GROUPS_INITIAL_SYNC_DELAY:60s}
-    max-participants: ${GROUPS_MAX_PARTICIPANTS:700}
+    max-participants: ${GROUPS_MAX_PARTICIPANTS:0}
   dispatch:
     autostart: ${DISPATCH_AUTOSTART:true}
     wave-size: ${DISPATCH_WAVE_SIZE:25}

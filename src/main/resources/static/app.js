@@ -873,7 +873,7 @@ async function toggleRequest(id) {
 
 // Отметить можно только группу, куда номер может писать; архив для этого не обязателен.
 function sendable(group) {
-  return group.member === true && group.canSend === true && !group.community && !group.tooLarge;
+  return group.member === true && group.canSend === true && !group.community && !group.tooLarge && !group.rejected;
 }
 
 function matches(group, query) {
@@ -898,8 +898,14 @@ function groupTags(group) {
   else if (group.member === false) tags.push('<span class="pill bad">номер не в группе</span>');
   else if (group.canSend === false) tags.push('<span class="pill warn">пишут только админы</span>');
   else if (group.member == null || group.canSend == null) tags.push('<span class="pill">не проверена</span>');
+  if (group.rejected) {
+    tags.push('<span class="pill bad" title="WhatsApp дважды подряд отклонил отправку в эту группу (ошибка 479)">WhatsApp отклоняет</span>');
+    tags.push(`<button class="link small" data-reset="${esc(group.jid)}" title="Попробовать снова в следующей рассылке">вернуть в рассылку</button>`);
+  } else if (group.rejectedCount > 0) {
+    tags.push('<span class="pill warn" title="Последняя отправка отклонена WhatsApp (ошибка 479); после второго отказа подряд группа выйдет из рассылки">был отказ</span>');
+  }
   if (group.tooLarge) {
-    tags.push('<span class="pill bad" title="WhatsApp отклоняет отправку в группы такого размера (ошибка 479)">слишком большая</span>');
+    tags.push('<span class="pill bad" title="Больше участников, чем задано в GROUPS_MAX_PARTICIPANTS">больше лимита</span>');
   }
   if (group.participants != null) tags.push(`<span class="pill">${esc(plural(group.participants, 'участник', 'участника', 'участников'))}</span>`);
   return tags.join('');
@@ -923,7 +929,7 @@ function renderGroups() {
     writable: (g) => sendable(g),
     unarchived: (g) => !g.archived,
     noname: (g) => !g.name,
-    blocked: (g) => g.community || g.tooLarge,
+    blocked: (g) => g.community || g.tooLarge || g.rejected,
     selected: (g) => selected.has(g.jid),
   };
   const shown = sortGroups(groups.filter(filters[groupFilter] || filters.all).filter((g) => matches(g, query)));
@@ -1324,6 +1330,18 @@ $('group-filters').addEventListener('click', (event) => {
   groupFilter = chip.dataset.filter;
   setChip('group-filters', 'filter', groupFilter);
   renderGroups();
+});
+$('group-rows').addEventListener('click', async (event) => {
+  const reset = event.target.closest('[data-reset]');
+  if (!reset) return;
+  try {
+    await api(`/api/admin/groups/reset-rejections?jid=${encodeURIComponent(reset.dataset.reset)}`, { method: 'POST' });
+    toast('Группа вернётся в рассылку со следующей заявки');
+    await refreshGroups();
+    refreshHealth();
+  } catch (error) {
+    handleError(error);
+  }
 });
 $('group-rows').addEventListener('change', (event) => {
   if (!event.target.dataset.jid) return;

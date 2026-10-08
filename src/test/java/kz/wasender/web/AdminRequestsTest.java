@@ -178,21 +178,41 @@ class AdminRequestsTest extends IntegrationTest {
     }
 
     @Test
-    void largeGroupsAndCommunitiesStayOutOfTheDispatch() throws Exception {
+    void largeGroupsStayInButCommunitiesStayOut() throws Exception {
         gateway.replaceGroups(List.of(
                 new GroupInfo("120363000000001@g.us", "Обычная", true, true, true, 300, false),
-                new GroupInfo("120363000000002@g.us", "Огромная", true, true, true, 900, false),
+                new GroupInfo("120363000000002@g.us", "Большая", true, true, true, 900, false),
                 new GroupInfo("120363000000003@g.us", "Сообщество", true, true, true, 6, true)));
         groupSync.sync();
-
-        var huge = admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → АСТАНА", "Завтра", "Тент 20 т", "Мука", "🔥", null,
-                List.of("120363000000002@g.us")));
-        assertThat(huge.getStatusCode().value()).isEqualTo(400);
 
         admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → АСТАНА", "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
         runUntilBlocked(500);
 
-        assertThat(sentJids()).containsExactly("120363000000001@g.us");
+        assertThat(sentJids()).containsExactlyInAnyOrder("120363000000001@g.us", "120363000000002@g.us");
+    }
+
+    @Test
+    void groupRejectedTwiceInARowLeavesTheDispatchUntilReset() throws Exception {
+        useGroups(2);
+        var stubborn = "12036399000001@g.us";
+        gateway.rejectFor(stubborn, 2);
+        for (var i = 0; i < 2; i++) {
+            admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → АСТАНА " + i, "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
+            runUntilBlocked(500);
+        }
+        assertThat(sentJids()).doesNotContain(stubborn);
+        groupSync.sync();
+
+        admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → БАКУ", "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
+        runUntilBlocked(500);
+        assertThat(admin.requests().stream().filter(r -> r.message().contains("БАКУ")).findFirst().orElseThrow().progress().total())
+                .isEqualTo(1);
+
+        assertThat(admin.resetRejections(stubborn).getStatusCode().value()).isEqualTo(200);
+        admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → МОСКВА", "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
+        runUntilBlocked(500);
+        assertThat(sentJids()).contains(stubborn);
+        assertThat(risk.eventsInWindow()).isZero();
     }
 
     @Test

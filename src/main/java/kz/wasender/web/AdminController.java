@@ -90,6 +90,14 @@ public class AdminController {
         return Map.of("paused", true);
     }
 
+    /** Puts a group that WhatsApp kept rejecting back into the dispatch, e.g. after its settings changed. */
+    @PostMapping("/groups/reset-rejections")
+    public ResponseEntity<?> resetRejections(@org.springframework.web.bind.annotation.RequestParam String jid) {
+        return groups.resetRejections(jid, Instant.now())
+                ? ResponseEntity.ok(Map.of("jid", jid))
+                : ResponseEntity.notFound().build();
+    }
+
     @PostMapping("/groups/sync")
     public GroupSyncService.SyncResult syncGroups() {
         return groupSync.sync();

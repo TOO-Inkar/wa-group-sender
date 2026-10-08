@@ -260,6 +260,7 @@ public class Dispatcher {
             gateway.sendText(jid, request.message());
             lastSendAt = Instant.now(clock);
             deliveries.updateStatus(delivery.id(), DeliveryStatus.SENT, null, lastSendAt);
+            groups.clearRejections(jid);
             gateway.sendTyping(jid, false);
             log.info("SEND request_id={} group_jid={} status=SENT position={} wave={} typing_ms={} pause_ms={} sent_today={}",
                     request.id(), jid, delivery.position(), wave, typing.toMillis(), pause.toMillis(), warmup.sentToday());
@@ -272,9 +273,12 @@ public class Dispatcher {
                 log.warn("GROUP deactivated group_jid={} reason=send-rejected", jid);
             }
             if (e.rejectedByServer()) {
-                // 479 comes back for the same large groups every time, so it is neither retried nor a risk signal;
-                // GROUPS_MAX_PARTICIPANTS keeps such groups out of the dispatch once their size is known.
-                log.warn("SEND request_id={} group_jid={} rejected by WhatsApp for this group (too large), not a risk signal", request.id(), jid);
+                // 479 comes back for the same groups request after request; it is about the group, not the number,
+                // so it is not a risk signal. After two in a row the group leaves the dispatch.
+                log.warn("SEND request_id={} group_jid={} rejected by WhatsApp for this group, not a risk signal", request.id(), jid);
+                if (groups.recordRejection(jid, lastSendAt)) {
+                    log.warn("GROUP excluded group_jid={} reason=rejected-by-whatsapp-twice", jid);
+                }
             } else {
                 risk.record(RiskType.SEND_FAILED, jid, request.id(), e.getMessage());
             }

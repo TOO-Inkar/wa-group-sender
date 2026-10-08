@@ -60,8 +60,9 @@ public class GroupSyncService {
             var group = named(fetchedGroup, previous);
             seen.add(group.jid());
             var tooLarge = tooLarge(group);
-            var active = group.eligible() && !tooLarge;
-            groups.upsert(group, tooLarge, now);
+            var rejected = previous != null && previous.rejected();
+            var active = group.eligible() && !tooLarge && !rejected;
+            groups.upsert(group, tooLarge, rejected, now);
             if (previous == null) {
                 log.info("GROUP added group_jid={} name=\"{}\" archived={} member={} can_send={} participants={} community={} active={}",
                         group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.participants(), group.community(), active);
