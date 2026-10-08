@@ -30,6 +30,15 @@ public class WarmupService {
     }
 
     public Integer limitFor(LocalDate day) {
+        var warmup = warmupLimitFor(day);
+        var cap = properties.dailyCap() > 0 ? properties.dailyCap() : null;
+        if (warmup == null) {
+            return cap;
+        }
+        return cap == null ? warmup : Math.min(warmup, cap);
+    }
+
+    private Integer warmupLimitFor(LocalDate day) {
         if (!properties.enabled() || properties.dailyLimits() == null || properties.dailyLimits().isEmpty()) {
             return null;
         }

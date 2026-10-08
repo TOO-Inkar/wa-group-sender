@@ -226,6 +226,7 @@ docker compose up -d
 | Нумерация `1️⃣7️⃣` по ID | `MESSAGE_NUMBERING=true` |
 | Рабочее окно | `DISPATCH_WINDOW_START=08:00`, `DISPATCH_WINDOW_END=20:00`, `DISPATCH_WEEKENDS_ENABLED=false` |
 | Прогрев | `WARMUP_DAILY_LIMITS=45,80,120,170,220` (лимит на 1-й, 2-й… день от первой отправки; дальше весь список), `WARMUP_ENABLED` |
+| Постоянный дневной предел | `DAILY_SEND_LIMIT=900` (действует и после прогрева; 0 — без предела) |
 | Волны | `DISPATCH_WAVE_SIZE`, `DISPATCH_WAVE_PAUSE_MIN/MAX` |
 | Паузы между группами | `DISPATCH_GROUP_PAUSE_MIN/MAX` |
 | «Печатает» | `DISPATCH_TYPING_MIN/MAX` |

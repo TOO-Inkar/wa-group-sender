@@ -84,6 +84,7 @@ app:
   warmup:
     enabled: ${WARMUP_ENABLED:true}
     daily-limits: ${WARMUP_DAILY_LIMITS:45,80,120,170,220}
+    daily-cap: ${DAILY_SEND_LIMIT:0}
   risk:
     window: ${RISK_WINDOW:1h}
     warn-threshold: ${RISK_WARN_THRESHOLD:5}
