@@ -68,7 +68,9 @@ jobs:
   deploy:
     name: Deploy to inkbpadev
     needs: [build]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # Выключен: проект переезжает на боевой сервер, стенд inkbpadev больше не выкладываем.
+    # Вернуть: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: false
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 30
     # Второй деплой ждёт первый, а не отменяет его посреди выкладки.
