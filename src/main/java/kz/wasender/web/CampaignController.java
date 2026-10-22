@@ -7,6 +7,8 @@ import kz.wasender.campaign.CampaignService;
 import kz.wasender.campaign.RepeatMode;
 import kz.wasender.campaign.Schedule;
 import kz.wasender.dispatch.DeliveryRepository;
+import kz.wasender.dispatch.Dispatcher;
+import kz.wasender.dispatch.WorkWindow;
 import kz.wasender.request.RequestIntake;
 import kz.wasender.request.RequestRecord;
 import kz.wasender.request.RequestRepository;
@@ -42,15 +44,19 @@ public class CampaignController {
     private final DeliveryRepository deliveries;
     private final JsonMapper json;
     private final CampaignRecipients recipients;
+    private final Dispatcher dispatcher;
+    private final WorkWindow window;
 
     public CampaignController(CampaignService service, CampaignRepository campaigns, RequestRepository requests, DeliveryRepository deliveries,
-                              JsonMapper json, CampaignRecipients recipients) {
+                              JsonMapper json, CampaignRecipients recipients, Dispatcher dispatcher, WorkWindow window) {
         this.service = service;
         this.campaigns = campaigns;
         this.requests = requests;
         this.deliveries = deliveries;
         this.json = json;
         this.recipients = recipients;
+        this.dispatcher = dispatcher;
+        this.window = window;
     }
 
     @GetMapping
@@ -137,7 +143,23 @@ public class CampaignController {
 
     private Run run(RequestRecord request) {
         return new Run(request.id(), request.status(), request.error(), request.queuedAt(), request.startedAt(), request.completedAt(),
-                deliveries.progress(request.id()));
+                deliveries.progress(request.id()), waiting(request));
+    }
+
+    private String waiting(RequestRecord request) {
+        if (!request.status().active()) {
+            return null;
+        }
+        return switch (dispatcher.state()) {
+            case STOPPED_BY_RISK -> "рассылка остановлена по риску — проверьте телефон и возобновите в «Настройках»";
+            case PAUSED -> "рассылка на паузе — возобновите в «Настройках»";
+            case WAITING_SESSION -> "ждёт подключения WhatsApp";
+            case HOURLY_LIMIT_REACHED -> "лимит в час исчерпан — продолжит в течение часа";
+            case DAILY_LIMIT_REACHED -> "дневной лимит исчерпан — продолжит завтра";
+            default -> window.isOpenNow(request.windowStart(), request.windowEnd()) ? null
+                    : "ждёт рабочего окна с " + (request.windowStart() == null ? window.start() : request.windowStart())
+                    + " — чтобы отправить сейчас, включите в заявке «слать и вне рабочего окна»";
+        };
     }
 
     public record Content(@Nullable String mode, @Nullable List<AdminController.Item> items, @Nullable String text, @Nullable String contact) {
@@ -162,7 +184,7 @@ public class CampaignController {
     }
 
     public record Run(String id, RequestStatus status, @Nullable String error, Instant queuedAt, @Nullable Instant startedAt, @Nullable Instant completedAt,
-                      DeliveryRepository.Progress progress) {
+                      DeliveryRepository.Progress progress, @Nullable String waiting) {
     }
 
     public record CampaignView(String id, String title, String message, @Nullable String form, boolean targeted, @Nullable String targetLabel,

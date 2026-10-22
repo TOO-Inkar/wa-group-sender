@@ -1672,6 +1672,12 @@
                     },
                     "progress": {
                         "$ref": "#/components/schemas/Progress"
+                    },
+                    "waiting": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -1681,7 +1687,8 @@
                     "progress",
                     "queuedAt",
                     "startedAt",
-                    "status"
+                    "status",
+                    "waiting"
                 ]
             },
             "Target": {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campaignState, dayRuns, loadWarnings, matchesFilter, runsText, scheduleShort, scheduleText, whereText } from './model'
+import { campaignState, dayRuns, loadWarnings, matchesFilter, runsText, scheduleShort, scheduleText, waitingShort, whereText } from './model'
 import type { Campaign, Run } from '@/shared/api/types'
 
 const run = (over: Partial<Run> = {}): Run => ({
@@ -10,6 +10,7 @@ const run = (over: Partial<Run> = {}): Run => ({
   startedAt: null,
   completedAt: null,
   progress: { total: 0, sent: 0, failed: 0, skipped: 0, pending: 0 },
+  waiting: null,
   ...over,
 })
 
@@ -94,5 +95,12 @@ describe('запуски за день', () => {
       'Дневного лимита 900 хватит на 3 полные рассылки из 17.',
     ])
     expect(loadWarnings({ times: ['05:00', '08:00'], groups: 20, hourlyLimit: 120, dailyLimit: 900 })).toEqual([])
+  })
+})
+
+describe('почему рассылка ждёт', () => {
+  it('в таблице — коротко, без подсказки', () => {
+    expect(waitingShort(run({ waiting: 'ждёт рабочего окна с 08:00 — чтобы отправить сейчас, включите в заявке «слать и вне рабочего окна»' }))).toBe('ждёт рабочего окна с 08:00')
+    expect(waitingShort(run())).toBeNull()
   })
 })

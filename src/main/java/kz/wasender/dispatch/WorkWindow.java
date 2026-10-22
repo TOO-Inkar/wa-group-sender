@@ -43,6 +43,10 @@ public class WorkWindow {
         return isOpen(ZonedDateTime.now(clock), ownStart, ownEnd == null ? properties.get().windowEnd() : ownEnd);
     }
 
+    public LocalTime start() {
+        return properties.get().windowStart();
+    }
+
     public LocalTime end() {
         return properties.get().windowEnd();
     }
