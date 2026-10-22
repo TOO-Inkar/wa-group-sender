@@ -82,6 +82,13 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
     })
   })
 
+  const editAsText = async () => {
+    if (!preview.data) return
+    if (values.text.trim() && !(await confirm({ title: 'Заменить текст в редакторе?', body: <p>Там уже есть сообщение — оно заменится собранным из полей.</p>, confirm: 'Заменить' }))) return
+    form.setValue('text', preview.data)
+    form.setValue('mode', 'text')
+  }
+
   const onKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
     if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
     if (event.ctrlKey || event.metaKey) {
@@ -128,16 +135,22 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
       <FormProvider {...form}>
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <form id={FORM_ID} onSubmit={submit} onKeyDown={onKeyDown} noValidate className="grid gap-4">
-            <Segmented
-              size="sm"
-              className="justify-self-start"
-              value={values.mode}
-              onChange={(m) => form.setValue('mode', m)}
-              options={[
-                { value: 'fields', label: 'По полям' },
-                { value: 'text', label: 'Готовый текст' },
-              ]}
-            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Segmented
+                size="sm"
+                value={values.mode}
+                onChange={(m) => form.setValue('mode', m)}
+                options={[
+                  { value: 'fields', label: 'По полям' },
+                  { value: 'text', label: 'Готовый текст' },
+                ]}
+              />
+              {values.mode === 'fields' && preview.data && body && (
+                <button type="button" onClick={editAsText} className="cursor-pointer text-[13px] text-accent hover:underline">
+                  Редактировать как текст →
+                </button>
+              )}
+            </div>
             {values.mode === 'fields' ? <ItemFields /> : <TextEditor />}
             <div className="grid gap-2.5 sm:grid-cols-2">
               {values.mode === 'fields' && (

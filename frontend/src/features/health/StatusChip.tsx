@@ -17,9 +17,9 @@ export function StatusChip({ className }: { className?: string }) {
   const extra =
     h.dispatcher === 'daily-limit-reached' ? ` ${h.sentToday}/${h.warmupLimitToday ?? '—'}` : h.dispatcher === 'hourly-limit-reached' ? ` ${h.sentLastHour}/${h.hourlyLimit}` : ''
   return (
-    <span title={info.hint} className={cn('flex items-center gap-1.5 text-[13px] text-muted', className)}>
-      <Dot tone={info.tone} />
-      <span className="truncate">
+    <span title={info.hint} className={cn('flex items-start gap-1.5 text-[13px] leading-snug text-muted', className)}>
+      <span className="mt-[5px] flex"><Dot tone={info.tone} /></span>
+      <span>
         {info.short}
         {extra}
       </span>
