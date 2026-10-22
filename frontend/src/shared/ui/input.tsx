@@ -1,8 +1,9 @@
+import { ChevronDown } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
 
 const control =
-  'w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text placeholder:text-muted/70 focus-visible:border-accent aria-invalid:border-danger'
+  'w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text placeholder:text-muted/70 transition-shadow focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] focus-visible:outline-none aria-invalid:border-danger'
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cn(control, className)} {...props} />
@@ -13,7 +14,12 @@ export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
 }
 
 export function Select({ className, ...props }: ComponentProps<'select'>) {
-  return <select className={cn(control, 'w-auto', className)} {...props} />
+  return (
+    <span className="relative inline-flex max-w-full">
+      <select className={cn(control, 'w-auto max-w-full cursor-pointer appearance-none pr-9', className)} {...props} />
+      <ChevronDown size={16} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted" />
+    </span>
+  )
 }
 
 export function Caption({ children, className }: { children: ReactNode; className?: string }) {

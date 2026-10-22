@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useLogin } from './api'
 import { Button } from '@/shared/ui/button'
@@ -33,13 +34,19 @@ export function LoginForm() {
           <Input
             type={shown ? 'text' : 'password'}
             autoComplete="current-password"
-            className="pr-24"
+            className="pr-11"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <Button variant="ghost" size="sm" className="absolute top-1/2 right-1 -translate-y-1/2" onClick={() => setShown(!shown)}>
-            {shown ? 'скрыть' : 'показать'}
-          </Button>
+          <button
+            type="button"
+            onClick={() => setShown(!shown)}
+            aria-label={shown ? 'Скрыть пароль' : 'Показать пароль'}
+            title={shown ? 'Скрыть пароль' : 'Показать пароль'}
+            className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-text"
+          >
+            {shown ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
         </span>
       </Field>
       {error && (

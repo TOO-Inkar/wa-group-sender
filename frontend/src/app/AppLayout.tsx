@@ -24,7 +24,7 @@ export function AppLayout() {
   ]
 
   return (
-    <div className="grid min-h-full md:grid-cols-[208px_minmax(0,1fr)]">
+    <div className="grid min-h-full md:grid-cols-[224px_minmax(0,1fr)]">
       <aside className="z-20 flex items-center gap-2 overflow-x-auto border-b border-border bg-surface px-2.5 py-2 md:sticky md:top-0 md:h-dvh md:flex-col md:items-stretch md:gap-4 md:border-r md:border-b-0 md:px-3 md:py-4">
         <div className="flex shrink-0 items-center gap-2.5 md:px-2">
           <div className="grid size-8 place-items-center rounded-lg bg-accent text-sm font-bold text-accent-text">W</div>

@@ -7,15 +7,20 @@ export function LoginPage() {
   const { data: me } = useMe()
   if (me?.authenticated) return <Navigate to="/campaigns" replace />
   return (
-    <div className="grid min-h-full place-items-center p-4">
-      <Card className="grid w-full max-w-sm gap-4 p-7">
-        <div className="grid justify-items-center gap-1 text-center">
-          <div className="mb-2 grid size-12 place-items-center rounded-xl bg-accent text-xl font-bold text-accent-text">W</div>
-          <h1 className="text-xl font-semibold">wa-group-sender</h1>
-          <p className="text-sm text-muted">Рассылка заявок в группы WhatsApp</p>
+    <div className="grid min-h-full place-items-center bg-bg p-4">
+      <div className="grid w-full max-w-[380px] gap-5">
+        <div className="flex items-center gap-3">
+          <div className="grid size-10 place-items-center rounded-xl bg-accent text-lg font-bold text-accent-text">W</div>
+          <div className="leading-tight">
+            <div className="font-semibold">wa-group-sender</div>
+            <div className="text-[13px] text-muted">Рассылка заявок в группы WhatsApp</div>
+          </div>
         </div>
-        <LoginForm />
-      </Card>
+        <Card className="grid gap-5 p-7">
+          <h1 className="text-2xl font-semibold">Вход</h1>
+          <LoginForm />
+        </Card>
+      </div>
     </div>
   )
 }

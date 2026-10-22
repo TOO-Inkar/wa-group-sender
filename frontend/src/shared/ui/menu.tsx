@@ -7,7 +7,7 @@ type MenuItem = { label: string; icon?: ReactNode; onSelect: () => void; disable
 
 export function RowMenu({ items, label = 'Действия' }: { items: MenuItem[]; label?: string }) {
   return (
-    <Dropdown.Root>
+    <Dropdown.Root modal={false}>
       <Dropdown.Trigger
         aria-label={label}
         onClick={(e) => e.stopPropagation()}
