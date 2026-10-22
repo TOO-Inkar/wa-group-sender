@@ -11,8 +11,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -31,10 +34,15 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
     private final List<String> typing = new CopyOnWriteArrayList<>();
     private final Set<String> failing = ConcurrentHashMap.newKeySet();
     private final Map<String, Integer> rejecting = new ConcurrentHashMap<>();
+    private final Map<String, LastMessage> last = new ConcurrentHashMap<>();
+    private final List<SentMessage> direct = new CopyOnWriteArrayList<>();
+    private final List<String> rejectedCalls = new CopyOnWriteArrayList<>();
+    private final Clock clock;
 
-    public FakeWhatsAppGateway(FakeProperties properties, RandomGenerator random) {
+    public FakeWhatsAppGateway(FakeProperties properties, RandomGenerator random, Clock clock) {
         this.properties = properties;
         this.random = random;
+        this.clock = clock;
         resetGroups();
     }
 
@@ -71,8 +79,44 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         if (properties.failureRate() > 0 && random.nextDouble() < properties.failureRate()) {
             throw new SendException("fake random failure", false, null);
         }
+        if (!groupJid.endsWith("@g.us")) {
+            direct.add(new SentMessage(groupJid, text));
+            return;
+        }
         sent.add(new SentMessage(groupJid, text));
+        last.put(groupJid, new LastMessage(true, Instant.now(clock)));
         log.debug("FAKE sent group_jid={}", groupJid);
+    }
+
+    @Override
+    public Optional<LastMessage> lastMessage(String groupJid) {
+        return Optional.ofNullable(last.get(groupJid));
+    }
+
+    @Override
+    public void rejectCall(String fromJid, String callId) {
+        rejectedCalls.add(callId);
+    }
+
+    /** Кто-то другой написал в группу: наше сообщение больше не последнее. */
+    public void simulateForeignMessage(String groupJid) {
+        last.put(groupJid, new LastMessage(false, Instant.now(clock)));
+    }
+
+    public void simulateDirectMessage(String chatJid, String name) {
+        publish(new GatewayEvent.DirectMessage(chatJid, name));
+    }
+
+    public void simulateCall(String fromJid, String callId) {
+        publish(new GatewayEvent.IncomingCall(fromJid, callId));
+    }
+
+    public List<SentMessage> direct() {
+        return List.copyOf(direct);
+    }
+
+    public List<String> rejectedCalls() {
+        return List.copyOf(rejectedCalls);
     }
 
     @Override
@@ -94,6 +138,9 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         sent.clear();
         typing.clear();
         failing.clear();
+        last.clear();
+        direct.clear();
+        rejectedCalls.clear();
         resetGroups();
     }
 

@@ -81,6 +81,8 @@ app:
     window-start: ${DISPATCH_WINDOW_START:08:00}
     window-end: ${DISPATCH_WINDOW_END:20:00}
     weekends-enabled: ${DISPATCH_WEEKENDS_ENABLED:false}
+    hourly-limit: ${HOURLY_SEND_LIMIT:120}
+    own-message-gap: ${OWN_MESSAGE_GAP:30m}
   warmup:
     enabled: ${WARMUP_ENABLED:true}
     daily-limits: ${WARMUP_DAILY_LIMITS:45,80,120,170,220}
@@ -90,6 +92,11 @@ app:
     warn-threshold: ${RISK_WARN_THRESHOLD:5}
     critical-threshold: ${RISK_CRITICAL_THRESHOLD:10}
     pause-multiplier: ${RISK_PAUSE_MULTIPLIER:2.0}
+  autoreply:
+    enabled: ${AUTOREPLY_ENABLED:true}
+    reject-calls: ${AUTOREPLY_REJECT_CALLS:true}
+    cooldown: ${AUTOREPLY_COOLDOWN:12h}
+    text: "${AUTOREPLY_TEXT:}"
   notify:
     cooldown: ${NOTIFY_COOLDOWN:15m}
     telegram:
@@ -99,6 +106,10 @@ app:
   security:
     admin-token: ${ADMIN_TOKEN:}
     header: ${ADMIN_TOKEN_HEADER:X-Admin-Token}
+    username: ${ADMIN_USERNAME:admin}
+    # bcrypt-хеш пароля страницы входа: htpasswd -nbBC 12 admin 'пароль' | cut -d: -f2
+    password-hash: ${ADMIN_PASSWORD_HASH:}
+    session-ttl: ${ADMIN_SESSION_TTL:30d}
   fake:
     groups: ${FAKE_GROUPS:30}
     unarchived-groups: ${FAKE_UNARCHIVED_GROUPS:3}

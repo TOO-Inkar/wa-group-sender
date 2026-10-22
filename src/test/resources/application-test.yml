@@ -31,6 +31,8 @@ app:
     window-start: "08:00"
     window-end: "20:00"
     weekends-enabled: true
+    hourly-limit: 0
+    own-message-gap: 0s
   warmup:
     enabled: false
     daily-limits: 45,80,120,170,220
@@ -44,6 +46,9 @@ app:
       bot-token: ""
   security:
     admin-token: test-token
+    username: admin
+    # пароль test-password
+    password-hash: "$2y$04$J/gjAAVfgm959wSWo/HQC.OaWkoTODjlZOxyO/OOdYbiVT/XF4/vO"
   fake:
     groups: 30
     unarchived-groups: 3

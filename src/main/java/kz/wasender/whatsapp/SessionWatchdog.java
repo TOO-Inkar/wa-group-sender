@@ -149,6 +149,10 @@ public class SessionWatchdog {
             }
             case GatewayEvent.RemovedFromGroup ignored -> {
             }
+            case GatewayEvent.DirectMessage ignored -> {
+            }
+            case GatewayEvent.IncomingCall ignored -> {
+            }
         }
     }
 

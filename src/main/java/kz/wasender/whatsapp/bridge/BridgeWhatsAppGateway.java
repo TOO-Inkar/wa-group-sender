@@ -21,8 +21,10 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * WhatsApp through the wa-bridge sidecar (whatsmeow, see bridge/). The bridge owns the WhatsApp session;
@@ -119,6 +121,36 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     }
 
     @Override
+    public Optional<LastMessage> lastMessage(String groupJid) {
+        try {
+            var last = client.get().uri("/last?jid={jid}", groupJid).retrieve().body(Last.class);
+            if (last == null || !Boolean.TRUE.equals(last.known()) || last.at() == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new LastMessage(Boolean.TRUE.equals(last.fromMe()), Instant.ofEpochSecond(last.at())));
+        } catch (RestClientException e) {
+            // Старый мост без /last или сбой: не мешаем отправке.
+            log.debug("Last message unknown group_jid={}: {}", groupJid, e.toString());
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public void rejectCall(String fromJid, String callId) {
+        try {
+            client.post().uri("/reject-call")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("jid", fromJid, "callId", callId))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            log.warn("Reject call failed from={}: {}", fromJid, bridgeError(e).error());
+        } catch (RestClientException e) {
+            log.warn("Reject call failed from={}: {}", fromJid, e.toString());
+        }
+    }
+
+    @Override
     public void sendTyping(String groupJid, boolean typing) {
         if (!typing) {
             return;
@@ -187,6 +219,8 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
             case "logged_out" -> publish(new GatewayEvent.LoggedOut());
             case "banned" -> publish(new GatewayEvent.Banned());
             case "removed_from_group" -> publish(new GatewayEvent.RemovedFromGroup(event.jid()));
+            case "direct_message" -> publish(new GatewayEvent.DirectMessage(event.jid(), event.payload()));
+            case "call" -> publish(new GatewayEvent.IncomingCall(event.jid(), event.payload()));
             default -> log.warn("Unknown bridge event {}", event);
         }
     }
@@ -211,6 +245,9 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     }
 
     record Status(String state, Boolean connected) {
+    }
+
+    record Last(Boolean known, Boolean fromMe, Long at) {
     }
 
     record BridgeError(String error, Boolean unavailable, Boolean rejected) {

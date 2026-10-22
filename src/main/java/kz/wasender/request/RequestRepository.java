@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -21,7 +22,10 @@ public class RequestRepository {
             rs.getString("error"),
             rs.getObject("queued_at", Instant.class),
             rs.getObject("started_at", Instant.class),
-            rs.getObject("completed_at", Instant.class));
+            rs.getObject("completed_at", Instant.class),
+            rs.getString("campaign_id"),
+            rs.getObject("window_start", LocalTime.class),
+            rs.getObject("window_end", LocalTime.class));
 
     private final JdbcClient jdbc;
 
@@ -51,6 +55,42 @@ public class RequestRepository {
         for (var jid : new LinkedHashSet<>(targetGroups)) {
             jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
         }
+    }
+
+    /** Рассылка заявки из админки: со своим окном (null — общее) и адресатами (пусто — все активные группы). */
+    public void insertRun(String id, String campaignId, String message, Instant queuedAt, Collection<String> targetGroups,
+                          LocalTime windowStart, LocalTime windowEnd) {
+        jdbc.sql("""
+                        insert into request(id, message, status, queued_at, targeted, campaign_id, window_start, window_end)
+                        values (?, ?, 'QUEUED', ?, ?, ?, ?, ?)""")
+                .params(id, message, queuedAt, !targetGroups.isEmpty(), campaignId, windowStart, windowEnd)
+                .update();
+        for (var jid : new LinkedHashSet<>(targetGroups)) {
+            jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
+        }
+    }
+
+    /** Рассылки, которые ждут или идут, в порядке постановки; диспетчер чередует их между собой. */
+    public List<RequestRecord> active() {
+        return jdbc.sql("select * from request where status in ('QUEUED', 'SENDING') order by queued_at, id").query(MAPPER).list();
+    }
+
+    public List<RequestRecord> findByCampaign(String campaignId) {
+        return jdbc.sql("select * from request where campaign_id = ? order by queued_at desc, id desc").param(campaignId).query(MAPPER).list();
+    }
+
+    /** Текст ещё не начатой рассылки меняется вместе с заявкой. */
+    public int updateQueuedMessage(String campaignId, String message, Collection<String> targetGroups) {
+        var ids = jdbc.sql("select id from request where campaign_id = ? and status = 'QUEUED' and started_at is null")
+                .param(campaignId).query(String.class).list();
+        for (var id : ids) {
+            jdbc.sql("update request set message = ?, targeted = ? where id = ?").params(message, !targetGroups.isEmpty(), id).update();
+            jdbc.sql("delete from request_target where request_id = ?").param(id).update();
+            for (var jid : new LinkedHashSet<>(targetGroups)) {
+                jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
+            }
+        }
+        return ids.size();
     }
 
     public boolean isTargeted(String id) {

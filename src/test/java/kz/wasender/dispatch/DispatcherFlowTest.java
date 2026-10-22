@@ -73,7 +73,7 @@ class DispatcherFlowTest extends IntegrationTest {
     }
 
     @Test
-    void newRequestWaitsInFifoQueueWhileAnotherIsSending() throws Exception {
+    void requestsSendInTurnWithoutWaitingForEachOther() throws Exception {
         useGroups(5);
         var first = addValidRow("Первая");
         poller.poll();
@@ -86,10 +86,13 @@ class DispatcherFlowTest extends IntegrationTest {
 
         runUntilBlocked(500);
 
+        // Вторая не ждёт конца первой: рассылки чередуются, каждая идёт в каждую группу один раз.
         var texts = gateway.sent().stream().map(message -> message.text()).toList();
         assertThat(texts).hasSize(10);
-        assertThat(texts.subList(0, 5)).allMatch(text -> text.contains("Первая"));
-        assertThat(texts.subList(5, 10)).allMatch(text -> text.contains("Вторая"));
+        assertThat(texts.subList(0, 2)).allMatch(text -> text.contains("Первая"));
+        assertThat(texts.subList(2, 8)).filteredOn(text -> text.contains("Вторая")).hasSize(3);
+        assertThat(texts).filteredOn(text -> text.contains("Первая")).hasSize(5);
+        assertThat(texts).filteredOn(text -> text.contains("Вторая")).hasSize(5);
         assertThat(sheet.row(first).get(SheetField.STATUS)).isEqualTo("Отправлено");
         assertThat(sheet.row(second).get(SheetField.STATUS)).isEqualTo("Отправлено");
     }

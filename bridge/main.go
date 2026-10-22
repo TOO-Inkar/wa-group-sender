@@ -10,11 +10,17 @@
 //	GET  /groups                 группы номера с признаком архива (ждёт синхронизации настроек)
 //	POST /send    {jid,text}     отправить текст
 //	POST /typing  {jid}          «печатает…»
+//	GET  /last?jid=J             последнее сообщение в группе: наше ли оно и когда
+//	POST /reject-call {jid,callId}  отклонить входящий звонок
+//
+// Кроме событий сессии в /events приходят direct_message (личное сообщение номеру)
+// и call (входящий звонок): на них отвечает автоответчик в Java-сервисе.
 package main
 
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -50,6 +56,8 @@ const (
 	nameQueryDelay = 300 * time.Millisecond
 	// Сколько всего времени одна выдача /groups может потратить на названия; остальное доберётся в следующий раз.
 	nameQueryBudget = 80 * time.Second
+	// Личные сообщения старше этого (пришли пачкой после переподключения) автоответчику не передаются.
+	directMessageMaxAge = 10 * time.Minute
 )
 
 type event struct {
@@ -59,6 +67,7 @@ type event struct {
 	Reason        string `json:"reason,omitempty"`
 	AutoReconnect bool   `json:"autoReconnect"`
 	JID           string `json:"jid,omitempty"`
+	At            int64  `json:"at,omitempty"`
 }
 
 type bridge struct {
@@ -81,6 +90,9 @@ type bridge struct {
 
 	nameMu sync.Mutex
 	names  map[string]string
+
+	// Последнее сообщение в каждой группе (своя база, схему whatsmeow не трогаем).
+	last *sql.DB
 }
 
 func main() {
@@ -112,8 +124,13 @@ func main() {
 		slog.Error("store", "err", err)
 		os.Exit(1)
 	}
+	last, err := openLastMessages(env("BRIDGE_LAST_DB", "/data/last.db"))
+	if err != nil {
+		slog.Error("last messages store", "err", err)
+		os.Exit(1)
+	}
 	b := &bridge{container: container, waLog: waLog.Stdout("WA", logLevel, false), instance: randomID(), state: "STARTING",
-		names: map[string]string{}}
+		names: map[string]string{}, last: last}
 	b.evCond = sync.NewCond(&b.evMu)
 
 	mux := http.NewServeMux()
@@ -124,6 +141,8 @@ func main() {
 	mux.HandleFunc("GET /groups", b.handleGroups)
 	mux.HandleFunc("POST /send", b.handleSend)
 	mux.HandleFunc("POST /typing", b.handleTyping)
+	mux.HandleFunc("GET /last", b.handleLast)
+	mux.HandleFunc("POST /reject-call", b.handleRejectCall)
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 
 	go func() {
@@ -276,6 +295,10 @@ func (b *bridge) onEvent(cli *whatsmeow.Client, evt any) {
 		slog.Warn("APPSTATE sync failed", "name", string(e.Name), "full_sync", e.FullSync, "err", e.Error)
 	case *events.Message:
 		b.decrypted.Add(1)
+		b.onMessage(cli, e)
+	case *events.CallOffer:
+		slog.Info("CALL offer", "from", e.From.String(), "call_id", e.CallID)
+		b.emit(event{Type: "call", JID: e.From.String(), Payload: e.CallID, At: e.Timestamp.Unix()})
 	case *events.UndecryptableMessage:
 		b.undecryptable.Add(1)
 	}
@@ -353,7 +376,12 @@ func (b *bridge) eventsAfter(after int64, wait time.Duration) (int64, []event) {
 
 func (b *bridge) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	b.mu.Lock()
+	account := ""
+	if b.cli != nil && b.cli.Store.ID != nil {
+		account = b.cli.Store.GetJID().User
+	}
 	status := map[string]any{
+		"account":       account,
 		"instance":      b.instance,
 		"state":         b.state,
 		"qr":            b.qr,
@@ -569,6 +597,9 @@ func (b *bridge) handleSend(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unavailable": groupUnavailable(err), "rejected": rejected})
 		return
 	}
+	if jid.Server == types.GroupServer {
+		b.recordLast(jid.String(), true, resp.Timestamp)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": resp.ID, "timestamp": resp.Timestamp})
 }
 
@@ -627,6 +658,98 @@ func (b *bridge) handleTyping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := cli.SendChatPresence(r.Context(), jid, types.ChatPresenceComposing, types.ChatPresenceMediaText); err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- входящие сообщения и звонки ----------------------------------------------
+
+// onMessage запоминает последнее сообщение в группе и передаёт автоответчику личные сообщения.
+// Реакции и служебные сообщения (правки, удаления) не считаются: они не сдвигают нашу заявку вверх.
+func (b *bridge) onMessage(cli *whatsmeow.Client, e *events.Message) {
+	if e.Message == nil || e.Message.GetReactionMessage() != nil || e.Message.GetProtocolMessage() != nil {
+		return
+	}
+	chat := e.Info.Chat
+	switch chat.Server {
+	case types.GroupServer:
+		b.recordLast(chat.String(), e.Info.IsFromMe || isSelf(cli, e.Info.Sender), e.Info.Timestamp)
+	case types.DefaultUserServer, types.HiddenUserServer:
+		if e.Info.IsFromMe || isSelf(cli, e.Info.Sender) || time.Since(e.Info.Timestamp) > directMessageMaxAge {
+			return
+		}
+		b.emit(event{Type: "direct_message", JID: chat.String(), Payload: e.Info.PushName, At: e.Info.Timestamp.Unix()})
+	}
+}
+
+func openLastMessages(path string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", "file:"+path+"?_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=10000")
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	_, err = db.Exec(`create table if not exists last_message (
+		jid text primary key, from_me integer not null, at integer not null)`)
+	return db, err
+}
+
+// recordLast хранит только более новое сообщение: после переподключения старые приходят пачкой.
+func (b *bridge) recordLast(jid string, fromMe bool, at time.Time) {
+	if at.IsZero() {
+		at = time.Now()
+	}
+	_, err := b.last.Exec(`insert into last_message(jid, from_me, at) values (?, ?, ?)
+		on conflict(jid) do update set from_me = excluded.from_me, at = excluded.at where excluded.at >= last_message.at`,
+		jid, fromMe, at.Unix())
+	if err != nil {
+		slog.Warn("LAST record failed", "jid", jid, "err", err)
+	}
+}
+
+func (b *bridge) handleLast(w http.ResponseWriter, r *http.Request) {
+	jid := r.URL.Query().Get("jid")
+	if jid == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "jid is required"})
+		return
+	}
+	var fromMe bool
+	var at int64
+	err := b.last.QueryRowContext(r.Context(), `select from_me, at from last_message where jid = ?`, jid).Scan(&fromMe, &at)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSON(w, http.StatusOK, map[string]any{"known": false})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"known": true, "fromMe": fromMe, "at": at})
+}
+
+type rejectCallRequest struct {
+	JID    string `json:"jid"`
+	CallID string `json:"callId"`
+}
+
+func (b *bridge) handleRejectCall(w http.ResponseWriter, r *http.Request) {
+	var req rejectCallRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.JID == "" || req.CallID == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "jid and callId are required"})
+		return
+	}
+	from, err := types.ParseJID(req.JID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	cli, err := b.client()
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
+		return
+	}
+	if err := cli.RejectCall(r.Context(), from, req.CallID); err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
 		return
 	}

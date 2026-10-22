@@ -17,7 +17,7 @@ class WorkWindowTest {
 
     private static WorkWindow window(LocalTime start, LocalTime end, boolean weekends) {
         var properties = new DispatchProperties(false, 25, Duration.ZERO, Duration.ZERO, Duration.ZERO, Duration.ZERO,
-                Duration.ZERO, Duration.ZERO, Duration.ofSeconds(5), start, end, weekends);
+                Duration.ZERO, Duration.ZERO, Duration.ofSeconds(5), start, end, weekends, 0, Duration.ZERO);
         return new WorkWindow(properties, Clock.system(ALMATY));
     }
 

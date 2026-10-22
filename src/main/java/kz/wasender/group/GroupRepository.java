@@ -34,8 +34,20 @@ public class GroupRepository {
         this.jdbc = jdbc;
     }
 
+    /** Все группы, когда-либо виденные, — для названий в истории и отчётах. */
     public List<GroupRecord> findAll() {
         return jdbc.sql("select * from wa_group order by active desc, name, jid").query(MAPPER).list();
+    }
+
+    /** Группы из последнего списка номера: группы прежнего номера и покинутые сюда не попадают. */
+    public List<GroupRecord> findPresent() {
+        return jdbc.sql("select * from wa_group where present order by active desc, name, jid").query(MAPPER).list();
+    }
+
+    /** Группы, которых не было в свежем списке номера, уходят из списка и из рассылки; возвращает сколько. */
+    public int markAbsent(String jid, Instant at) {
+        return jdbc.sql("update wa_group set present = false, active = false, last_sync = ? where jid = ? and present")
+                .params(at, jid).update();
     }
 
     public List<String> activeJids() {
@@ -52,7 +64,7 @@ public class GroupRepository {
 
     /** The number is in the group and may write there; unlike active, the group need not be archived. */
     public boolean isSendable(String jid) {
-        return jdbc.sql("select count(*) from wa_group where jid = ? and member and can_send and not community and not too_large and not rejected")
+        return jdbc.sql("select count(*) from wa_group where jid = ? and present and member and can_send and not community and not too_large and not rejected")
                 .param(jid).query(Integer.class).single() > 0;
     }
 
@@ -63,8 +75,8 @@ public class GroupRepository {
     /** Stores the group; it takes part in the dispatch when eligible, not too large and not rejected by WhatsApp. */
     public void upsert(GroupInfo group, boolean tooLarge, boolean rejected, Instant at) {
         jdbc.sql("""
-                        merge into wa_group(jid, name, archived, member, can_send, active, last_sync, participants, community, too_large)
-                        key (jid) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+                        merge into wa_group(jid, name, archived, member, can_send, active, last_sync, participants, community, too_large, present)
+                        key (jid) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)""")
                 .params(group.jid(), group.name(), group.archived(), group.member(), group.canSend(), group.eligible() && !tooLarge && !rejected, at,
                         group.participants(), group.isCommunity(), tooLarge)
                 .update();
@@ -87,7 +99,7 @@ public class GroupRepository {
     public boolean resetRejections(String jid, Instant at) {
         return jdbc.sql("""
                         update wa_group set rejected_count = 0, rejected = false, last_sync = ?,
-                            active = (archived and coalesce(member, false) and coalesce(can_send, false) and not community and not too_large)
+                            active = (present and archived and coalesce(member, false) and coalesce(can_send, false) and not community and not too_large)
                         where jid = ?""")
                 .params(at, jid)
                 .update() > 0;

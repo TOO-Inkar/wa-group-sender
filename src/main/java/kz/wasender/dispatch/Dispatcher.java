@@ -1,7 +1,6 @@
 package kz.wasender.dispatch;
 
 import jakarta.annotation.PreDestroy;
-import kz.wasender.config.DispatchProperties;
 import kz.wasender.config.SheetsProperties;
 import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestRecord;
@@ -9,6 +8,7 @@ import kz.wasender.request.RequestRepository;
 import kz.wasender.request.RequestStatus;
 import kz.wasender.risk.RiskMonitor;
 import kz.wasender.risk.RiskType;
+import kz.wasender.settings.SettingsService;
 import kz.wasender.sheets.SheetField;
 import kz.wasender.sheets.SheetUpdateBuffer;
 import kz.wasender.time.Sleeper;
@@ -26,6 +26,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.random.RandomGenerator;
 
@@ -46,7 +47,7 @@ public class Dispatcher {
     private final Sleeper sleeper;
     private final Clock clock;
     private final RandomGenerator random;
-    private final DispatchProperties properties;
+    private final SettingsService settings;
     private final DateTimeFormatter completedFormat;
 
     private volatile DispatcherState state = DispatcherState.STARTING;
@@ -54,10 +55,13 @@ public class Dispatcher {
     private volatile boolean running;
     private volatile Thread worker;
     private Instant lastSendAt;
+    // Паузы и волны общие для номера: сколько отправок с последней паузы между волнами, какая рассылка шла последней.
+    private int sentInWave;
+    private String lastRequestId;
 
     public Dispatcher(RequestRepository requests, DeliveryRepository deliveries, GroupRepository groups, WhatsAppGateway gateway,
                       WarmupService warmup, WorkWindow window, PauseRandomizer pauses, RiskMonitor risk, SheetUpdateBuffer sheet,
-                      Sleeper sleeper, Clock clock, RandomGenerator random, DispatchProperties properties, SheetsProperties sheetsProperties) {
+                      Sleeper sleeper, Clock clock, RandomGenerator random, SettingsService settings, SheetsProperties sheetsProperties) {
         this.requests = requests;
         this.deliveries = deliveries;
         this.groups = groups;
@@ -70,7 +74,7 @@ public class Dispatcher {
         this.sleeper = sleeper;
         this.clock = clock;
         this.random = random;
-        this.properties = properties;
+        this.settings = settings;
         this.completedFormat = DateTimeFormatter.ofPattern(sheetsProperties.completedFormat());
     }
 
@@ -140,7 +144,7 @@ public class Dispatcher {
             } catch (RuntimeException e) {
                 log.error("DISPATCHER cycle failed", e);
                 try {
-                    sleeper.sleep(properties.idlePoll());
+                    sleeper.sleep(settings.dispatch().idlePoll());
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     return;
@@ -149,49 +153,80 @@ public class Dispatcher {
         }
     }
 
+    /**
+     * Один шаг: одна доставка одной рассылки. Рассылки, которым сейчас можно слать, чередуются по кругу:
+     * у каждой свой порядок групп, а паузы, волны и лимиты общие для номера.
+     */
     public Duration cycle() throws InterruptedException {
+        var idle = settings.dispatch().idlePoll();
         var gate = gate();
         if (gate != DispatcherState.RUNNING) {
             changeState(gate);
-            return properties.idlePoll();
+            return idle;
         }
-        var next = requests.nextInQueue();
-        if (next.isEmpty()) {
+        var active = requests.active();
+        if (active.isEmpty()) {
             changeState(DispatcherState.IDLE);
-            return properties.idlePoll();
+            return idle;
         }
-        var request = next.get();
-        if (!deliveries.hasPlan(request.id()) && !plan(request)) {
-            changeState(DispatcherState.NO_ACTIVE_GROUPS);
-            return properties.idlePoll();
+        var open = active.stream().filter(request -> window.isOpenNow(request.windowStart(), request.windowEnd())).toList();
+        if (open.isEmpty()) {
+            changeState(DispatcherState.OUTSIDE_WINDOW);
+            return idle;
         }
-        changeState(DispatcherState.RUNNING);
-        if (request.status() == RequestStatus.QUEUED) {
-            requests.markSending(request.id(), Instant.now(clock));
-            sheet.put(request.id(), SheetField.STATUS, RequestStatus.SENDING.sheetText());
-            sheet.put(request.id(), SheetField.PROGRESS, deliveries.progress(request.id()).sheetText());
-            sheet.flushAsync();
-            log.info("SENDING request_id={} started", request.id());
-        }
-        var pending = deliveries.nextPending(request.id());
-        if (pending.isEmpty()) {
-            finish(request);
+        var now = Instant.now(clock);
+        Instant earliest = null;
+        var withoutGroups = 0;
+        for (var request : inTurn(open)) {
+            if (!deliveries.hasPlan(request.id()) && !plan(request)) {
+                withoutGroups++;
+                continue;
+            }
+            if (request.status() == RequestStatus.QUEUED) {
+                requests.markSending(request.id(), now);
+                sheet.put(request.id(), SheetField.STATUS, RequestStatus.SENDING.sheetText());
+                sheet.put(request.id(), SheetField.PROGRESS, deliveries.progress(request.id()).sheetText());
+                sheet.flushAsync();
+                log.info("SENDING request_id={} started", request.id());
+            }
+            var ready = deliveries.nextReady(request.id(), now);
+            if (ready.isEmpty()) {
+                var postponed = deliveries.earliestPostponed(request.id());
+                if (postponed.isEmpty()) {
+                    finish(request);
+                    return Duration.ZERO;
+                }
+                earliest = earliest == null || postponed.get().isBefore(earliest) ? postponed.get() : earliest;
+                continue;
+            }
+            lastRequestId = request.id();
+            changeState(DispatcherState.RUNNING);
+            deliver(request, ready.get());
             return Duration.ZERO;
         }
-        var delivery = pending.get();
-        var pause = pauseBefore(delivery);
-        if (pause.isPositive()) {
-            log.info("PAUSE request_id={} before position={} wave_boundary={} pause_ms={}", request.id(), delivery.position(),
-                    waveBoundary(delivery), pause.toMillis());
-            sleeper.sleep(pause);
-            var after = gate();
-            if (after != DispatcherState.RUNNING) {
-                changeState(after);
-                return Duration.ZERO;
+        if (earliest == null) {
+            changeState(withoutGroups > 0 ? DispatcherState.NO_ACTIVE_GROUPS : DispatcherState.IDLE);
+            return idle;
+        }
+        changeState(DispatcherState.WAITING_GROUPS);
+        var wait = Duration.between(now, earliest);
+        return wait.compareTo(idle) < 0 ? (wait.isNegative() ? Duration.ZERO : wait) : idle;
+    }
+
+    /** Рассылки по кругу, начиная со следующей после той, что слала последней. */
+    private List<RequestRecord> inTurn(List<RequestRecord> open) {
+        var start = 0;
+        for (var i = 0; i < open.size(); i++) {
+            if (open.get(i).id().equals(lastRequestId)) {
+                start = i + 1;
+                break;
             }
         }
-        send(request, delivery, pause);
-        return Duration.ZERO;
+        var ordered = new ArrayList<RequestRecord>(open.size());
+        for (var i = 0; i < open.size(); i++) {
+            ordered.add(open.get((start + i) % open.size()));
+        }
+        return ordered;
     }
 
     private DispatcherState gate() {
@@ -204,13 +239,27 @@ public class Dispatcher {
         if (gateway.sessionState() != SessionState.CONNECTED) {
             return DispatcherState.WAITING_SESSION;
         }
-        if (!window.isOpenNow()) {
-            return DispatcherState.OUTSIDE_WINDOW;
-        }
         if (warmup.limitReached()) {
             return DispatcherState.DAILY_LIMIT_REACHED;
         }
+        if (hourlyLimitReached()) {
+            return DispatcherState.HOURLY_LIMIT_REACHED;
+        }
         return DispatcherState.RUNNING;
+    }
+
+    /** Попыток за последний час на номер (все рассылки вместе) и действующий лимит; 0 — без лимита. */
+    public int sentLastHour() {
+        return deliveries.attemptsSince(Instant.now(clock).minus(Duration.ofHours(1)));
+    }
+
+    public int hourlyLimit() {
+        return settings.dispatch().hourlyLimit();
+    }
+
+    private boolean hourlyLimitReached() {
+        var limit = hourlyLimit();
+        return limit > 0 && sentLastHour() >= limit;
     }
 
     private boolean plan(RequestRecord request) {
@@ -223,38 +272,86 @@ public class Dispatcher {
         }
         Collections.shuffle(active, Random.from(random));
         deliveries.createPlan(request.id(), active, Instant.now(clock));
+        var waveSize = pauses.waveSize();
         log.info("PLAN request_id={} groups={} waves={} order={}", request.id(), active.size(),
-                (active.size() + properties.waveSize() - 1) / properties.waveSize(), active);
+                (active.size() + waveSize - 1) / waveSize, active);
         return true;
     }
 
-    private Duration pauseBefore(DeliveryRecord delivery) {
+    private Duration pauseBefore() {
         if (lastSendAt == null) {
             return Duration.ZERO;
         }
         var multiplier = risk.pauseMultiplier();
-        var desired = waveBoundary(delivery) ? pauses.wavePause(multiplier) : pauses.groupPause(multiplier);
+        var desired = waveBoundary() ? pauses.wavePause(multiplier) : pauses.groupPause(multiplier);
         var remaining = desired.minus(Duration.between(lastSendAt, Instant.now(clock)));
         return remaining.isNegative() ? Duration.ZERO : remaining;
     }
 
-    private boolean waveBoundary(DeliveryRecord delivery) {
-        return delivery.position() > 0 && delivery.position()%properties.waveSize() == 0;
+    private boolean waveBoundary() {
+        return sentInWave >= pauses.waveSize();
+    }
+
+    private void deliver(RequestRecord request, DeliveryRecord delivery) throws InterruptedException {
+        var jid = delivery.groupJid();
+        if (requests.isTargeted(request.id()) ? !groups.isSendable(jid) : !groups.isActive(jid)) {
+            deliveries.updateStatus(delivery.id(), DeliveryStatus.SKIPPED, "group inactive", Instant.now(clock));
+            log.info("SEND request_id={} group_jid={} status=SKIPPED position={} reason=group-inactive", request.id(), jid, delivery.position());
+            afterDelivery(request, delivery);
+            return;
+        }
+        if (postponeAfterOwnMessage(request, delivery)) {
+            return;
+        }
+        var wave = waveBoundary();
+        var pause = pauseBefore();
+        if (pause.isPositive()) {
+            log.info("PAUSE request_id={} before position={} wave_boundary={} pause_ms={}", request.id(), delivery.position(), wave, pause.toMillis());
+            sleeper.sleep(pause);
+            var after = gate();
+            if (after != DispatcherState.RUNNING) {
+                changeState(after);
+                return;
+            }
+        }
+        if (wave) {
+            sentInWave = 0;
+        }
+        send(request, delivery, pause);
+    }
+
+    /**
+     * Последнее сообщение в группе наше и свежее: слать ещё одно подряд — спам и риск бана.
+     * Доставка ждёт, пока не пройдёт пауза после нашего сообщения; рассылка тем временем идёт в другие группы.
+     */
+    private boolean postponeAfterOwnMessage(RequestRecord request, DeliveryRecord delivery) {
+        var gap = settings.dispatch().ownMessageGap();
+        if (gap == null || !gap.isPositive()) {
+            return false;
+        }
+        var last = gateway.lastMessage(delivery.groupJid());
+        if (last.isEmpty() || !last.get().fromMe()) {
+            return false;
+        }
+        var notBefore = last.get().at().plus(gap);
+        var now = Instant.now(clock);
+        if (!notBefore.isAfter(now)) {
+            return false;
+        }
+        deliveries.postpone(delivery.id(), notBefore, "ждём: последнее сообщение в группе — наше", now);
+        log.info("POSTPONE request_id={} group_jid={} position={} until={} reason=own-last-message", request.id(), delivery.groupJid(),
+                delivery.position(), notBefore);
+        return true;
     }
 
     private void send(RequestRecord request, DeliveryRecord delivery, Duration pause) throws InterruptedException {
         var jid = delivery.groupJid();
-        var wave = delivery.position() / properties.waveSize() + 1;
-        if (requests.isTargeted(request.id()) ? !groups.isSendable(jid) : !groups.isActive(jid)) {
-            deliveries.updateStatus(delivery.id(), DeliveryStatus.SKIPPED, "group inactive", Instant.now(clock));
-            log.info("SEND request_id={} group_jid={} status=SKIPPED position={} wave={} reason=group-inactive", request.id(), jid, delivery.position(), wave);
-            afterDelivery(request, delivery);
-            return;
-        }
+        var wave = sentInWave / Math.max(1, pauses.waveSize()) + 1;
         var typing = pauses.typing();
         gateway.sendTyping(jid, true);
         sleeper.sleep(typing);
         warmup.registerAttempt();
+        sentInWave++;
         deliveries.updateStatus(delivery.id(), DeliveryStatus.SENDING, null, Instant.now(clock));
         try {
             gateway.sendText(jid, request.message());
@@ -286,12 +383,23 @@ public class Dispatcher {
         afterDelivery(request, delivery);
     }
 
+    /** Закрывает рассылку раньше времени (заявку удалили или пришла новая рассылка по расписанию). */
+    public void close(RequestRecord request, String reason) {
+        var skipped = deliveries.skipPending(request.id(), reason, Instant.now(clock));
+        log.info("CLOSE request_id={} skipped={} reason=\"{}\"", request.id(), skipped, reason);
+        if (deliveries.hasPlan(request.id())) {
+            finish(request);
+        } else {
+            requests.complete(request.id(), RequestStatus.FAILED, reason, Instant.now(clock));
+        }
+    }
+
     private void afterDelivery(RequestRecord request, DeliveryRecord delivery) {
         var progress = deliveries.progress(request.id());
         sheet.put(request.id(), SheetField.PROGRESS, progress.sheetText());
         if (progress.pending() == 0) {
             finish(request);
-        } else if ((delivery.position() + 1)%properties.waveSize() == 0) {
+        } else if ((delivery.position() + 1)%pauses.waveSize() == 0) {
             sheet.flushAsync();
         }
     }

@@ -27,7 +27,13 @@ class ShuffleTest extends IntegrationTest {
         assertThat(orders.get(0)).isNotEqualTo(orders.get(1));
         assertThat(orders.get(1)).isNotEqualTo(orders.get(2));
         assertThat(orders.get(0)).isNotEqualTo(orders.get(2));
-        assertThat(sentJids().subList(0, 20)).isEqualTo(orders.get(0));
-        assertThat(sentJids().subList(20, 40)).isEqualTo(orders.get(1));
+        // Рассылки чередуются, но каждая идёт по своему порядку групп.
+        var byRequest = gateway.sent().stream().collect(java.util.stream.Collectors.groupingBy(
+                message -> message.text().lines().findFirst().orElseThrow(), java.util.LinkedHashMap::new,
+                java.util.stream.Collectors.mapping(kz.wasender.whatsapp.fake.FakeWhatsAppGateway.SentMessage::groupJid,
+                        java.util.stream.Collectors.toList())));
+        assertThat(byRequest.get("📍*Первая*")).isEqualTo(orders.get(0));
+        assertThat(byRequest.get("📍*Вторая*")).isEqualTo(orders.get(1));
+        assertThat(byRequest.get("📍*Третья*")).isEqualTo(orders.get(2));
     }
 }
