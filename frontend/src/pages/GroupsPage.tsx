@@ -51,6 +51,7 @@ export function GroupsPage() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h1 className="mr-2 text-xl font-semibold">Группы</h1>
         <Segmented
+          className="order-1 w-full sm:order-none sm:w-auto"
           size="sm"
           value={filter}
           onChange={setFilter}
@@ -61,7 +62,7 @@ export function GroupsPage() {
             ...(selected.size ? [{ value: 'selected' as const, label: 'Отмеченные', count: selected.size }] : []),
           ]}
         />
-        <span className="flex items-center gap-1">
+        <span className="order-2 flex items-center gap-1 sm:order-none">
           <Select className="py-1.5 text-sm" value={listId} onChange={(e) => setListId(e.target.value)} aria-label="Список групп">
             <option value="">Все списки</option>
             {lists.map((l) => (
@@ -81,9 +82,10 @@ export function GroupsPage() {
             />
           )}
         </span>
-        <Input type="search" placeholder="Поиск" value={query} onChange={(e) => setQuery(e.target.value)} className="w-full py-1.5 text-sm sm:ml-auto sm:w-56" />
+        <Input type="search" placeholder="Поиск" value={query} onChange={(e) => setQuery(e.target.value)} className="order-2 min-w-0 flex-1 py-1.5 text-sm sm:order-none sm:ml-auto sm:w-56 sm:flex-none" />
         <Button
           size="sm"
+          className="ml-auto sm:ml-0"
           disabled={sync.isPending}
           title={lastSync ? `Обновлено ${formatTime(lastSync)}` : undefined}
           onClick={() =>
@@ -105,7 +107,7 @@ export function GroupsPage() {
       />
 
       {selected.size > 0 && (
-        <div className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 z-30 flex w-[min(640px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-3.5 py-2.5 shadow-xl">
+        <div className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 z-30 flex w-[min(640px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-3.5 py-2.5 shadow-xl">
           <span className="text-sm font-semibold">Отмечено {groupsCount(selected.size)}</span>
           <div className="flex flex-wrap gap-1.5">
             <Button size="sm" variant="primary" onClick={() => navigate('/campaigns/new', { state: { target: 'pick', groups: [...selected] } })}>

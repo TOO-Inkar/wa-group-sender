@@ -97,10 +97,32 @@
   #root {
     height: 100%;
   }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-bg text-text font-sans text-[15px] leading-normal antialiased;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-accent;
+  }
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+  button,
+  a,
+  summary,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+  /* iOS увеличивает страницу при фокусе на поле мельче 16px. */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
   }
 }

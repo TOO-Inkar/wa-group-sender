@@ -86,7 +86,7 @@ export function RunPanel({ runs }: { runs: Run[] }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-5 gap-1.5">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(96px,1fr))] gap-1.5">
         {tiles.map((t) => (
           <button
             key={t.key}

@@ -19,7 +19,8 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <ConfirmProvider>
         <RouterProvider router={router} />
-        <Toaster position="bottom-right" richColors closeButton />
+        {/* На телефоне — над нижней панелью разделов. */}
+        <Toaster position="bottom-right" richColors closeButton mobileOffset={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }} />
       </ConfirmProvider>
     </QueryClientProvider>
   )
