@@ -6,7 +6,7 @@ import type { FormValues } from '../form'
 export function Option({ name, value, title, children }: { name: 'target' | 'repeat'; value: string; title: string; children?: ReactNode }) {
   const { register } = useFormContext<FormValues>()
   return (
-    <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border px-3 py-2.5 has-checked:border-accent has-checked:bg-accent-soft">
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border px-3 py-2.5 has-[input[type=radio]:checked]:border-accent has-[input[type=radio]:checked]:bg-accent-soft">
       <input type="radio" value={value} className="mt-1 size-4 accent-accent" {...register(name)} />
       <span className="grid min-w-0 flex-1 justify-items-start gap-1.5">
         <b className="text-sm">{title}</b>
