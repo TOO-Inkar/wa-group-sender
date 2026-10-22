@@ -21,7 +21,6 @@ import java.util.Set;
 
 @Service
 public class SheetPoller {
-
     private static final Logger log = LoggerFactory.getLogger(SheetPoller.class);
 
     private final RequestSource source;

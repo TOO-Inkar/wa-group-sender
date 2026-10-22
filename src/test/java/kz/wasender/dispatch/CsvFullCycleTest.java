@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CsvFullCycleTest extends IntegrationTest {
-
     @Autowired
     PreviewService preview;
 

@@ -6,14 +6,12 @@ import { CampaignSheet } from '@/features/campaigns/components/CampaignSheet'
 import { fromCampaign, type FormValues } from '@/features/campaigns/form'
 import { useGroupLists } from '@/features/groups/api'
 
-/** /campaigns/:id — заявка в панели справа. */
 export function CampaignRoute() {
   const { id } = useParams()
   const navigate = useNavigate()
   return <CampaignSheet key={id} id={id!} onClose={() => navigate('/campaigns')} />
 }
 
-/** /campaigns/new — новая заявка; со страницы «Группы» приходят отмеченные группы или список. */
 export function NewCampaignRoute() {
   const navigate = useNavigate()
   const preset = useLocation().state as Partial<FormValues> | null
@@ -28,7 +26,6 @@ export function NewCampaignRoute() {
   )
 }
 
-/** /campaigns/:id/edit — правка в той же панели. */
 export function EditCampaignRoute() {
   const { id } = useParams()
   const navigate = useNavigate()

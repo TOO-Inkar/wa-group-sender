@@ -1,8 +1,8 @@
 package kz.wasender.web;
 
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kz.wasender.config.SecurityProperties;
@@ -18,7 +18,6 @@ import java.time.Clock;
 
 @Component
 public class AdminTokenFilter extends OncePerRequestFilter {
-
     private final SecurityProperties properties;
     private final SessionTokens sessions;
 
@@ -32,7 +31,6 @@ public class AdminTokenFilter extends OncePerRequestFilter {
         this(properties, new SessionTokens(properties, Clock.systemUTC()));
     }
 
-    /** Вход: токен в заголовке (API, curl) или cookie сессии со страницы входа. */
     static boolean authorized(HttpServletRequest request, SecurityProperties properties, SessionTokens sessions) {
         var expected = properties.adminToken();
         if (expected == null || expected.isBlank()) {

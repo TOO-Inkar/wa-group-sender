@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 public class MutableClock extends Clock {
-
     public static final ZoneId ALMATY = ZoneId.of("Asia/Almaty");
 
     private volatile Instant instant;

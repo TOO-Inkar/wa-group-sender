@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { useDispatchControl, useSaveSettings, useSettings, windowText } from './api'
-import { DISPATCHER_TEXT } from '@/features/health/texts'
+import { useDispatchControl, useSaveSettings, useSettings } from './api'
+import { limitsText, windowText } from './model'
+import { dispatcherInfo } from '@/features/health/texts'
 import { useHealth } from '@/features/health/api'
 import type { Settings } from '@/shared/api/types'
 import { Button } from '@/shared/ui/button'
@@ -104,7 +105,6 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
   )
 }
 
-/** Рассылка: состояние, пауза, рабочее окно и лимиты одной строкой; правка — в окне. */
 export function DispatchCard() {
   const { data: health } = useHealth()
   const { data: settings } = useSettings()
@@ -114,7 +114,7 @@ export function DispatchCard() {
   return (
     <Card className="grid content-start gap-3">
       <CardTitle className="mb-0">Рассылка</CardTitle>
-      <p className="text-sm text-muted">{health ? (DISPATCHER_TEXT[health.dispatcher] ?? health.dispatcher) : '…'}</p>
+      <p className="text-sm text-muted">{health ? dispatcherInfo(health.dispatcher).text : '…'}</p>
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => control.mutate('pause', { onSuccess: () => toast.success('Рассылка на паузе') })}>Пауза</Button>
         <Button variant="primary" onClick={() => control.mutate('resume', { onSuccess: () => toast.success('Рассылка возобновлена') })}>
@@ -129,9 +129,7 @@ export function DispatchCard() {
           </span>
           <span className="flex justify-between gap-2 text-sm">
             <span className="text-muted">Лимиты</span>
-            <b className="text-right">
-              {settings.hourlyLimit ? `${settings.hourlyLimit} в час` : 'без лимита в час'} · {settings.dailyLimit ? `${settings.dailyLimit} в день` : 'без лимита в день'}
-            </b>
+            <b className="text-right">{limitsText(settings)}</b>
           </span>
           <span className="text-[13px] text-accent">Изменить →</span>
         </button>

@@ -1,5 +1,6 @@
 package kz.wasender.notify;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -7,11 +8,9 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.jspecify.annotations.Nullable;
 
 @Repository
 public class TelegramSubscriberRepository {
-
     private static final RowMapper<Subscriber> MAPPER = (rs, n) -> new Subscriber(
             rs.getString("chat_id"),
             rs.getString("name"),
@@ -39,7 +38,6 @@ public class TelegramSubscriberRepository {
         return jdbc.sql("select chat_id from telegram_subscriber where status = 'APPROVED' order by chat_id").query(String.class).list();
     }
 
-    /** Новый запрос — PENDING; отклонённый может попросить снова. Имя обновляется. */
     public Subscriber request(String chatId, String name, String username, Instant at) {
         var existing = find(chatId);
         if (existing.isEmpty()) {

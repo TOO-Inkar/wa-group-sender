@@ -1,7 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// E2E против бэкенда в профиле fake (без WhatsApp): BASE_URL, логин admin / E2E_PASSWORD.
-// Никогда не запускать против прода — тест создаёт заявки, и они ушли бы в настоящие группы.
+// Только против профиля fake: тест создаёт заявки, на проде они уйдут в настоящие группы.
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,

@@ -3,10 +3,6 @@ import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
 
-/**
- * Боковая панель справа поверх списка: создание, правка и просмотр заявки без ухода со страницы.
- * footer прижат к низу панели — главная кнопка всегда видна.
- */
 export function Sheet({
   open,
   onOpenChange,

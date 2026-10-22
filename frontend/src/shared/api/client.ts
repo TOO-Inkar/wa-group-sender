@@ -1,7 +1,6 @@
 import createClient, { type Middleware } from 'openapi-fetch'
 import type { paths } from './schema'
 
-/** Ошибка API с текстом для человека (сервер отдаёт его в поле message). */
 export class ApiError extends Error {
   readonly status: number
 
@@ -11,7 +10,6 @@ export class ApiError extends Error {
   }
 }
 
-/** Сессия закончилась: приложение покажет вход (см. app/RequireAuth). */
 export const UNAUTHORIZED_EVENT = 'wa:unauthorized'
 
 const unauthorized: Middleware = {
@@ -22,11 +20,9 @@ const unauthorized: Middleware = {
   },
 }
 
-/** Типизированный клиент: пути, параметры и ответы берутся из OpenAPI бэкенда (schema.d.ts). */
 export const api = createClient<paths>({ baseUrl: '', credentials: 'same-origin' })
 api.use(unauthorized)
 
-/** Данные ответа или исключение ApiError — для queryFn/mutationFn TanStack Query. */
 export async function unwrap<T>(request: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
   const { data, error, response } = await request
   if (!response.ok) {
@@ -41,5 +37,5 @@ export async function unwrap<T>(request: Promise<{ data?: T; error?: unknown; re
   return data as T
 }
 
-/** Текстовые ответы (предпросмотр сообщения) openapi-fetch разбирает как JSON — их берём как текст. */
+// openapi-fetch разбирает text/plain как JSON.
 export const asText = { parseAs: 'text' as const }

@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class FakeSleeper implements Sleeper {
-
     private final MutableClock clock;
     private final List<Duration> sleeps = new CopyOnWriteArrayList<>();
 

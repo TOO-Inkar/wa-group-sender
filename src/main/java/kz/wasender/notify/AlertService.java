@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AlertService {
-
     private static final Logger log = LoggerFactory.getLogger(AlertService.class);
 
     private final NotifyProperties properties;

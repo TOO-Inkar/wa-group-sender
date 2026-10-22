@@ -6,10 +6,9 @@ import { RunPanel } from './RunPanel'
 import { formatTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { WhatsAppBubble } from '@/shared/ui/misc'
+import { WhatsAppBubble } from '@/shared/ui/whatsapp-bubble'
 import { Sheet } from '@/shared/ui/sheet'
 
-/** Заявка справа поверх списка: действия, текст, кому и когда, рассылки по группам. */
 export function CampaignSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const { data: c, isPending, isError } = useCampaign(id)
   const cmd = useCampaignCommands()

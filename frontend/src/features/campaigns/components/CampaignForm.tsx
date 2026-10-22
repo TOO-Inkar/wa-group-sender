@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useEffect, type KeyboardEvent } from 'react'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { usePreview, useSaveCampaign } from '../api'
 import { defaultValues, formSchema, previewBody, targetOf, toRequest, type FormValues } from '../form'
@@ -11,11 +11,12 @@ import { WhenPicker } from './WhenPicker'
 import { useGroupLists } from '@/features/groups/api'
 import { useHealth } from '@/features/health/api'
 import type { Campaign } from '@/shared/api/types'
-import { plural } from '@/shared/lib/format'
+import { groupsCount, plural } from '@/shared/lib/format'
+import { useDebounced } from '@/shared/lib/hooks'
 import { Button } from '@/shared/ui/button'
-import { useConfirm } from '@/shared/ui/confirm'
-import { Input } from '@/shared/ui/input'
-import { WhatsAppBubble } from '@/shared/ui/misc'
+import { useConfirm } from '@/shared/ui/confirm-context'
+import { Caption, Input } from '@/shared/ui/input'
+import { WhatsAppBubble } from '@/shared/ui/whatsapp-bubble'
 import { Segmented } from '@/shared/ui/segmented'
 import { Sheet } from '@/shared/ui/sheet'
 
@@ -31,15 +32,6 @@ function readDraft(): FormValues | null {
   }
 }
 
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), ms)
-    return () => clearTimeout(timer)
-  }, [value, ms])
-  return debounced
-}
-
 const WHEN: Record<FormValues['repeat'], (v: FormValues) => string> = {
   now: () => 'сейчас',
   at: (v) => `в ${v.atTime}`,
@@ -47,10 +39,6 @@ const WHEN: Record<FormValues['repeat'], (v: FormValues) => string> = {
   interval: (v) => scheduleShort({ repeatMode: 'INTERVAL', startTime: v.intervalStart, endTime: v.intervalEnd, intervalMinutes: v.intervalMinutes }),
 }
 
-/**
- * Новая заявка или правка — в боковой панели поверх списка. Черновик новой хранится в браузере.
- * Enter — следующее поле, Shift+Enter — новая строка, Ctrl+Enter — отправить.
- */
 export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: Campaign; initial?: Partial<FormValues>; onClose: (saved?: Campaign) => void }) {
   const editing = !!campaign
   const form = useForm<FormValues>({
@@ -73,7 +61,7 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
 
   const target = targetOf(values, lists)
   const count = target.groups ? target.groups.length : (health?.activeGroups ?? 0)
-  const where = target.label ?? (target.groups ? plural(count, 'группа', 'группы', 'групп') : `все группы (${count})`)
+  const where = target.label ?? (target.groups ? groupsCount(count) : `все группы (${count})`)
   const summary = `${where} · ${WHEN[values.repeat](values)}`
 
   const submit = form.handleSubmit(async (v) => {
@@ -154,12 +142,12 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
             <div className="grid gap-2.5 sm:grid-cols-2">
               {values.mode === 'fields' && (
                 <label className="grid gap-1">
-                  <span className="text-[13px] font-medium text-muted">Контакт в конце</span>
+                  <Caption>Контакт в конце</Caption>
                   <Input autoComplete="off" className="py-1.5" placeholder="Имя +7 7xx xxx xx xx" data-nav="" {...form.register('contact')} />
                 </label>
               )}
               <label className="grid gap-1">
-                <span className="text-[13px] font-medium text-muted">Название в списке</span>
+                <Caption>Название в списке</Caption>
                 <Input autoComplete="off" className="py-1.5" maxLength={200} placeholder="по умолчанию — маршрут" data-nav="" {...form.register('title')} />
               </label>
             </div>
@@ -167,7 +155,7 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
             <WhenPicker />
           </form>
           <div className="sticky top-0 grid gap-1.5">
-            <span className="text-[13px] font-medium text-muted">Как увидят в WhatsApp</span>
+            <Caption>Как увидят в WhatsApp</Caption>
             {preview.data && body ? (
               <WhatsAppBubble text={preview.data} className="max-h-[70vh] overflow-auto" />
             ) : (

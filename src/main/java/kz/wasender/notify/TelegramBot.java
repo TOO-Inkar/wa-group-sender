@@ -3,6 +3,7 @@ package kz.wasender.notify;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.annotation.PreDestroy;
 import kz.wasender.config.NotifyProperties;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -15,15 +16,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
 
-/**
- * Подписка на уведомления через бота: /start — запрос, который администратор одобряет в админке;
- * /stop — отписка. Бот читает сообщения long-poll'ом getUpdates, вебхук не нужен.
- */
 @Service
 public class TelegramBot {
-
     private static final Logger log = LoggerFactory.getLogger(TelegramBot.class);
     private static final int POLL_SECONDS = 25;
     private static final Duration RETRY_DELAY = Duration.ofSeconds(15);
@@ -68,10 +63,6 @@ public class TelegramBot {
         }
     }
 
-    /**
-     * Кто стоит за chat_id: имя и @username (или название группы) через getChat; телефон Bot API не отдаёт.
-     * Запоминается до перезапуска, чтобы не дёргать Telegram при каждом открытии настроек.
-     */
     public ChatInfo chatInfo(String chatId) {
         return chats.computeIfAbsent(chatId, id -> {
             try {
@@ -90,7 +81,6 @@ public class TelegramBot {
         });
     }
 
-    /** @username бота, чтобы показать в админке, кому писать /start. */
     public String username() {
         if (username == null && configured()) {
             try {
@@ -125,7 +115,6 @@ public class TelegramBot {
                     }
                 }
             } catch (RestClientResponseException e) {
-                // 409: getUpdates читает другой процесс с тем же токеном (или задан вебхук).
                 log.warn("TELEGRAM getUpdates HTTP {}: {}", e.getStatusCode().value(), e.getResponseBodyAsString());
                 if (!sleepQuietly()) {
                     return;

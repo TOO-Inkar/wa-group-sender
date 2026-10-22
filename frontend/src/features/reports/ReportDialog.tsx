@@ -4,8 +4,10 @@ import { download } from '@/shared/lib/download'
 import { isoDay } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
-import { Chips } from '@/shared/ui/misc'
+import { Segmented } from '@/shared/ui/segmented'
 import { Field, Input } from '@/shared/ui/input'
+
+const daysAgo = (days: number) => isoDay(new Date(Date.now() - days * 86_400_000))
 
 const PRESETS = [
   { value: '0', label: 'Сегодня' },
@@ -13,17 +15,16 @@ const PRESETS = [
   { value: '29', label: '30 дней' },
 ]
 
-/** Отчёт для заказчика за период: Excel или PDF. */
 export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [preset, setPreset] = useState('6')
-  const [to, setTo] = useState(isoDay(new Date()))
-  const [from, setFrom] = useState(isoDay(new Date(Date.now() - 6 * 86_400_000)))
+  const [to, setTo] = useState(daysAgo(0))
+  const [from, setFrom] = useState(daysAgo(6))
   const [busy, setBusy] = useState(false)
 
   const choose = (days: string) => {
     setPreset(days)
-    setTo(isoDay(new Date()))
-    setFrom(isoDay(new Date(Date.now() - Number(days) * 86_400_000)))
+    setTo(daysAgo(0))
+    setFrom(daysAgo(Number(days)))
   }
 
   const get = async (format: 'xlsx' | 'pdf') => {
@@ -40,7 +41,7 @@ export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Отчёт для заказчика" description="Рассылки за период: сколько отправлено, куда, ошибки понятными словами.">
-      <Chips value={preset} options={PRESETS} onChange={choose} />
+      <Segmented size="sm" className="justify-self-start" value={preset} options={PRESETS} onChange={choose} />
       <div className="grid grid-cols-2 gap-3">
         <Field label="С">
           <Input type="date" value={from} onChange={(e) => (setFrom(e.target.value), setPreset(''))} />

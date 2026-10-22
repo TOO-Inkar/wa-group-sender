@@ -6,7 +6,7 @@ import type { Campaign } from '@/shared/api/types'
 import { formatTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 import { RowMenu } from '@/shared/ui/menu'
-import { ProgressBar } from '@/shared/ui/misc'
+import { ProgressBar } from '@/shared/ui/progress-bar'
 
 function Progress({ c }: { c: Campaign }) {
   const run = latestRun(c)
@@ -26,7 +26,6 @@ function Progress({ c }: { c: Campaign }) {
   )
 }
 
-/** Заявки таблицей: всё важное в строке, действия — в меню «⋯», клик по строке — подробности справа. */
 export function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
   const navigate = useNavigate()
   const cmd = useCampaignCommands()

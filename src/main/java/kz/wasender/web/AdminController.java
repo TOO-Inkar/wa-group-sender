@@ -8,7 +8,6 @@ import kz.wasender.dispatch.DeliveryRepository;
 import kz.wasender.dispatch.DeliveryStatus;
 import kz.wasender.dispatch.Dispatcher;
 import kz.wasender.group.GroupListRepository;
-import kz.wasender.group.GroupRecord;
 import kz.wasender.group.GroupRepository;
 import kz.wasender.group.GroupSyncService;
 import kz.wasender.notify.AlertService;
@@ -20,6 +19,7 @@ import kz.wasender.risk.RiskMonitor;
 import kz.wasender.settings.SettingsService;
 import kz.wasender.sheets.SheetField;
 import kz.wasender.template.PreviewService;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,13 +37,10 @@ import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import org.jspecify.annotations.Nullable;
 
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
-
     private static final MediaType TEXT_UTF8 = new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8);
 
     private final Dispatcher dispatcher;
@@ -96,7 +93,6 @@ public class AdminController {
         return Map.of("paused", true);
     }
 
-    /** Puts a group that WhatsApp kept rejecting back into the dispatch, e.g. after its settings changed. */
     @PostMapping("/groups/reset-rejections")
     public ResponseEntity<?> resetRejections(@org.springframework.web.bind.annotation.RequestParam String jid) {
         return groups.resetRejections(jid, Instant.now())
@@ -133,11 +129,9 @@ public class AdminController {
         return requests.findAll().stream().map(this::view).toList();
     }
 
-    /** Queues a request entered in the admin page: for the chosen groups, or for every active group when none are given. */
     @PostMapping("/requests")
     public ResponseEntity<?> createRequest(@RequestBody NewRequest request) {
         try {
-            // Разовая заявка, которая рассылается сразу; ответ — её рассылка, как и раньше.
             var campaign = campaigns.create(new CampaignService.Input(request.draft(), null, request.groups(), null, null,
                     new Schedule(RepeatMode.ONCE, null, null, null), true));
             var run = campaigns.activeRuns(campaign.id()).getFirst();
@@ -152,14 +146,13 @@ public class AdminController {
         return RequestView.of(request, deliveries.progress(request.id()), targets);
     }
 
-    /** Sends a finished request again to the groups where it failed; the groups it reached are not touched. */
     @PostMapping("/requests/{id}/retry")
     public ResponseEntity<?> retryFailed(@PathVariable String id) {
         var request = requests.find(id).orElse(null);
         if (request == null) {
             return ResponseEntity.notFound().build();
         }
-        if (request.status() == RequestStatus.QUEUED || request.status() == RequestStatus.SENDING) {
+        if (request.status().active()) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "заявка ещё отправляется — повтор будет доступен после её завершения"));
         }
         var count = deliveries.retryFailed(id, Instant.now());
@@ -170,19 +163,15 @@ public class AdminController {
         return ResponseEntity.ok(view(requests.find(id).orElseThrow()));
     }
 
-    /** What happened to the request in each group, in sending order. */
     @GetMapping("/requests/{id}/deliveries")
     public List<DeliveryView> deliveries(@PathVariable String id) {
-        var names = groups.findAll().stream()
-                .filter(group -> group.name() != null)
-                .collect(Collectors.toMap(GroupRecord::jid, GroupRecord::name));
+        var names = groups.namesByJid();
         return deliveries.findByRequest(id).stream()
                 .map(delivery -> new DeliveryView(delivery.groupJid(), names.get(delivery.groupJid()), delivery.position(),
                         delivery.status(), delivery.error()))
                 .toList();
     }
 
-    /** The dispatch schedule the admin page explains to the user. */
     @GetMapping("/schedule")
     public Map<String, Object> schedule() {
         var dispatch = settings.dispatch();
@@ -199,13 +188,12 @@ public class AdminController {
         return groupLists.findAll();
     }
 
-    /** Creates the list or replaces the groups of the list with this name. */
     @PutMapping("/group-lists")
-    public ResponseEntity<?> saveGroupList(@RequestBody GroupListRequest request) {
+    public GroupListRepository.GroupList saveGroupList(@RequestBody GroupListRequest request) {
         if (request.name() == null || request.name().isBlank() || request.groups() == null || request.groups().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "нужны название и хотя бы одна группа"));
+            throw new IllegalArgumentException("нужны название и хотя бы одна группа");
         }
-        return ResponseEntity.ok(groupLists.save(request.name().strip(), request.groups(), Instant.now()));
+        return groupLists.save(request.name().strip(), request.groups(), Instant.now());
     }
 
     @DeleteMapping("/group-lists/{id}")
@@ -226,7 +214,6 @@ public class AdminController {
 
     public record Item(@Nullable String route, @Nullable String date, @Nullable String vehicles, @Nullable String cargo, @Nullable String freight,
                        @Nullable String conditions) {
-
         Map<SheetField, String> fields() {
             return new NewRequest(route, date, vehicles, cargo, freight, conditions, null).fields();
         }
@@ -235,14 +222,9 @@ public class AdminController {
     public record DeliveryView(String groupJid, @Nullable String groupName, int position, DeliveryStatus status, @Nullable String error) {
     }
 
-    /**
-     * A request from the admin page: either the fields of one request, or items (several requests combined into
-     * one message), or a ready text sent as is. contact overrides MESSAGE_CONTACT for this message.
-     */
     public record NewRequest(@Nullable String route, @Nullable String date, @Nullable String vehicles, @Nullable String cargo,
                              @Nullable String freight, @Nullable String conditions, @Nullable List<String> groups, @Nullable List<Item> items,
                              @Nullable String text, @Nullable String contact) {
-
         public NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions,
                           List<String> groups) {
             this(route, date, vehicles, cargo, freight, conditions, groups, null, null, null);
@@ -268,8 +250,6 @@ public class AdminController {
     public record RequestView(String id, @Nullable Integer sheetRow, String message, RequestStatus status, @Nullable String error,
                               Instant queuedAt, @Nullable Instant startedAt, @Nullable Instant completedAt, DeliveryRepository.Progress progress,
                               @Nullable Integer targetGroups, @Nullable String campaignId) {
-
-        /** targetGroups is the number of chosen groups, or null when the request goes to every active group. */
         static RequestView of(RequestRecord request, DeliveryRepository.Progress progress, Integer targetGroups) {
             return new RequestView(request.id(), request.sheetRow(), request.message(), request.status(), request.error(),
                     request.queuedAt(), request.startedAt(), request.completedAt(), progress, targetGroups, request.campaignId());

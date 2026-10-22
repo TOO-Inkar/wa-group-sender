@@ -2,8 +2,8 @@ package kz.wasender.config;
 
 import kz.wasender.campaign.CampaignService;
 import kz.wasender.dispatch.Dispatcher;
-import kz.wasender.notify.TelegramBot;
 import kz.wasender.group.GroupSyncService;
+import kz.wasender.notify.TelegramBot;
 import kz.wasender.sheets.SheetPoller;
 import kz.wasender.sheets.SheetUpdateBuffer;
 import kz.wasender.whatsapp.SessionWatchdog;
@@ -18,7 +18,6 @@ import java.time.Duration;
 
 @Component
 public class StartupTasks {
-
     private static final Logger log = LoggerFactory.getLogger(StartupTasks.class);
 
     private final AppProperties app;
@@ -71,7 +70,6 @@ public class StartupTasks {
         }
         repeat(buffer::flushQuietly, sheets.progressFlushInterval());
         repeat(groupSync::syncQuietly, groups.syncInterval());
-        // Расписание заявок: проверка раз в 30 секунд, рассылка стартует не позже чем через полминуты после своего времени.
         repeat(campaigns::tickQuietly, Duration.ofSeconds(30));
         telegramBot.start();
         if (dispatch.autostart()) {

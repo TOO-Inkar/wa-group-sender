@@ -6,8 +6,8 @@ import kz.wasender.dispatch.DispatcherState;
 import kz.wasender.group.GroupSyncService;
 import kz.wasender.request.RequestRepository;
 import kz.wasender.risk.RiskMonitor;
-import kz.wasender.sheets.SheetPoller;
 import kz.wasender.sheets.SheetField;
+import kz.wasender.sheets.SheetPoller;
 import kz.wasender.sheets.SheetUpdateBuffer;
 import kz.wasender.sheets.fake.FakeRequestSource;
 import kz.wasender.whatsapp.GroupInfo;
@@ -28,7 +28,6 @@ import java.util.Map;
 @Import(TestBeans.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public abstract class IntegrationTest {
-
     @Autowired
     protected MutableClock clock;
     @Autowired

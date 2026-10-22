@@ -18,7 +18,6 @@ import java.util.Map;
 @Profile("fake")
 @RequestMapping("/api/admin/fake")
 public class FakeAdminController {
-
     private final FakeRequestSource source;
     private final FakeWhatsAppGateway gateway;
     private final PreviewService preview;

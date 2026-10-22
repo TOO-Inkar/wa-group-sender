@@ -4,7 +4,7 @@ import { formatTime, plural } from '@/shared/lib/format'
 import { Badge, type Tone } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardTitle } from '@/shared/ui/card'
-import { useConfirm } from '@/shared/ui/confirm'
+import { useConfirm } from '@/shared/ui/confirm-context'
 
 const STATUS: Record<string, { text: string; tone: Tone }> = {
   PENDING: { text: 'ждёт одобрения', tone: 'warn' },
@@ -22,7 +22,6 @@ function Person({ name, username, note }: { name: string | null; username: strin
   )
 }
 
-/** Кто получает уведомления: из .env и подписчики бота с одобрением. */
 export function TelegramCard() {
   const { data } = useTelegram()
   const action = useSubscriberAction()

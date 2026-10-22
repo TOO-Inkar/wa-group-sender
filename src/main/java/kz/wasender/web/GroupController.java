@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 public class GroupController {
-
     private final GroupRepository groups;
 
     public GroupController(GroupRepository groups) {

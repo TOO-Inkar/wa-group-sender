@@ -6,17 +6,13 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 public interface WhatsAppGateway {
-
     void connect();
 
     void disconnect();
 
     SessionState sessionState();
 
-    /**
-     * Whether the underlying socket is really open. The session state follows library events,
-     * and a socket that closes without a disconnect event would otherwise stay CONNECTED forever.
-     */
+    // Состояние идёт по событиям библиотеки; сокет, закрытый без события, иначе навсегда остался бы CONNECTED.
     default boolean transportAlive() {
         return true;
     }
@@ -31,12 +27,10 @@ public interface WhatsAppGateway {
 
     void subscribe(Consumer<GatewayEvent> listener);
 
-    /** Последнее сообщение в группе, если клиент его видел: наше ли оно и когда. */
     default Optional<LastMessage> lastMessage(String groupJid) {
         return Optional.empty();
     }
 
-    /** Отправка в личку (автоответчик); ошибки только в лог. */
     default void sendDirect(String chatJid, String text) throws SendException {
         sendText(chatJid, text);
     }

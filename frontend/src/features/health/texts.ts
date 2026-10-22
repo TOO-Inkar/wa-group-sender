@@ -11,19 +11,30 @@ export const SESSION_TEXT: Record<string, string> = {
   BANNED: 'номер заблокирован',
 }
 
-export const DISPATCHER_TEXT: Record<string, string> = {
-  starting: 'запускается',
-  idle: 'ждёт заявок',
-  running: 'идёт рассылка',
-  paused: 'на паузе',
-  'outside-window': 'вне рабочего окна',
-  'daily-limit-reached': 'дневной лимит исчерпан',
-  'hourly-limit-reached': 'лимит в час исчерпан',
-  'waiting-groups': 'ждёт: в оставшихся группах последнее сообщение наше',
-  'waiting-session': 'ждёт подключения',
-  'no-active-groups': 'нет групп для рассылки',
-  'stopped-by-risk': 'остановлена по риску',
-  stopped: 'остановлена',
+type DispatcherInfo = { text: string; short: string; tone: Tone; hint?: string }
+
+export const DISPATCHER: Record<string, DispatcherInfo> = {
+  starting: { text: 'запускается', short: 'запуск', tone: 'info' },
+  idle: { text: 'ждёт заявок', short: 'ждёт заявок', tone: 'info' },
+  running: { text: 'идёт рассылка', short: 'идёт рассылка', tone: 'ok' },
+  paused: { text: 'на паузе', short: 'на паузе', tone: 'warn' },
+  'outside-window': { text: 'вне рабочего окна', short: 'вне рабочего окна', tone: 'info', hint: 'Продолжится, когда откроется рабочее окно' },
+  'daily-limit-reached': { text: 'дневной лимит исчерпан', short: 'дневной лимит', tone: 'info', hint: 'Продолжится завтра' },
+  'hourly-limit-reached': { text: 'лимит в час исчерпан', short: 'лимит в час', tone: 'info', hint: 'Продолжится в течение часа' },
+  'waiting-groups': {
+    text: 'ждёт: в оставшихся группах последнее сообщение наше',
+    short: 'пауза в группах',
+    tone: 'info',
+    hint: 'В оставшихся группах последнее сообщение наше — отправим, когда там напишут или пройдёт пауза',
+  },
+  'waiting-session': { text: 'ждёт подключения', short: 'подключение…', tone: 'warn' },
+  'no-active-groups': { text: 'нет групп для рассылки', short: 'нет групп', tone: 'warn' },
+  'stopped-by-risk': { text: 'остановлена по риску', short: 'остановлена', tone: 'bad' },
+  stopped: { text: 'остановлена', short: 'остановлена', tone: 'bad' },
+}
+
+export function dispatcherInfo(state: string): DispatcherInfo {
+  return DISPATCHER[state] ?? { text: state, short: state, tone: 'info' }
 }
 
 export function sessionTone(session: string | undefined): Tone {

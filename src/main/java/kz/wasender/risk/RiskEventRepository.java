@@ -9,7 +9,6 @@ import java.util.Optional;
 
 @Repository
 public class RiskEventRepository {
-
     private final JdbcClient jdbc;
 
     public RiskEventRepository(JdbcClient jdbc) {

@@ -12,7 +12,6 @@ import java.util.function.Supplier;
 
 @Service
 public class WarmupService {
-
     private final DailyCounterRepository counters;
     private final Supplier<WarmupProperties> settings;
     private final Clock clock;

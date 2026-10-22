@@ -12,7 +12,6 @@ import java.util.stream.IntStream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PauseRandomizerTest {
-
     private final DispatchProperties properties = new DispatchProperties(false, 25,
             Duration.ofMinutes(10), Duration.ofMinutes(20),
             Duration.ofSeconds(20), Duration.ofSeconds(60),

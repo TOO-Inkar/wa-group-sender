@@ -11,7 +11,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GroupsOfPreviousNumberTest extends IntegrationTest {
-
     @Autowired
     GroupController controller;
     @Autowired
@@ -29,7 +28,6 @@ class GroupsOfPreviousNumberTest extends IntegrationTest {
         assertThat(controller.groups(false)).extracting(GroupRecord::name).containsExactly("Новый номер");
         assertThat(groups.activeJids()).containsExactly("3@g.us");
         assertThat(groups.isSendable("1@g.us")).isFalse();
-        // История помнит названия для отчётов.
         assertThat(groups.findAll()).hasSize(3);
 
         gateway.replaceGroups(List.of(new GroupInfo("1@g.us", "Старый номер 1", true, true, true),

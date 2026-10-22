@@ -6,16 +6,15 @@ import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestRepository;
 import kz.wasender.risk.RiskMonitor;
 import kz.wasender.whatsapp.WhatsAppGateway;
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
-import org.jspecify.annotations.Nullable;
 
 @RestController
 public class HealthController {
-
     private final WhatsAppGateway gateway;
     private final RequestRepository requests;
     private final GroupRepository groups;
@@ -35,7 +34,6 @@ public class HealthController {
         this.clock = clock;
     }
 
-    /** /api/health — для healthcheck Docker изнутри; страница админки берёт то же через /api/admin/health (нужен вход). */
     @GetMapping({"/api/health", "/api/admin/health"})
     public Health health() {
         var today = warmup.today();

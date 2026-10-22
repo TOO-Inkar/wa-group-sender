@@ -22,12 +22,10 @@ import java.util.regex.Pattern;
 
 @Component
 public class TemplateRenderer {
-
     public static final String CONTACT = "Контакт";
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{([^{}\\n]+)}");
     private static final String KEYCAP = "️⃣";
-    /** Between requests combined into one message. */
     public static final String SEPARATOR = "━━━━━━━━━━━━━━━━━━━━";
 
     private final MessageProperties properties;
@@ -42,7 +40,6 @@ public class TemplateRenderer {
         return render(row, null);
     }
 
-    /** One request; contact null means the configured MESSAGE_CONTACT. */
     public String render(SheetRow row, String contact) {
         var result = renderLines(templateLines(), values(row, contactLines(contact)));
         if (properties.numbering() && !result.isEmpty()) {
@@ -54,10 +51,6 @@ public class TemplateRenderer {
         return String.join("\n", result);
     }
 
-    /**
-     * Several requests in one message: each is numbered by its position (1️⃣, 2️⃣…) and rendered without the
-     * contact line, they are separated by {@link #SEPARATOR}, and the contact follows once at the end.
-     */
     public String renderCombined(List<SheetRow> rows, String contact) {
         var template = templateLines();
         var parts = new ArrayList<String>();

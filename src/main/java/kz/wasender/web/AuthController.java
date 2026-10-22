@@ -2,6 +2,7 @@ package kz.wasender.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import kz.wasender.config.SecurityProperties;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -15,24 +16,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.jspecify.annotations.Nullable;
 
-/**
- * Страница входа: логин и пароль (bcrypt-хеш в ADMIN_PASSWORD_HASH) → cookie сессии.
- * Неудачные входы видны в логе nginx как 401 на /api/auth/login — по ним банит fail2ban; здесь ещё и свой предел на IP.
- */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private static final int MAX_FAILURES = 10;
     private static final Duration FAILURE_WINDOW = Duration.ofMinutes(10);
@@ -63,6 +58,7 @@ public class AuthController {
                 login.username().strip().getBytes(StandardCharsets.UTF_8), properties.username().getBytes(StandardCharsets.UTF_8));
         var passwordOk = login.password() != null && matches(login.password());
         if (!userOk || !passwordOk) {
+            // 401 попадает в лог nginx — по нему банит fail2ban.
             recordFailure(ip);
             log.warn("LOGIN failed ip={} username=\"{}\"", ip, login.username());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Неверный логин или пароль"));
@@ -80,10 +76,9 @@ public class AuthController {
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
     }
 
-    /** Вошёл ли браузер: страница решает, показать вход или админку. */
     @GetMapping("/me")
+    // 200 в обоих случаях: страница входа не должна сыпать ошибками в консоль.
     public Me me(HttpServletRequest request) {
-        // 200 в обоих случаях: страница входа не должна сыпать ошибками в консоль браузера.
         return AdminTokenFilter.authorized(request, properties, sessions) ? new Me(true, properties.username()) : new Me(false, null);
     }
 
@@ -117,7 +112,6 @@ public class AuthController {
         }
     }
 
-    /** За nginx настоящий адрес в X-Real-IP; без nginx — адрес соединения. */
     private static String clientIp(HttpServletRequest request) {
         var real = request.getHeader("X-Real-IP");
         return real == null || real.isBlank() ? request.getRemoteAddr() : real.strip();

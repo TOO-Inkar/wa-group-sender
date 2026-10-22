@@ -10,7 +10,6 @@ import java.util.random.RandomGenerator;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class TestBeans {
-
     public static final LocalDateTime MONDAY_10 = LocalDateTime.of(2026, 9, 28, 10, 0);
 
     @Bean

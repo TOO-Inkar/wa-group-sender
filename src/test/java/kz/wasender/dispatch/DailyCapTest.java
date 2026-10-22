@@ -13,7 +13,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class DailyCapTest {
-
     private final MutableClock clock = new MutableClock(LocalDateTime.of(2026, 10, 20, 10, 0));
     private final DailyCounterRepository counters = mock(DailyCounterRepository.class);
 

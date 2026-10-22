@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CampaignFlowTest extends IntegrationTest {
-
     @Autowired
     CampaignService campaigns;
     @Autowired
@@ -54,7 +53,6 @@ class CampaignFlowTest extends IntegrationTest {
         assertThat(campaigns.tick()).isEqualTo(1);
         runUntilBlocked(100);
 
-        // Общее окно с 08:00, но у заявки своё — с 05:00.
         assertThat(sentJids()).hasSize(3);
         var run = requests.findByCampaign(campaign.id()).getFirst();
         assertThat(run.status()).isEqualTo(RequestStatus.DONE);
@@ -131,7 +129,6 @@ class CampaignFlowTest extends IntegrationTest {
         create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
         runUntilBlocked(200);
 
-        // В первой группе после нас кто-то написал — шлём; во второй последнее сообщение наше — ждём.
         assertThat(gateway.sent()).hasSize(3);
         assertThat(gateway.sent().get(2).groupJid()).isEqualTo(groupsJids.get(0));
         for (var i = 0; i < 5; i++) {

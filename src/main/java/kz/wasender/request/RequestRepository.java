@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public class RequestRepository {
-
     private static final RowMapper<RequestRecord> MAPPER = (rs, n) -> new RequestRecord(
             rs.getString("id"),
             (Integer) rs.getObject("sheet_row"),
@@ -37,27 +36,12 @@ public class RequestRepository {
         return jdbc.sql("select * from request where id = ?").param(id).query(MAPPER).optional();
     }
 
-    public boolean exists(String id) {
-        return jdbc.sql("select count(*) from request where id = ?").param(id).query(Integer.class).single() > 0;
-    }
-
     public void insert(String id, int sheetRow, String message, Instant queuedAt) {
         jdbc.sql("insert into request(id, sheet_row, message, status, queued_at) values (?, ?, ?, 'QUEUED', ?)")
                 .params(id, sheetRow, message, queuedAt)
                 .update();
     }
 
-    /** A request entered in the admin page; with target groups it goes only to them, otherwise to every active group. */
-    public void insert(String id, String message, Instant queuedAt, Collection<String> targetGroups) {
-        jdbc.sql("insert into request(id, message, status, queued_at, targeted) values (?, ?, 'QUEUED', ?, ?)")
-                .params(id, message, queuedAt, !targetGroups.isEmpty())
-                .update();
-        for (var jid : new LinkedHashSet<>(targetGroups)) {
-            jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
-        }
-    }
-
-    /** Рассылка заявки из админки: со своим окном (null — общее) и адресатами (пусто — все активные группы). */
     public void insertRun(String id, String campaignId, String message, Instant queuedAt, Collection<String> targetGroups,
                           LocalTime windowStart, LocalTime windowEnd) {
         jdbc.sql("""
@@ -65,12 +49,9 @@ public class RequestRepository {
                         values (?, ?, 'QUEUED', ?, ?, ?, ?, ?)""")
                 .params(id, message, queuedAt, !targetGroups.isEmpty(), campaignId, windowStart, windowEnd)
                 .update();
-        for (var jid : new LinkedHashSet<>(targetGroups)) {
-            jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
-        }
+        insertTargets(id, targetGroups);
     }
 
-    /** Рассылки, которые ждут или идут, в порядке постановки; диспетчер чередует их между собой. */
     public List<RequestRecord> active() {
         return jdbc.sql("select * from request where status in ('QUEUED', 'SENDING') order by queued_at, id").query(MAPPER).list();
     }
@@ -79,18 +60,21 @@ public class RequestRepository {
         return jdbc.sql("select * from request where campaign_id = ? order by queued_at desc, id desc").param(campaignId).query(MAPPER).list();
     }
 
-    /** Текст ещё не начатой рассылки меняется вместе с заявкой. */
     public int updateQueuedMessage(String campaignId, String message, Collection<String> targetGroups) {
         var ids = jdbc.sql("select id from request where campaign_id = ? and status = 'QUEUED' and started_at is null")
                 .param(campaignId).query(String.class).list();
         for (var id : ids) {
             jdbc.sql("update request set message = ?, targeted = ? where id = ?").params(message, !targetGroups.isEmpty(), id).update();
             jdbc.sql("delete from request_target where request_id = ?").param(id).update();
-            for (var jid : new LinkedHashSet<>(targetGroups)) {
-                jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
-            }
+            insertTargets(id, targetGroups);
         }
         return ids.size();
+    }
+
+    private void insertTargets(String id, Collection<String> targetGroups) {
+        for (var jid : new LinkedHashSet<>(targetGroups)) {
+            jdbc.sql("insert into request_target(request_id, group_jid) values (?, ?)").params(id, jid).update();
+        }
     }
 
     public boolean isTargeted(String id) {
@@ -114,14 +98,6 @@ public class RequestRepository {
                 .list();
     }
 
-    public Optional<RequestRecord> nextInQueue() {
-        // The request already being sent goes first: a finished one put back for a retry must not cut in.
-        return jdbc.sql("select * from request where status in ('QUEUED', 'SENDING') "
-                        + "order by case when status = 'SENDING' then 0 else 1 end, queued_at, id limit 1")
-                .query(MAPPER)
-                .optional();
-    }
-
     public int queueLength() {
         return jdbc.sql("select count(*) from request where status in ('QUEUED', 'SENDING')").query(Integer.class).single();
     }
@@ -132,7 +108,6 @@ public class RequestRepository {
                 .update();
     }
 
-    /** A finished request goes back to the queue to retry the groups that failed. */
     public void requeue(String id) {
         jdbc.sql("update request set status = 'QUEUED', error = null, completed_at = null where id = ?").param(id).update();
     }

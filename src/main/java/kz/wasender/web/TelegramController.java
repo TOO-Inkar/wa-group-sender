@@ -3,6 +3,7 @@ package kz.wasender.web;
 import kz.wasender.notify.TelegramBot;
 import kz.wasender.notify.TelegramNotifier;
 import kz.wasender.notify.TelegramSubscriberRepository;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,13 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
 
-/** Кто получает уведомления: чаты из .env и подписчики бота, одобренные в админке. */
 @RestController
 @RequestMapping("/api/admin/telegram")
 public class TelegramController {
-
     private final TelegramSubscriberRepository subscribers;
     private final TelegramNotifier notifier;
     private final TelegramBot bot;
@@ -56,7 +54,6 @@ public class TelegramController {
         return ResponseEntity.ok(subscribers.find(chatId).orElseThrow());
     }
 
-    /** Удалить подписчика; он сможет попросить подписку снова. */
     @DeleteMapping("/subscribers/{chatId}")
     public ResponseEntity<?> remove(@PathVariable String chatId) {
         var found = subscribers.find(chatId);
@@ -70,7 +67,6 @@ public class TelegramController {
         return ResponseEntity.noContent().build();
     }
 
-    /** botUsername — кому писать /start; configuredChats — чаты из .env (меняются только там) с именем из Telegram. */
     public record Overview(boolean botConfigured, @Nullable String botUsername, List<TelegramBot.ChatInfo> configuredChats,
                            List<TelegramSubscriberRepository.Subscriber> subscribers) {
     }

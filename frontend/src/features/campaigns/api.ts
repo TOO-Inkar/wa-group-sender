@@ -3,7 +3,9 @@ import { healthKeys } from '@/features/health/api'
 import { api, asText, unwrap } from '@/shared/api/client'
 import type { CampaignForm } from '@/shared/api/types'
 
-export const campaignKeys = {
+const REFRESH_MS = 8000
+
+const campaignKeys = {
   all: ['campaigns'] as const,
   list: () => [...campaignKeys.all, 'list'] as const,
   detail: (id: string) => [...campaignKeys.all, 'detail', id] as const,
@@ -11,9 +13,8 @@ export const campaignKeys = {
   preview: (body: unknown) => ['preview', body] as const,
 }
 
-/** Список заявок; обновляется раз в 8 секунд — видно, как идёт рассылка. */
 export function useCampaigns() {
-  return useQuery({ queryKey: campaignKeys.list(), queryFn: () => unwrap(api.GET('/api/admin/campaigns')), refetchInterval: 8000 })
+  return useQuery({ queryKey: campaignKeys.list(), queryFn: () => unwrap(api.GET('/api/admin/campaigns')), refetchInterval: REFRESH_MS })
 }
 
 export function useCampaign(id: string | undefined) {
@@ -21,7 +22,7 @@ export function useCampaign(id: string | undefined) {
     queryKey: campaignKeys.detail(id ?? ''),
     queryFn: () => unwrap(api.GET('/api/admin/campaigns/{id}', { params: { path: { id: id! } } })),
     enabled: !!id,
-    refetchInterval: 8000,
+    refetchInterval: REFRESH_MS,
   })
 }
 
@@ -30,11 +31,10 @@ export function useDeliveries(runId: string | null) {
     queryKey: campaignKeys.deliveries(runId ?? ''),
     queryFn: () => unwrap(api.GET('/api/admin/requests/{id}/deliveries', { params: { path: { id: runId! } } })),
     enabled: !!runId,
-    refetchInterval: 8000,
+    refetchInterval: REFRESH_MS,
   })
 }
 
-/** Текст сообщения, как он уйдёт; запрос не чаще, чем пользователь перестал печатать (debounce снаружи). */
 export function usePreview(body: { text?: string; items?: unknown[]; contact?: string } | null) {
   return useQuery({
     queryKey: campaignKeys.preview(body),
@@ -67,7 +67,6 @@ export function useSaveCampaign(id?: string) {
 
 type Action = 'enable' | 'disable' | 'run' | 'delete' | 'retry'
 
-/** Действия над заявкой и её рассылками; после — свежие список, детали и состояние. */
 export function useCampaignAction() {
   const invalidate = useInvalidate()
   return useMutation({

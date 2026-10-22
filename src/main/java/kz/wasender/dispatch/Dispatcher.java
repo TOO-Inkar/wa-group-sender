@@ -32,7 +32,6 @@ import java.util.random.RandomGenerator;
 
 @Service
 public class Dispatcher {
-
     private static final Logger log = LoggerFactory.getLogger(Dispatcher.class);
 
     private final RequestRepository requests;
@@ -55,7 +54,6 @@ public class Dispatcher {
     private volatile boolean running;
     private volatile Thread worker;
     private Instant lastSendAt;
-    // Паузы и волны общие для номера: сколько отправок с последней паузы между волнами, какая рассылка шла последней.
     private int sentInWave;
     private String lastRequestId;
 
@@ -153,10 +151,6 @@ public class Dispatcher {
         }
     }
 
-    /**
-     * Один шаг: одна доставка одной рассылки. Рассылки, которым сейчас можно слать, чередуются по кругу:
-     * у каждой свой порядок групп, а паузы, волны и лимиты общие для номера.
-     */
     public Duration cycle() throws InterruptedException {
         var idle = settings.dispatch().idlePoll();
         var gate = gate();
@@ -213,7 +207,6 @@ public class Dispatcher {
         return wait.compareTo(idle) < 0 ? (wait.isNegative() ? Duration.ZERO : wait) : idle;
     }
 
-    /** Рассылки по кругу, начиная со следующей после той, что слала последней. */
     private List<RequestRecord> inTurn(List<RequestRecord> open) {
         var start = 0;
         for (var i = 0; i < open.size(); i++) {
@@ -248,7 +241,6 @@ public class Dispatcher {
         return DispatcherState.RUNNING;
     }
 
-    /** Попыток за последний час на номер (все рассылки вместе) и действующий лимит; 0 — без лимита. */
     public int sentLastHour() {
         return deliveries.attemptsSince(Instant.now(clock).minus(Duration.ofHours(1)));
     }
@@ -263,8 +255,7 @@ public class Dispatcher {
     }
 
     private boolean plan(RequestRecord request) {
-        // A request with chosen groups is planned for exactly them, even if none can be written to now:
-        // those are skipped at send time, and the request never falls back to every active group.
+        // Заявка с выбранными группами никогда не превращается в рассылку по всем активным.
         var targeted = requests.isTargeted(request.id());
         var active = new ArrayList<>(targeted ? requests.targets(request.id()) : groups.activeJids());
         if (active.isEmpty() && !targeted) {
@@ -320,11 +311,8 @@ public class Dispatcher {
         send(request, delivery, pause);
     }
 
-    /**
-     * Последнее сообщение в группе наше и свежее: слать ещё одно подряд — спам и риск бана.
-     * Доставка ждёт, пока не пройдёт пауза после нашего сообщения; рассылка тем временем идёт в другие группы.
-     */
     private boolean postponeAfterOwnMessage(RequestRecord request, DeliveryRecord delivery) {
+        // Два наших сообщения подряд в группе выглядят как спам и повышают риск бана.
         var gap = settings.dispatch().ownMessageGap();
         if (gap == null || !gap.isPositive()) {
             return false;
@@ -369,9 +357,8 @@ public class Dispatcher {
                 groups.deactivate(jid, lastSendAt);
                 log.warn("GROUP deactivated group_jid={} reason=send-rejected", jid);
             }
+            // 479 — WhatsApp отказал этой группе (очень большая), а не номеру: это не сигнал риска.
             if (e.rejectedByServer()) {
-                // 479 comes back for the same groups request after request; it is about the group, not the number,
-                // so it is not a risk signal. After two in a row the group leaves the dispatch.
                 log.warn("SEND request_id={} group_jid={} rejected by WhatsApp for this group, not a risk signal", request.id(), jid);
                 if (groups.recordRejection(jid, lastSendAt)) {
                     log.warn("GROUP excluded group_jid={} reason=rejected-by-whatsapp-twice", jid);
@@ -383,7 +370,6 @@ public class Dispatcher {
         afterDelivery(request, delivery);
     }
 
-    /** Закрывает рассылку раньше времени (заявку удалили или пришла новая рассылка по расписанию). */
     public void close(RequestRecord request, String reason) {
         var skipped = deliveries.skipPending(request.id(), reason, Instant.now(clock));
         log.info("CLOSE request_id={} skipped={} reason=\"{}\"", request.id(), skipped, reason);

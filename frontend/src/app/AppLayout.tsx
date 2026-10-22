@@ -7,14 +7,8 @@ import { StatusChip } from '@/features/health/StatusChip'
 import { sessionTone } from '@/features/health/texts'
 import { useTelegram } from '@/features/telegram/api'
 import { cn } from '@/shared/lib/cn'
+import { Count, Dot } from '@/shared/ui/badge'
 
-const dots = { ok: 'bg-accent', warn: 'bg-[#e0a030]', bad: 'bg-danger', info: 'bg-info-text', neutral: 'bg-neutral-bg' }
-
-function Count({ value }: { value: number }) {
-  return value ? <span className="rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-text tabular-nums">{value}</span> : null
-}
-
-/** Меню слева (на телефоне — сверху) и страница. */
 export function AppLayout() {
   const { data: health } = useHealth()
   const { data: telegram } = useTelegram()
@@ -25,7 +19,7 @@ export function AppLayout() {
   const items = [
     { to: '/campaigns', label: 'Заявки', icon: <ClipboardList size={17} />, extra: <Count value={health?.queueLength ?? 0} /> },
     { to: '/groups', label: 'Группы', icon: <Users size={17} /> },
-    { to: '/connection', label: 'Номер', icon: <Smartphone size={17} />, extra: <span className={cn('size-2 rounded-full', dots[tone])} /> },
+    { to: '/connection', label: 'Номер', icon: <Smartphone size={17} />, extra: <Dot tone={tone} /> },
     { to: '/settings', label: 'Настройки', icon: <Settings size={17} />, extra: <Count value={pending} /> },
   ]
 

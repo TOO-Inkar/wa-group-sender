@@ -3,29 +3,21 @@ import { useState } from 'react'
 import { Link, Outlet } from 'react-router'
 import { useCampaigns } from '@/features/campaigns/api'
 import { CampaignTable } from '@/features/campaigns/components/CampaignTable'
-import { campaignState } from '@/features/campaigns/model'
+import { matchesFilter, matchesQuery, type CampaignFilter } from '@/features/campaigns/model'
 import { ReportDialog } from '@/features/reports/ReportDialog'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
-import { EmptyState } from '@/shared/ui/misc'
+import { EmptyState } from '@/shared/ui/empty-state'
 import { Segmented } from '@/shared/ui/segmented'
 
-type Filter = 'all' | 'active' | 'scheduled' | 'done' | 'off'
-
-/** Рабочий экран: заявки таблицей; создание, правка и просмотр — в панели справа (вложенные маршруты). */
 export function CampaignsPage() {
   const { data: campaigns = [], isPending } = useCampaigns()
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter] = useState<CampaignFilter>('all')
   const [query, setQuery] = useState('')
   const [report, setReport] = useState(false)
 
-  const group = (f: Filter) =>
-    campaigns.filter((c) => {
-      const s = campaignState(c)
-      return f === 'all' || (f === 'active' ? s === 'sending' || s === 'waiting' : s === f)
-    })
-  const q = query.trim().toLowerCase()
-  const shown = group(filter).filter((c) => !q || c.title.toLowerCase().includes(q) || c.message.toLowerCase().includes(q))
+  const group = (f: CampaignFilter) => campaigns.filter((c) => matchesFilter(c, f))
+  const shown = group(filter).filter((c) => matchesQuery(c, query))
 
   return (
     <>

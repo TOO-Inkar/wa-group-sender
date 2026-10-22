@@ -4,12 +4,11 @@ import type { FormValues } from '../form'
 import { GroupPickerDialog } from '@/features/groups/GroupPickerDialog'
 import { useGroupLists } from '@/features/groups/api'
 import { useHealth } from '@/features/health/api'
-import { plural } from '@/shared/lib/format'
+import { groupsCount } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
-import { Select } from '@/shared/ui/input'
+import { Caption, Select } from '@/shared/ui/input'
 import { Segmented } from '@/shared/ui/segmented'
 
-/** Куда: все группы · список · выбрать — одной строкой, нужное поле рядом. */
 export function WherePicker() {
   const { setValue, control, formState, register } = useFormContext<FormValues>()
   const [target, groups] = useWatch({ control, name: ['target', 'groups'] })
@@ -20,7 +19,7 @@ export function WherePicker() {
 
   return (
     <div className="grid gap-1.5">
-      <span className="text-[13px] font-medium text-muted">Куда</span>
+      <Caption>Куда</Caption>
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
           value={target}
@@ -46,7 +45,7 @@ export function WherePicker() {
         )}
         {target === 'pick' && (
           <Button size="sm" onClick={() => setPicking(true)}>
-            {groups.length ? `${plural(groups.length, 'группа', 'группы', 'групп')} · изменить` : 'Выбрать группы…'}
+            {groups.length ? `${groupsCount(groups.length)} · изменить` : 'Выбрать группы…'}
           </Button>
         )}
       </div>

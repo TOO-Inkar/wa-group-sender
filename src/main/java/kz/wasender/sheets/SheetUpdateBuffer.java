@@ -12,7 +12,6 @@ import java.util.Map;
 
 @Component
 public class SheetUpdateBuffer {
-
     private static final Logger log = LoggerFactory.getLogger(SheetUpdateBuffer.class);
 
     private final RequestSource source;

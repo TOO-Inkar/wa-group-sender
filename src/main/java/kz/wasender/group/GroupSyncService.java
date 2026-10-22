@@ -20,7 +20,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class GroupSyncService {
-
     private static final Logger log = LoggerFactory.getLogger(GroupSyncService.class);
 
     private final WhatsAppGateway gateway;
@@ -74,7 +73,6 @@ public class GroupSyncService {
                 log.info("GROUP renamed group_jid={} from=\"{}\" to=\"{}\"", group.jid(), previous.name(), group.name());
             }
         }
-        // Группы, которых нет в списке номера (номер вышел из них или привязан другой номер), уходят из списка и рассылки.
         var absent = 0;
         for (var previous : before.values()) {
             if (!seen.contains(previous.jid()) && groups.markAbsent(previous.jid(), now) > 0) {
@@ -92,7 +90,7 @@ public class GroupSyncService {
         return new SyncResult(true, fetched.size(), archived, active);
     }
 
-    /** The server does not always send a group's name; a blank one must not erase the name already known. */
+    // Сервер не всегда присылает название группы — пустое не должно стирать известное.
     private static GroupInfo named(GroupInfo group, GroupRecord previous) {
         var blank = group.name() == null || group.name().isBlank();
         if (!blank || previous == null || previous.name() == null || previous.name().isBlank()) {

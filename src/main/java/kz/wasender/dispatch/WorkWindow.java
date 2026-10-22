@@ -13,7 +13,6 @@ import java.util.function.Supplier;
 
 @Component
 public class WorkWindow {
-
     private final Supplier<DispatchProperties> properties;
     private final Clock clock;
 
@@ -37,10 +36,6 @@ public class WorkWindow {
         return isOpen(moment, current.windowStart(), current.windowEnd());
     }
 
-    /**
-     * Окно отдельной рассылки: заявка по расписанию шлёт со своего времени старта до своего конца
-     * (или до конца общего окна). Выходные — по общей настройке.
-     */
     public boolean isOpenNow(LocalTime ownStart, LocalTime ownEnd) {
         if (ownStart == null) {
             return isOpenNow();

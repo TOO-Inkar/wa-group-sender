@@ -14,13 +14,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Точный контракт для типов фронтенда: каждое поле record-ов API обязательно, а помеченное {@link Nullable}
- * может быть null. Без этого springdoc делает все поля необязательными, и TypeScript не напоминает про null.
- */
+// Иначе springdoc делает все поля необязательными и TypeScript не напоминает про null.
 @Configuration(proxyBeanMethods = false)
 public class OpenApiConfig {
-
     @Bean
     OpenApiCustomizer requiredAndNullableFields() {
         var records = records();
@@ -67,7 +63,6 @@ public class OpenApiConfig {
         return property;
     }
 
-    /** Все record-ы сервиса по простому имени — так springdoc называет схемы. */
     private static Map<String, Class<?>> records() {
         var scanner = new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter((reader, factory) -> "java.lang.Record".equals(reader.getClassMetadata().getSuperClassName()));

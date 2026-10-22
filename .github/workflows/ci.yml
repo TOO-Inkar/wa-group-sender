@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 
-# PR-прогоны отменяют устаревшие, а push в main — нет: автодеплой ждёт зелёного CI именно этого коммита.
+# Never cancel main: autodeploy waits for this exact commit to go green.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -17,8 +17,6 @@ concurrency:
 jobs:
   build:
     name: Build & test
-    # Раннеры GitHub: org-раннеры self-hosted жили на стенде inkbpadev и сейчас не в сети,
-    # а на боевой сервер раннер не ставим — он выполнял бы код любого PR рядом с сессией WhatsApp.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -40,7 +38,6 @@ jobs:
       - name: Build and test
         run: ./gradlew build --no-daemon
         env:
-          # Свой tmp на прогон: /tmp общий для всех юзеров хоста.
           JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=${{ runner.temp }}
 
       - name: Upload test reports
@@ -52,7 +49,6 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Админка: типы (в том числе сверка с OpenAPI бэкенда), линтер, тесты и сборка — как в Docker-образе.
   frontend:
     name: Frontend (typecheck, lint, test, build)
     runs-on: ubuntu-24.04
@@ -83,6 +79,3 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
-
-# Выкатка на прод — не здесь: сервер сам забирает main после зелёного CI (scripts/autodeploy.sh на сервере)
-# и отчитывается в GitHub проверкой «CD / production» и деплойментом production.

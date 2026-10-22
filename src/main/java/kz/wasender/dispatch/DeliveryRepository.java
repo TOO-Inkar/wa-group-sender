@@ -10,7 +10,6 @@ import java.util.Optional;
 
 @Repository
 public class DeliveryRepository {
-
     private static final RowMapper<DeliveryRecord> MAPPER = (rs, n) -> new DeliveryRecord(
             rs.getLong("id"),
             rs.getString("request_id"),
@@ -37,7 +36,6 @@ public class DeliveryRepository {
         }
     }
 
-    /** Следующая доставка, которую можно делать сейчас: отложенные до not_before пропускаются. */
     public Optional<DeliveryRecord> nextReady(String requestId, Instant now) {
         return jdbc.sql("select * from delivery where request_id = ? and status = 'PENDING' and (not_before is null or not_before <= ?) "
                         + "order by position limit 1")
@@ -46,7 +44,6 @@ public class DeliveryRepository {
                 .optional();
     }
 
-    /** Когда освободится ближайшая отложенная доставка рассылки. */
     public Optional<Instant> earliestPostponed(String requestId) {
         return jdbc.sql("select min(not_before) from delivery where request_id = ? and status = 'PENDING' and not_before is not null")
                 .param(requestId)
@@ -54,14 +51,12 @@ public class DeliveryRepository {
                 .optional();
     }
 
-    /** Доставка ждёт до notBefore; причина видна в админке. */
     public void postpone(long id, Instant notBefore, String reason, Instant at) {
         jdbc.sql("update delivery set not_before = ?, error = ?, updated_at = ? where id = ?")
                 .params(notBefore, truncate(reason), at, id)
                 .update();
     }
 
-    /** Попыток отправки в группы с момента since — для лимита номера в час. */
     public int attemptsSince(Instant since) {
         return jdbc.sql("select count(*) from delivery where status in ('SENT', 'FAILED') and updated_at >= ?")
                 .param(since)
@@ -69,7 +64,6 @@ public class DeliveryRepository {
                 .single();
     }
 
-    /** Закрывает рассылку: всё, что не отправлено, помечается пропущенным с причиной; возвращает сколько. */
     public int skipPending(String requestId, String reason, Instant at) {
         return jdbc.sql("update delivery set status = 'SKIPPED', error = ?, not_before = null, updated_at = ? "
                         + "where request_id = ? and status = 'PENDING'")
@@ -98,7 +92,6 @@ public class DeliveryRepository {
                 .update();
     }
 
-    /** Puts every failed send of the request back as pending; returns how many. */
     public int retryFailed(String requestId, Instant at) {
         return jdbc.sql("update delivery set status = 'PENDING', attempts = 0, error = null, updated_at = ? where request_id = ? and status = 'FAILED'")
                 .params(at, requestId)
@@ -123,7 +116,6 @@ public class DeliveryRepository {
     }
 
     public record Progress(int total, int sent, int failed, int skipped, int pending) {
-
         public String sheetText() {
             return sent + " / " + total;
         }

@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class CsvParser {
-
     private static final String BOM = String.valueOf((char) 0xFEFF);
 
     private CsvParser() {

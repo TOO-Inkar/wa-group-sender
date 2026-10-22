@@ -20,13 +20,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/**
- * The report as an Excel workbook: a summary sheet, then requests, sends and groups as filterable tables.
- * Column widths are fixed rather than auto-sized: auto-sizing needs desktop fonts the container does not have.
- */
 @Component
 public class ExcelReportWriter {
-
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     public byte[] write(Report report) {
@@ -175,7 +170,6 @@ public class ExcelReportWriter {
     }
 
     private static final class Styles {
-
         final CellStyle title;
         final CellStyle muted;
         final CellStyle label;

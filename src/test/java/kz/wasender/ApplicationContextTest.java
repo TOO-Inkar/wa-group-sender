@@ -8,7 +8,6 @@ import org.springframework.context.ApplicationContext;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ApplicationContextTest extends IntegrationTest {
-
     @Autowired
     ApplicationContext context;
 

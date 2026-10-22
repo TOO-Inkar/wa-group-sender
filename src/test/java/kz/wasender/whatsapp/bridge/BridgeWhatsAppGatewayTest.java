@@ -22,7 +22,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class BridgeWhatsAppGatewayTest {
-
     private final RestClient.Builder builder = RestClient.builder().baseUrl("http://bridge");
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
     private final BridgeWhatsAppGateway gateway = new BridgeWhatsAppGateway(builder, builder);

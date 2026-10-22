@@ -8,7 +8,6 @@ import { ConfirmProvider } from '@/shared/ui/confirm'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // 4xx не повторяем: это не сбой сети, а ответ сервера.
       retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
       refetchOnWindowFocus: true,
     },

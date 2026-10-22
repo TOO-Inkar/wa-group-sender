@@ -14,9 +14,7 @@ import java.time.Instant;
 
 @Component
 public class SessionWatchdog {
-
     private static final Logger log = LoggerFactory.getLogger(SessionWatchdog.class);
-    // Two checks in a row, so a socket that is being swapped right now is not mistaken for a dead one.
     private static final int DEAD_TRANSPORT_CHECKS = 2;
 
     private final WhatsAppGateway gateway;

@@ -12,7 +12,6 @@ import java.util.List;
 
 @Service
 public class RiskMonitor {
-
     private static final Logger log = LoggerFactory.getLogger(RiskMonitor.class);
 
     private final RiskEventRepository repository;

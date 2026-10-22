@@ -4,7 +4,6 @@ import { Navigate, Outlet, useLocation } from 'react-router'
 import { authKeys, useMe } from '@/features/auth/api'
 import { UNAUTHORIZED_EVENT } from '@/shared/api/client'
 
-/** Внутренние страницы — только после входа. Ответ 401 от любого запроса возвращает на страницу входа. */
 export function RequireAuth() {
   const { data: me, isPending } = useMe()
   const client = useQueryClient()

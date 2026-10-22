@@ -3,7 +3,6 @@ import { api, unwrap } from '@/shared/api/client'
 
 export const authKeys = { me: ['auth', 'me'] as const }
 
-/** Вошёл ли браузер (cookie сессии HttpOnly — проверить её может только сервер). */
 export function useMe() {
   return useQuery({
     queryKey: authKeys.me,

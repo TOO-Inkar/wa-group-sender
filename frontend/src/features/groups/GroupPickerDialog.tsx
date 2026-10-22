@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
-import { matches, sendable, sortGroups, useGroups } from './api'
+import { useGroups } from './api'
+import { matches, sendable, sortGroups } from './model'
 import { GroupName, GroupTags } from './GroupTags'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Checkbox, Input } from '@/shared/ui/input'
 
-/** Выбор групп для заявки: поиск, только из рассылки, счётчик. */
 export function GroupPickerDialog({
   open,
   onOpenChange,

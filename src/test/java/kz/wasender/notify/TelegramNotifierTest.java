@@ -16,7 +16,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TelegramNotifierTest {
-
     private HttpServer server;
     private final List<String> bodies = new CopyOnWriteArrayList<>();
 

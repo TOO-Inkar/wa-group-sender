@@ -19,7 +19,6 @@ import java.util.Optional;
 
 @Service
 public class QrService {
-
     private static final Logger log = LoggerFactory.getLogger(QrService.class);
 
     private final WhatsAppGateway gateway;

@@ -22,7 +22,6 @@ import java.util.Optional;
 
 @Service
 public class ReportService {
-
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd.MM.yyyy");
 
     private final RequestRepository requests;
@@ -35,7 +34,6 @@ public class ReportService {
         this.clock = clock;
     }
 
-    /** Every request queued from the start of {@code from} to the end of {@code to}, in the service time zone. */
     public Report period(LocalDate from, LocalDate to) {
         var zone = clock.getZone();
         var list = requests.findQueuedBetween(from.atStartOfDay(zone).toInstant(), to.plusDays(1).atStartOfDay(zone).toInstant());
@@ -116,7 +114,6 @@ public class ReportService {
         return instant == null ? null : LocalDateTime.ofInstant(instant, clock.getZone());
     }
 
-    /** The customer sees group names; a group without one gets the tail of its number so rows stay distinguishable. */
     static String groupName(Delivery delivery) {
         if (delivery.name() != null && !delivery.name().isBlank()) {
             return delivery.name().strip();
@@ -125,7 +122,6 @@ public class ReportService {
         return "Группа без названия (…" + digits.substring(Math.max(0, digits.length() - 4)) + ")";
     }
 
-    /** The first meaningful line of the message, without WhatsApp formatting marks. */
     static String headline(String message) {
         if (message == null) {
             return "";
@@ -153,7 +149,6 @@ public class ReportService {
         };
     }
 
-    /** A reason in the customer's words; null when there is nothing to explain. */
     static String reason(DeliveryStatus status, String error) {
         if (status == DeliveryStatus.SKIPPED) {
             return "группа исключена из рассылки (номер не может в неё писать)";

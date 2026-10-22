@@ -1,4 +1,3 @@
-# Админка (frontend/: React + Vite) собирается отдельно и кладётся в статику Spring Boot — один образ, один адрес.
 FROM node:22.17.0-alpine AS frontend
 WORKDIR /frontend
 RUN corepack enable

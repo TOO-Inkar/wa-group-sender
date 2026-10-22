@@ -9,7 +9,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AdminTokenFilterTest {
-
     private static MockHttpServletResponse call(String token, String path, String header) throws Exception {
         var filter = new AdminTokenFilter(new SecurityProperties(token, "X-Admin-Token", "admin", null, java.time.Duration.ofDays(30)));
         var request = new MockHttpServletRequest("GET", path);

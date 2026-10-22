@@ -1,15 +1,10 @@
-import { createContext, use, useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Button } from './button'
+import { ConfirmContext, type Confirm, type ConfirmOptions } from './confirm-context'
 import { Dialog, DialogActions } from './dialog'
 
-type Options = { title: string; body?: ReactNode; confirm?: string; danger?: boolean }
-type Confirm = (options: Options) => Promise<boolean>
-
-const ConfirmContext = createContext<Confirm | null>(null)
-
-/** Подтверждение действия в своём окне вместо window.confirm: await confirm({ title }) → true/false. */
 export function ConfirmProvider({ children }: { children: ReactNode }) {
-  const [options, setOptions] = useState<Options | null>(null)
+  const [options, setOptions] = useState<ConfirmOptions | null>(null)
   const resolver = useRef<(value: boolean) => void>(null)
 
   const confirm = useCallback<Confirm>((next) => {
@@ -41,12 +36,4 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       </Dialog>
     </ConfirmContext>
   )
-}
-
-// Хук рядом с провайдером — одна точка входа; быстрому обновлению в dev это не мешает.
-// eslint-disable-next-line react-refresh/only-export-components
-export function useConfirm(): Confirm {
-  const confirm = use(ConfirmContext)
-  if (!confirm) throw new Error('useConfirm вне ConfirmProvider')
-  return confirm
 }

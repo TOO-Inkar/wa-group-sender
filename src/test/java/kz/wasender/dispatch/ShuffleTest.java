@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ShuffleTest extends IntegrationTest {
-
     @Test
     void groupOrderChangesFromRequestToRequest() throws Exception {
         useGroups(20);
@@ -27,7 +26,6 @@ class ShuffleTest extends IntegrationTest {
         assertThat(orders.get(0)).isNotEqualTo(orders.get(1));
         assertThat(orders.get(1)).isNotEqualTo(orders.get(2));
         assertThat(orders.get(0)).isNotEqualTo(orders.get(2));
-        // Рассылки чередуются, но каждая идёт по своему порядку групп.
         var byRequest = gateway.sent().stream().collect(java.util.stream.Collectors.groupingBy(
                 message -> message.text().lines().findFirst().orElseThrow(), java.util.LinkedHashMap::new,
                 java.util.stream.Collectors.mapping(kz.wasender.whatsapp.fake.FakeWhatsAppGateway.SentMessage::groupJid,

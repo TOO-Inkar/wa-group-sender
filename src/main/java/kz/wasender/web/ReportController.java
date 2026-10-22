@@ -20,11 +20,9 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
-/** Report downloads for the customer: Excel or PDF, for one request or for a period. */
 @RestController
 @RequestMapping("/api/admin/reports")
 public class ReportController {
-
     private static final MediaType XLSX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     private static final long MAX_DAYS = 366;
 

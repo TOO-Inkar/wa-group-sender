@@ -12,7 +12,6 @@ import java.util.random.RandomGenerator;
 
 @Configuration(proxyBeanMethods = false)
 public class CoreConfig {
-
     @Bean
     Clock clock(AppProperties properties) {
         return Clock.system(properties.zone());

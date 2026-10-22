@@ -3,7 +3,6 @@ package kz.wasender.sheets;
 import java.util.List;
 
 public class SheetLayoutException extends RuntimeException {
-
     private final List<String> missing;
 
     public SheetLayoutException(List<String> missing) {

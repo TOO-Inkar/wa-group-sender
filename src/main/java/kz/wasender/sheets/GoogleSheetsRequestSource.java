@@ -18,7 +18,6 @@ import java.util.List;
 @Component
 @Profile("!fake")
 public class GoogleSheetsRequestSource implements RequestSource {
-
     private final SheetsProperties properties;
     private final SheetsRetry retry;
     private volatile Sheets sheets;
