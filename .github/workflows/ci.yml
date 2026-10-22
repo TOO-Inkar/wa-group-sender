@@ -79,3 +79,22 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+
+  deploy:
+    name: Deploy to production
+    needs: [build, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Follow the server deploy
+        run: .github/scripts/wait-deploy.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
