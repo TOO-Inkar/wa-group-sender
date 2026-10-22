@@ -67,13 +67,13 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
     @Override
     public void sendText(String groupJid, String text) throws SendException {
         if (sessionState() != SessionState.CONNECTED) {
-            throw new SendException("not connected", false, null);
+            throw SendException.connectionLost("not connected", null);
         }
         if (failing.contains(groupJid)) {
             throw new SendException("fake failure for " + groupJid, false, null);
         }
         if (rejecting.merge(groupJid, -1, Integer::sum) >= 0) {
-            throw new SendException("server returned error 479", false, true, null);
+            throw new SendException("server returned error 479", false, true, false, null);
         }
         if (properties.failureRate() > 0 && random.nextDouble() < properties.failureRate()) {
             throw new SendException("fake random failure", false, null);

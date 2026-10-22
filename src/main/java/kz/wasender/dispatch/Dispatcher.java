@@ -357,8 +357,10 @@ public class Dispatcher {
                 groups.deactivate(jid, lastSendAt);
                 log.warn("GROUP deactivated group_jid={} reason=send-rejected", jid);
             }
-            // 479 — WhatsApp отказал этой группе (очень большая), а не номеру: это не сигнал риска.
-            if (e.rejectedByServer()) {
+            // 479 — WhatsApp отказал этой группе (очень большая), а не номеру; обрыв связи — проблема сети. Оба не сигнал риска.
+            if (e.connectionLost()) {
+                log.warn("SEND request_id={} group_jid={} connection lost, not a risk signal", request.id(), jid);
+            } else if (e.rejectedByServer()) {
                 log.warn("SEND request_id={} group_jid={} rejected by WhatsApp for this group, not a risk signal", request.id(), jid);
                 if (groups.recordRejection(jid, lastSendAt)) {
                     log.warn("GROUP excluded group_jid={} reason=rejected-by-whatsapp-twice", jid);

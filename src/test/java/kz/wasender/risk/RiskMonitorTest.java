@@ -62,13 +62,16 @@ class RiskMonitorTest extends IntegrationTest {
     }
 
     @Test
-    void sessionDropAndRemovalFromGroupAreRiskSignals() {
+    void removalFromGroupIsARiskSignalButANetworkDropIsNot() {
         useGroups(3);
 
         gateway.simulateRemoval("12036399000002@g.us");
-        gateway.simulateDisconnect(true);
+        for (var i = 0; i < 20; i++) {
+            gateway.simulateDisconnect(true);
+        }
 
-        assertThat(risk.eventsInWindow()).isEqualTo(2);
+        assertThat(risk.eventsInWindow()).isEqualTo(1);
+        assertThat(risk.isStopped()).isFalse();
     }
 
     @Test

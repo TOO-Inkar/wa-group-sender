@@ -11,5 +11,6 @@ public enum RiskType {
     RISK_STOP,
     RESUMED;
 
-    public static final List<RiskType> SIGNALS = List.of(GROUP_REMOVED, SEND_FAILED, DISCONNECTED, LOGGED_OUT, BANNED);
+    // DISCONNECTED пишется для истории, но не считается: обрыв сети не говорит об ограничении номера.
+    public static final List<RiskType> SIGNALS = List.of(GROUP_REMOVED, SEND_FAILED, LOGGED_OUT, BANNED);
 }
