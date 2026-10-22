@@ -134,17 +134,17 @@ export function DispatchCard() {
         </Button>
       )}
       {settings && (
-        <button type="button" onClick={() => setOpen(true)} className="grid cursor-pointer gap-1.5 rounded-xl border border-border p-3 text-left hover:bg-surface-2">
-          <span className="flex justify-between gap-2 text-sm">
-            <span className="text-muted">Рабочее окно</span>
-            <b>{windowText(settings)}</b>
-          </span>
-          <span className="flex justify-between gap-2 text-sm">
-            <span className="text-muted">Лимиты</span>
-            <b className="text-right">{limitsText(settings)}</b>
-          </span>
-          <span className="text-[13px] text-accent">Изменить →</span>
-        </button>
+        <div className="grid gap-2 border-t border-border pt-3">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+            <dt className="text-muted">Рабочее окно</dt>
+            <dd className="text-right font-semibold">{windowText(settings)}</dd>
+            <dt className="text-muted">Лимиты</dt>
+            <dd className="text-right font-semibold">{limitsText(settings)}</dd>
+          </dl>
+          <Button size="sm" variant="ghost" className="justify-self-start px-0 text-accent hover:enabled:text-accent-hover" onClick={() => setOpen(true)}>
+            Изменить окно и лимиты
+          </Button>
+        </div>
       )}
       {settings && <WindowDialog settings={settings} open={open} onOpenChange={setOpen} />}
     </Card>
