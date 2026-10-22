@@ -7,3 +7,6 @@ secrets
 logs
 .env
 *.iml
+frontend/node_modules
+frontend/dist
+frontend/.pnpm-store

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 @Repository
 public class TelegramSubscriberRepository {
@@ -63,6 +64,7 @@ public class TelegramSubscriberRepository {
 
     public enum Status { PENDING, APPROVED, REJECTED }
 
-    public record Subscriber(String chatId, String name, String username, Status status, Instant requestedAt, Instant decidedAt) {
+    public record Subscriber(String chatId, @Nullable String name, @Nullable String username, Status status, Instant requestedAt,
+                             @Nullable Instant decidedAt) {
     }
 }

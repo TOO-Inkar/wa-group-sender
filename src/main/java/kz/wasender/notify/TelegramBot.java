@@ -15,6 +15,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Подписка на уведомления через бота: /start — запрос, который администратор одобряет в админке;
@@ -223,7 +224,7 @@ public class TelegramBot {
     record User(@JsonProperty("first_name") String firstName, @JsonProperty("last_name") String lastName, String username) {
     }
 
-    public record ChatInfo(String chatId, String name, String username) {
+    public record ChatInfo(String chatId, @Nullable String name, @Nullable String username) {
     }
 
     record GetChat(Boolean ok, ChatResult result) {

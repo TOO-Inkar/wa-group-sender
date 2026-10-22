@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Кто получает уведомления: чаты из .env и подписчики бота, одобренные в админке. */
 @RestController
@@ -70,7 +71,7 @@ public class TelegramController {
     }
 
     /** botUsername — кому писать /start; configuredChats — чаты из .env (меняются только там) с именем из Telegram. */
-    public record Overview(boolean botConfigured, String botUsername, List<TelegramBot.ChatInfo> configuredChats,
+    public record Overview(boolean botConfigured, @Nullable String botUsername, List<TelegramBot.ChatInfo> configuredChats,
                            List<TelegramSubscriberRepository.Subscriber> subscribers) {
     }
 }

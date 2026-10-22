@@ -1,0 +1,2248 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "OpenAPI definition",
+        "version": "v0"
+    },
+    "servers": [
+        {
+            "url": "http://127.0.0.1:18080",
+            "description": "Generated server url"
+        }
+    ],
+    "paths": {
+        "/api/admin/settings": {
+            "get": {
+                "tags": [
+                    "settings-controller"
+                ],
+                "operationId": "get",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/View"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "settings-controller"
+                ],
+                "operationId": "update",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/View"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/View"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/group-lists": {
+            "get": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "groupLists",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/GroupList"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "saveGroupList",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/GroupListRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/campaigns/{id}": {
+            "get": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "get_1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CampaignView"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "update_1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CampaignForm"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CampaignView"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "delete",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "tags": [
+                    "auth-controller"
+                ],
+                "operationId": "logout",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "auth-controller"
+                ],
+                "operationId": "login",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Login"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/test-alert": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "testAlert",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/telegram/subscribers/{chatId}/reject": {
+            "post": {
+                "tags": [
+                    "telegram-controller"
+                ],
+                "operationId": "reject",
+                "parameters": [
+                    {
+                        "name": "chatId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/telegram/subscribers/{chatId}/approve": {
+            "post": {
+                "tags": [
+                    "telegram-controller"
+                ],
+                "operationId": "approve",
+                "parameters": [
+                    {
+                        "name": "chatId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/resume": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "resume",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/requests": {
+            "get": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "requests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/RequestView"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "createRequest",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/requests/{id}/retry": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "retryFailed",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/requests/preview": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "previewRequest",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/preview": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "preview",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PreviewRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/pause": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "pause",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/groups/sync": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "syncGroups",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SyncResult"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/groups/reset-rejections": {
+            "post": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "resetRejections",
+                "parameters": [
+                    {
+                        "name": "jid",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/fake/requests": {
+            "post": {
+                "tags": [
+                    "fake-admin-controller"
+                ],
+                "operationId": "add",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/campaigns": {
+            "get": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "list",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/CampaignView"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "create",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CampaignForm"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CampaignView"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/campaigns/{id}/run": {
+            "post": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "runNow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CampaignView"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/campaigns/{id}/enable": {
+            "post": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "enable",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CampaignView"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/campaigns/{id}/disable": {
+            "post": {
+                "tags": [
+                    "campaign-controller"
+                ],
+                "operationId": "disable",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CampaignView"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/qr": {
+            "get": {
+                "tags": [
+                    "qr-controller"
+                ],
+                "operationId": "qr",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/groups": {
+            "get": {
+                "tags": [
+                    "group-controller"
+                ],
+                "operationId": "groups",
+                "parameters": [
+                    {
+                        "name": "activeOnly",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/GroupRecord"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "tags": [
+                    "auth-controller"
+                ],
+                "operationId": "me",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Me"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/telegram": {
+            "get": {
+                "tags": [
+                    "telegram-controller"
+                ],
+                "operationId": "overview",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Overview"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/schedule": {
+            "get": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "schedule",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/requests/{id}/deliveries": {
+            "get": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "deliveries",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/DeliveryView"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/reports/requests/{id}": {
+            "get": {
+                "tags": [
+                    "report-controller"
+                ],
+                "operationId": "request",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "xlsx"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/reports/period": {
+            "get": {
+                "tags": [
+                    "report-controller"
+                ],
+                "operationId": "period",
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "xlsx"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/health": {
+            "get": {
+                "tags": [
+                    "health-controller"
+                ],
+                "operationId": "health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Health"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/health": {
+            "get": {
+                "tags": [
+                    "health-controller"
+                ],
+                "operationId": "health_1",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Health"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/fake/sheet": {
+            "get": {
+                "tags": [
+                    "fake-admin-controller"
+                ],
+                "operationId": "sheet",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SheetRow"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/fake/sent": {
+            "get": {
+                "tags": [
+                    "fake-admin-controller"
+                ],
+                "operationId": "sent",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/SentMessage"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/telegram/subscribers/{chatId}": {
+            "delete": {
+                "tags": [
+                    "telegram-controller"
+                ],
+                "operationId": "remove",
+                "parameters": [
+                    {
+                        "name": "chatId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/group-lists/{id}": {
+            "delete": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "deleteGroupList",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "View": {
+                "type": "object",
+                "properties": {
+                    "windowStart": {
+                        "type": "string"
+                    },
+                    "windowEnd": {
+                        "type": "string"
+                    },
+                    "weekendsEnabled": {
+                        "type": "boolean"
+                    },
+                    "hourlyLimit": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "dailyLimit": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "warmupEnabled": {
+                        "type": "boolean"
+                    },
+                    "groupPauseMinSeconds": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "groupPauseMaxSeconds": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "waveSize": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "wavePauseMinMinutes": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "wavePauseMaxMinutes": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "ownMessageGapMinutes": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "autoReplyEnabled": {
+                        "type": "boolean"
+                    },
+                    "autoReplyRejectCalls": {
+                        "type": "boolean"
+                    },
+                    "autoReplyCooldownHours": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "autoReplyText": {
+                        "type": "string"
+                    },
+                    "defaultAutoReplyText": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "autoReplyCooldownHours",
+                    "autoReplyEnabled",
+                    "autoReplyRejectCalls",
+                    "autoReplyText",
+                    "dailyLimit",
+                    "defaultAutoReplyText",
+                    "groupPauseMaxSeconds",
+                    "groupPauseMinSeconds",
+                    "hourlyLimit",
+                    "ownMessageGapMinutes",
+                    "warmupEnabled",
+                    "wavePauseMaxMinutes",
+                    "wavePauseMinMinutes",
+                    "waveSize",
+                    "weekendsEnabled",
+                    "windowEnd",
+                    "windowStart"
+                ]
+            },
+            "GroupListRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "groups": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "groups",
+                    "name"
+                ]
+            },
+            "CampaignForm": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "content": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/Content"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "groups": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "targetLabel": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "repeat": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/Repeat"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "sendNow": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "content",
+                    "groups",
+                    "repeat",
+                    "sendNow",
+                    "targetLabel",
+                    "title"
+                ]
+            },
+            "Content": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "items": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/Item"
+                        }
+                    },
+                    "text": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "contact": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "contact",
+                    "items",
+                    "mode",
+                    "text"
+                ]
+            },
+            "Item": {
+                "type": "object",
+                "properties": {
+                    "route": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "date": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "vehicles": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "cargo": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "freight": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "conditions": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "cargo",
+                    "conditions",
+                    "date",
+                    "freight",
+                    "route",
+                    "vehicles"
+                ]
+            },
+            "Repeat": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "ONCE",
+                            "DAILY",
+                            "INTERVAL"
+                        ]
+                    },
+                    "start": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "end": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "intervalMinutes": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int32"
+                    }
+                },
+                "required": [
+                    "end",
+                    "intervalMinutes",
+                    "mode",
+                    "start"
+                ]
+            },
+            "CampaignView": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "form": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "targeted": {
+                        "type": "boolean"
+                    },
+                    "targetLabel": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "targets": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Target"
+                        }
+                    },
+                    "repeatMode": {
+                        "type": "string",
+                        "enum": [
+                            "ONCE",
+                            "DAILY",
+                            "INTERVAL"
+                        ]
+                    },
+                    "startTime": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "endTime": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "intervalMinutes": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int32"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "nextRunAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "lastRunAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "current": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/Run"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "runCount": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "runs": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Run"
+                        }
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "current",
+                    "enabled",
+                    "endTime",
+                    "form",
+                    "id",
+                    "intervalMinutes",
+                    "lastRunAt",
+                    "message",
+                    "nextRunAt",
+                    "repeatMode",
+                    "runCount",
+                    "runs",
+                    "startTime",
+                    "targetLabel",
+                    "targeted",
+                    "targets",
+                    "title",
+                    "updatedAt"
+                ]
+            },
+            "Progress": {
+                "type": "object",
+                "properties": {
+                    "total": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "sent": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "failed": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "skipped": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "pending": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                },
+                "required": [
+                    "failed",
+                    "pending",
+                    "sent",
+                    "skipped",
+                    "total"
+                ]
+            },
+            "Run": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "QUEUED",
+                            "SENDING",
+                            "DONE",
+                            "FAILED"
+                        ]
+                    },
+                    "error": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "queuedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "startedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "completedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "progress": {
+                        "$ref": "#/components/schemas/Progress"
+                    }
+                },
+                "required": [
+                    "completedAt",
+                    "error",
+                    "id",
+                    "progress",
+                    "queuedAt",
+                    "startedAt",
+                    "status"
+                ]
+            },
+            "Target": {
+                "type": "object",
+                "properties": {
+                    "jid": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "jid",
+                    "name"
+                ]
+            },
+            "Login": {
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "password": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "password",
+                    "username"
+                ]
+            },
+            "NewRequest": {
+                "type": "object",
+                "properties": {
+                    "route": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "date": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "vehicles": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "cargo": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "freight": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "conditions": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "groups": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "items": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "$ref": "#/components/schemas/Item"
+                        }
+                    },
+                    "text": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "contact": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "cargo",
+                    "conditions",
+                    "contact",
+                    "date",
+                    "freight",
+                    "groups",
+                    "items",
+                    "route",
+                    "text",
+                    "vehicles"
+                ]
+            },
+            "PreviewRequest": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "fields": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "fields",
+                    "id"
+                ]
+            },
+            "SyncResult": {
+                "type": "object",
+                "properties": {
+                    "done": {
+                        "type": "boolean"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "archived": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "active": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                },
+                "required": [
+                    "active",
+                    "archived",
+                    "done",
+                    "total"
+                ]
+            },
+            "GroupRecord": {
+                "type": "object",
+                "properties": {
+                    "jid": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "archived": {
+                        "type": "boolean"
+                    },
+                    "member": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "canSend": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "lastSync": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "participants": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int32"
+                    },
+                    "community": {
+                        "type": "boolean"
+                    },
+                    "tooLarge": {
+                        "type": "boolean"
+                    },
+                    "rejectedCount": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "rejected": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "active",
+                    "archived",
+                    "canSend",
+                    "community",
+                    "jid",
+                    "lastSync",
+                    "member",
+                    "name",
+                    "participants",
+                    "rejected",
+                    "rejectedCount",
+                    "tooLarge"
+                ]
+            },
+            "Me": {
+                "type": "object",
+                "properties": {
+                    "authenticated": {
+                        "type": "boolean"
+                    },
+                    "username": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ChatInfo": {
+                "type": "object",
+                "properties": {
+                    "chatId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "username": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "chatId",
+                    "name",
+                    "username"
+                ]
+            },
+            "Overview": {
+                "type": "object",
+                "properties": {
+                    "botConfigured": {
+                        "type": "boolean"
+                    },
+                    "botUsername": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "configuredChats": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ChatInfo"
+                        }
+                    },
+                    "subscribers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Subscriber"
+                        }
+                    }
+                },
+                "required": [
+                    "botConfigured",
+                    "botUsername",
+                    "configuredChats",
+                    "subscribers"
+                ]
+            },
+            "Subscriber": {
+                "type": "object",
+                "properties": {
+                    "chatId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "username": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "APPROVED",
+                            "REJECTED"
+                        ]
+                    },
+                    "requestedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "decidedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "chatId",
+                    "decidedAt",
+                    "name",
+                    "requestedAt",
+                    "status",
+                    "username"
+                ]
+            },
+            "RequestView": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "sheetRow": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int32"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "QUEUED",
+                            "SENDING",
+                            "DONE",
+                            "FAILED"
+                        ]
+                    },
+                    "error": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "queuedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "startedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "completedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "progress": {
+                        "$ref": "#/components/schemas/Progress"
+                    },
+                    "targetGroups": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int32"
+                    },
+                    "campaignId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "campaignId",
+                    "completedAt",
+                    "error",
+                    "id",
+                    "message",
+                    "progress",
+                    "queuedAt",
+                    "sheetRow",
+                    "startedAt",
+                    "status",
+                    "targetGroups"
+                ]
+            },
+            "DeliveryView": {
+                "type": "object",
+                "properties": {
+                    "groupJid": {
+                        "type": "string"
+                    },
+                    "groupName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "position": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "SENDING",
+                            "SENT",
+                            "FAILED",
+                            "SKIPPED"
+                        ]
+                    },
+                    "error": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "error",
+                    "groupJid",
+                    "groupName",
+                    "position",
+                    "status"
+                ]
+            },
+            "Health": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "session": {
+                        "type": "string"
+                    },
+                    "queueLength": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "sentToday": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "warmupLimitToday": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int32"
+                    },
+                    "warmupDay": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "dispatcher": {
+                        "type": "string"
+                    },
+                    "stoppedByRisk": {
+                        "type": "boolean"
+                    },
+                    "riskEventsInWindow": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "pauseMultiplier": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "activeGroups": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "sentLastHour": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "hourlyLimit": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "time": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "activeGroups",
+                    "dispatcher",
+                    "hourlyLimit",
+                    "pauseMultiplier",
+                    "queueLength",
+                    "riskEventsInWindow",
+                    "sentLastHour",
+                    "sentToday",
+                    "session",
+                    "status",
+                    "stoppedByRisk",
+                    "time",
+                    "warmupDay",
+                    "warmupLimitToday"
+                ]
+            },
+            "GroupList": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "groups",
+                    "id",
+                    "name"
+                ]
+            },
+            "SheetRow": {
+                "type": "object",
+                "properties": {
+                    "rowNumber": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "values": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "empty": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "rowNumber",
+                    "values"
+                ]
+            },
+            "SentMessage": {
+                "type": "object",
+                "properties": {
+                    "groupJid": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "groupJid",
+                    "text"
+                ]
+            }
+        }
+    }
+}

@@ -12,6 +12,12 @@ spring:
   jackson:
     time-zone: ${APP_ZONE:Asia/Almaty}
 
+springdoc:
+  # Спецификация API — только после входа (путь под /api/admin); Swagger UI не подключён.
+  api-docs:
+    path: /api/admin/openapi
+  default-produces-media-type: application/json
+
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful

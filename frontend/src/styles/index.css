@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+
+/* Флаги стран на Windows (там нет цветных эмодзи-флагов). */
+@font-face {
+  font-family: 'Twemoji Country Flags';
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+  src: url('/fonts/TwemojiCountryFlags.woff2') format('woff2');
+  font-display: swap;
+}
+
+/* Палитра — токены: светлая и тёмная схема по настройке системы. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --text: #17202b;
+  --muted: #64707f;
+  --border: #dfe4ea;
+  --accent: #128c5e;
+  --accent-hover: #0f7850;
+  --accent-soft: #e3f4ec;
+  --accent-text: #ffffff;
+  --danger: #c0352b;
+  --ok-bg: #e3f4ec;
+  --ok-text: #11633f;
+  --warn-bg: #fdf1df;
+  --warn-text: #8a4a0b;
+  --bad-bg: #fbe8e6;
+  --bad-text: #a02a20;
+  --info-bg: #e7f0fb;
+  --info-text: #1d4f91;
+  --neutral-bg: #eceff3;
+  --chat-bg: #e9e2d8;
+  --bubble: #d9fdd3;
+  --bubble-text: #111b21;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101419;
+    --surface: #1a2028;
+    --surface-2: #222a34;
+    --text: #e7ebf0;
+    --muted: #98a3b3;
+    --border: #2d3642;
+    --accent: #2fae7c;
+    --accent-hover: #3cc08c;
+    --accent-soft: #17332a;
+    --accent-text: #08130e;
+    --danger: #f0756b;
+    --ok-bg: #17332a;
+    --ok-text: #8fdcb9;
+    --warn-bg: #3a2a15;
+    --warn-text: #f1bf85;
+    --bad-bg: #3b1d1b;
+    --bad-text: #f4a39c;
+    --info-bg: #17293f;
+    --info-text: #9cc4f5;
+    --neutral-bg: #262e39;
+    --chat-bg: #0f171c;
+    --bubble: #144d37;
+    --bubble-text: #e9edef;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-danger: var(--danger);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-text: var(--ok-text);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-text: var(--warn-text);
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-text: var(--bad-text);
+  --color-info-bg: var(--info-bg);
+  --color-info-text: var(--info-text);
+  --color-neutral-bg: var(--neutral-bg);
+  --color-chat-bg: var(--chat-bg);
+  --color-bubble: var(--bubble);
+  --color-bubble-text: var(--bubble-text);
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Twemoji Country Flags', sans-serif;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg text-text font-sans text-[15px] leading-normal antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}

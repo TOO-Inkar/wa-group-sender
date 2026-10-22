@@ -1,3 +1,12 @@
+# Админка (frontend/: React + Vite) собирается отдельно и кладётся в статику Spring Boot — один образ, один адрес.
+FROM node:22.17.0-alpine AS frontend
+WORKDIR /frontend
+RUN corepack enable
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY frontend/ ./
+RUN pnpm build
+
 FROM eclipse-temurin:25.0.4.1_1-jdk-noble AS build
 WORKDIR /workspace
 COPY gradlew settings.gradle.kts build.gradle.kts ./
@@ -5,6 +14,7 @@ COPY gradle gradle
 RUN chmod +x gradlew && ./gradlew --no-daemon dependencies > /dev/null
 COPY docs/test-sheet.csv docs/test-sheet.csv
 COPY src src
+COPY --from=frontend /frontend/dist src/main/resources/static
 RUN ./gradlew --no-daemon bootJar -x test
 
 FROM eclipse-temurin:25.0.4.1_1-jre-alpine
