@@ -613,6 +613,7 @@ export interface components {
             targetLabel: string | null;
             repeat: components["schemas"]["Repeat"] | null;
             sendNow: boolean | null;
+            anyTime: boolean | null;
         };
         Content: {
             mode: string | null;
@@ -635,6 +636,7 @@ export interface components {
             end: string | null;
             /** Format: int32 */
             intervalMinutes: number | null;
+            extraTimes: string[] | null;
         };
         CampaignView: {
             id: string;
@@ -650,6 +652,8 @@ export interface components {
             endTime: string | null;
             /** Format: int32 */
             intervalMinutes: number | null;
+            extraTimes: string[];
+            anyTime: boolean;
             enabled: boolean;
             /** Format: date-time */
             createdAt: string;

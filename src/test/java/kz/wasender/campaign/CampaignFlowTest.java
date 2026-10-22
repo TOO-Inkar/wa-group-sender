@@ -196,4 +196,32 @@ class CampaignFlowTest extends IntegrationTest {
 
         assertThatThrownBy(() -> campaigns.runNow(campaign.id())).isInstanceOf(CampaignService.ConflictException.class);
     }
+
+    @Test
+    void extraMorningRunSendsBeforeTheCommonWindow() throws Exception {
+        useGroups(3);
+        var campaign = create("ЕЩЁ УТРОМ", new Schedule(RepeatMode.INTERVAL, LocalTime.of(8, 0), LocalTime.of(23, 0), 60,
+                List.of(LocalTime.of(5, 0)), false), false);
+
+        clock.set(LocalDateTime.of(2026, 9, 29, 5, 0, 5));
+        assertThat(campaigns.tick()).isEqualTo(1);
+        runUntilBlocked(100);
+
+        assertThat(sentJids()).hasSize(3);
+        assertThat(repository.find(campaign.id()).orElseThrow().nextRunAt())
+                .isEqualTo(LocalDateTime.of(2026, 9, 29, 8, 0).atZone(clock.getZone()).toInstant());
+        assertThat(repository.find(campaign.id()).orElseThrow().schedule().extraTimes()).containsExactly(LocalTime.of(5, 0));
+    }
+
+    @Test
+    void anyTimeCampaignSendsOutsideTheWorkWindow() throws Exception {
+        useGroups(2);
+        clock.set(LocalDateTime.of(2026, 9, 29, 2, 0));
+        create("НОЧЬЮ", new Schedule(RepeatMode.ONCE, null, null, null, List.of(), true), true);
+        create("ДНЁМ", new Schedule(RepeatMode.ONCE, null, null, null), true);
+
+        runUntilBlocked(100);
+
+        assertThat(gateway.sent()).hasSize(2).allMatch(m -> m.text().contains("НОЧЬЮ"));
+    }
 }

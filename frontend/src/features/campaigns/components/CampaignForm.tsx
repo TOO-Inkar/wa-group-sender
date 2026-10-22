@@ -35,8 +35,8 @@ function readDraft(): FormValues | null {
 const WHEN: Record<FormValues['repeat'], (v: FormValues) => string> = {
   now: () => 'сейчас',
   at: (v) => `в ${v.atTime}`,
-  daily: (v) => scheduleShort({ repeatMode: 'DAILY', startTime: v.dailyTime, endTime: null, intervalMinutes: null }),
-  interval: (v) => scheduleShort({ repeatMode: 'INTERVAL', startTime: v.intervalStart, endTime: v.intervalEnd, intervalMinutes: v.intervalMinutes }),
+  daily: (v) => scheduleShort({ repeatMode: 'DAILY', startTime: v.dailyTime, endTime: null, intervalMinutes: null, extraTimes: v.extraTimes }),
+  interval: (v) => scheduleShort({ repeatMode: 'INTERVAL', startTime: v.intervalStart, endTime: v.intervalEnd, intervalMinutes: v.intervalMinutes, extraTimes: v.extraTimes }),
 }
 
 export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: Campaign; initial?: Partial<FormValues>; onClose: (saved?: Campaign) => void }) {
@@ -62,7 +62,7 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
   const target = targetOf(values, lists)
   const count = target.groups ? target.groups.length : (health?.activeGroups ?? 0)
   const where = target.label ?? (target.groups ? groupsCount(count) : `все группы (${count})`)
-  const summary = `${where} · ${WHEN[values.repeat](values)}`
+  const summary = `${where} · ${WHEN[values.repeat](values)}${values.anyTime ? ' · и вне окна' : ''}`
 
   const submit = form.handleSubmit(async (v) => {
     if (!editing && v.repeat === 'now') {
@@ -165,7 +165,7 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
               </label>
             </div>
             <WherePicker />
-            <WhenPicker />
+            <WhenPicker groups={count} />
           </form>
           <div className="sticky top-0 grid gap-1.5">
             <Caption>Как увидят в WhatsApp</Caption>

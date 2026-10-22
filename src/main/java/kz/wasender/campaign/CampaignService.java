@@ -49,6 +49,7 @@ public class CampaignService {
 
     @Transactional
     public synchronized CampaignRecord create(Input input) {
+        input.schedule().requireExtraTimesBefore(window.end());
         var targets = targets(input);
         var message = intake.compose(input.draft(), targets);
         var now = Instant.now(clock);
@@ -57,9 +58,10 @@ public class CampaignService {
         var campaign = new CampaignRecord(nextId(), title(input, message), input.form(), message, !targets.isEmpty(), label,
                 input.schedule(), true, false, now, now, first == null ? null : first.toInstant(), null);
         campaigns.insert(campaign, targets);
-        log.info("CAMPAIGN created id={} title=\"{}\" repeat={} start={} end={} interval={} targets={} first_run={}", campaign.id(),
-                campaign.title(), campaign.schedule().mode(), campaign.schedule().start(), campaign.schedule().end(),
-                campaign.schedule().intervalMinutes(), targets.isEmpty() ? "all-active" : targets.size(), campaign.nextRunAt());
+        log.info("CAMPAIGN created id={} title=\"{}\" repeat={} start={} end={} interval={} extra={} any_time={} targets={} first_run={}",
+                campaign.id(), campaign.title(), campaign.schedule().mode(), campaign.schedule().start(), campaign.schedule().end(),
+                campaign.schedule().intervalMinutes(), campaign.schedule().extraTimes(), campaign.schedule().anyTime(),
+                targets.isEmpty() ? "all-active" : targets.size(), campaign.nextRunAt());
         runDue(campaign.id());
         return campaigns.find(campaign.id()).orElseThrow();
     }
@@ -67,6 +69,7 @@ public class CampaignService {
     @Transactional
     public synchronized CampaignRecord update(String id, Input input) {
         var current = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
+        input.schedule().requireExtraTimesBefore(window.end());
         var targets = targets(input);
         var message = intake.compose(input.draft(), targets);
         var now = Instant.now(clock);
@@ -172,13 +175,12 @@ public class CampaignService {
             }
         }
         var schedule = campaign.schedule();
-        var ownWindow = schedule.mode() != RepeatMode.ONCE || schedule.start() != null;
         var id = requestIds.next(List.of());
         var targets = campaign.targeted() ? campaigns.targets(campaign.id()) : List.<String>of();
-        requests.insertRun(id, campaign.id(), campaign.message(), now, targets,
-                ownWindow ? schedule.start() : null, ownWindow ? schedule.end() : null);
+        requests.insertRun(id, campaign.id(), campaign.message(), now, targets, schedule.windowStart(), schedule.windowEnd());
         log.info("QUEUED request_id={} source=campaign campaign_id={} targets={} window={}", id, campaign.id(),
-                targets.isEmpty() ? "all-active" : targets.size(), ownWindow ? schedule.start() + "-" + (schedule.end() == null ? "window-end" : schedule.end()) : "common");
+                targets.isEmpty() ? "all-active" : targets.size(), schedule.windowStart() == null ? "common"
+                        : schedule.windowStart() + "-" + (schedule.windowEnd() == null ? "window-end" : schedule.windowEnd()));
         return requests.find(id);
     }
 

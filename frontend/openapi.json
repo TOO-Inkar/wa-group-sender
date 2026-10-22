@@ -1304,9 +1304,16 @@
                             "boolean",
                             "null"
                         ]
+                    },
+                    "anyTime": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
+                    "anyTime",
                     "content",
                     "groups",
                     "repeat",
@@ -1434,10 +1441,20 @@
                             "null"
                         ],
                         "format": "int32"
+                    },
+                    "extraTimes": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 },
                 "required": [
                     "end",
+                    "extraTimes",
                     "intervalMinutes",
                     "mode",
                     "start"
@@ -1503,6 +1520,15 @@
                         ],
                         "format": "int32"
                     },
+                    "extraTimes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "anyTime": {
+                        "type": "boolean"
+                    },
                     "enabled": {
                         "type": "boolean"
                     },
@@ -1550,10 +1576,12 @@
                     }
                 },
                 "required": [
+                    "anyTime",
                     "createdAt",
                     "current",
                     "enabled",
                     "endTime",
+                    "extraTimes",
                     "form",
                     "id",
                     "intervalMinutes",

@@ -1,15 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Pause, Play } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { useDispatchControl, useSaveSettings, useSettings } from './api'
-import { limitsText, windowText } from './model'
-import { dispatcherInfo } from '@/features/health/texts'
+import { dispatchControl, limitsText, windowText, type DispatchControl } from './model'
 import { useHealth } from '@/features/health/api'
 import type { Settings } from '@/shared/api/types'
+import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardTitle } from '@/shared/ui/card'
+import { useConfirm } from '@/shared/ui/confirm-context'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Checkbox, Field, Input } from '@/shared/ui/input'
 
@@ -109,18 +111,28 @@ export function DispatchCard() {
   const { data: health } = useHealth()
   const { data: settings } = useSettings()
   const control = useDispatchControl()
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
+  const state = health ? dispatchControl(health.dispatcher) : null
+
+  const apply = async (c: DispatchControl) => {
+    if (c.confirm && !(await confirm({ title: c.confirm, confirm: 'Да, возобновить' }))) return
+    control.mutate(c.action, { onSuccess: () => toast.success(c.action === 'pause' ? 'Рассылка на паузе' : 'Рассылка возобновлена') })
+  }
 
   return (
     <Card className="grid content-start gap-3">
-      <CardTitle className="mb-0">Рассылка</CardTitle>
-      <p className="text-sm text-muted">{health ? dispatcherInfo(health.dispatcher).text : '…'}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => control.mutate('pause', { onSuccess: () => toast.success('Рассылка на паузе') })}>Пауза</Button>
-        <Button variant="primary" onClick={() => control.mutate('resume', { onSuccess: () => toast.success('Рассылка возобновлена') })}>
-          Возобновить
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CardTitle className="mb-0">Рассылка</CardTitle>
+        {state && <Badge tone={state.tone}>{state.badge}</Badge>}
       </div>
+      {state?.hint && <p className="text-sm text-muted">{state.hint}</p>}
+      {state && (
+        <Button className="justify-self-start" variant={state.action === 'resume' ? 'primary' : 'secondary'} disabled={control.isPending} onClick={() => apply(state)}>
+          {state.action === 'pause' ? <Pause className="size-4" /> : <Play className="size-4" />}
+          {state.label}
+        </Button>
+      )}
       {settings && (
         <button type="button" onClick={() => setOpen(true)} className="grid cursor-pointer gap-1.5 rounded-xl border border-border p-3 text-left hover:bg-surface-2">
           <span className="flex justify-between gap-2 text-sm">

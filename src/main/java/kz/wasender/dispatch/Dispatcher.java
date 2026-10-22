@@ -108,11 +108,16 @@ public class Dispatcher {
     public void pause() {
         paused = true;
         log.warn("DISPATCHER paused manually");
+        changeState(gate());
     }
 
     public void unpause() {
         paused = false;
         log.warn("DISPATCHER unpaused manually");
+        if (state == DispatcherState.PAUSED || state == DispatcherState.STOPPED_BY_RISK) {
+            var gate = gate();
+            changeState(gate == DispatcherState.RUNNING ? DispatcherState.IDLE : gate);
+        }
     }
 
     public boolean paused() {

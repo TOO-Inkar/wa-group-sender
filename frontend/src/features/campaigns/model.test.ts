@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campaignState, matchesFilter, scheduleShort, scheduleText, whereText } from './model'
+import { campaignState, dayRuns, loadWarnings, matchesFilter, runsText, scheduleShort, scheduleText, whereText } from './model'
 import type { Campaign, Run } from '@/shared/api/types'
 
 const run = (over: Partial<Run> = {}): Run => ({
@@ -25,6 +25,8 @@ const campaign = (over: Partial<Campaign> = {}): Campaign => ({
   startTime: null,
   endTime: null,
   intervalMinutes: null,
+  extraTimes: [],
+  anyTime: false,
   enabled: true,
   createdAt: '2026-10-21T17:07:00Z',
   updatedAt: '2026-10-21T17:07:00Z',
@@ -66,5 +68,31 @@ describe('заявка в списке', () => {
     expect(scheduleText({ repeatMode: 'INTERVAL', startTime: '08:00', endTime: null, intervalMinutes: 90 }, '20:00')).toBe('каждые 1,5 часа с 08:00 до 20:00')
     expect(scheduleShort({ repeatMode: 'INTERVAL', startTime: '08:00', endTime: '23:00', intervalMinutes: 120 })).toBe('каждые 2 ч, 08:00–23:00')
     expect(scheduleShort({ repeatMode: 'DAILY', startTime: '05:00', endTime: null, intervalMinutes: null })).toBe('ежедневно 05:00')
+  })
+})
+
+describe('запуски за день', () => {
+  const hourly = { repeatMode: 'INTERVAL' as const, startTime: '08:00', endTime: '23:00', intervalMinutes: 60, extraTimes: ['05:00'] }
+
+  it('каждый час с 08:00 до 23:00 и ещё в 05:00 — 17 запусков', () => {
+    const runs = dayRuns(hourly, '23:00')
+    expect(runs).toHaveLength(17)
+    expect(runs[0]).toBe('05:00')
+    expect(runsText(runs)).toBe('05:00, 08:00, 09:00 … 23:00 — 17 запусков в день')
+    expect(dayRuns({ repeatMode: 'DAILY', startTime: '09:00', endTime: null, intervalMinutes: null, extraTimes: ['05:00', '09:00'] }, '23:00')).toEqual(['05:00', '09:00'])
+  })
+
+  it('доп. время видно в расписании', () => {
+    expect(scheduleShort(hourly)).toBe('каждые 1 ч, 08:00–23:00 + 05:00')
+    expect(scheduleText({ ...hourly, anyTime: true })).toBe('каждый час с 08:00 до 23:00 и в 05:00, в том числе вне рабочего окна')
+  })
+
+  it('предупреждает, когда лимиты не дадут разослать столько раз', () => {
+    const warnings = loadWarnings({ times: dayRuns(hourly, '23:00'), groups: 263, hourlyLimit: 120, dailyLimit: 900 })
+    expect(warnings).toEqual([
+      'Одна рассылка на 263 группы идёт ≈ 2,2 ч (лимит 120 в час) — запуски, пока она идёт, пропускаются.',
+      'Дневного лимита 900 хватит на 3 полные рассылки из 17.',
+    ])
+    expect(loadWarnings({ times: ['05:00', '08:00'], groups: 20, hourlyLimit: 120, dailyLimit: 900 })).toEqual([])
   })
 })
