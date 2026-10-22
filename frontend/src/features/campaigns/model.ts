@@ -61,6 +61,8 @@ export function percent(run: Run | null | undefined): number {
   return p && p.total ? Math.round(((p.sent + p.failed + p.skipped) / p.total) * 100) : 0
 }
 
+export const waitingShort = (run: Run | null | undefined) => run?.waiting?.split(' — ')[0] ?? null
+
 export function latestRun(c: Campaign): Run | null {
   return c.current ?? c.runs[0] ?? null
 }

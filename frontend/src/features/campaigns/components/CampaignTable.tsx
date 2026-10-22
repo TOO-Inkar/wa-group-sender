@@ -1,7 +1,7 @@
 import { Ban, Pencil, Play, Send, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { useCampaignCommands } from '../commands'
-import { campaignState, latestRun, percent, scheduleShort, STATE, whereText } from '../model'
+import { campaignState, latestRun, percent, scheduleShort, STATE, waitingShort, whereText } from '../model'
 import type { Campaign } from '@/shared/api/types'
 import { formatTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
@@ -11,7 +11,11 @@ import { ProgressBar } from '@/shared/ui/progress-bar'
 function Progress({ c }: { c: Campaign }) {
   const run = latestRun(c)
   const p = run?.progress
-  if (!p?.total) return <span className="text-[13px] text-muted">{run && run.status !== 'QUEUED' ? 'не отправлялась' : 'не начата'}</span>
+  const waiting = waitingShort(run)
+  if (!p?.total) {
+    if (waiting) return <span title={run?.waiting ?? undefined} className="text-[13px] text-warn-text">{waiting}</span>
+    return <span className="text-[13px] text-muted">{run && run.status !== 'QUEUED' ? 'не отправлялась' : 'не начата'}</span>
+  }
   return (
     <div className="grid gap-1">
       <div className="flex items-baseline justify-between gap-2 text-[13px] tabular-nums">
@@ -22,6 +26,7 @@ function Progress({ c }: { c: Campaign }) {
         {p.failed > 0 && <span className="text-bad-text">ошибок {p.failed}</span>}
       </div>
       <ProgressBar percent={percent(run)} />
+      {waiting && <span title={run?.waiting ?? undefined} className="truncate text-xs text-warn-text">{waiting}</span>}
     </div>
   )
 }

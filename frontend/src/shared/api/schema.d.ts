@@ -692,6 +692,7 @@ export interface components {
             /** Format: date-time */
             completedAt: string | null;
             progress: components["schemas"]["Progress"];
+            waiting: string | null;
         };
         Target: {
             jid: string;

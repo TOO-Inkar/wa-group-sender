@@ -224,4 +224,20 @@ class CampaignFlowTest extends IntegrationTest {
 
         assertThat(gateway.sent()).hasSize(2).allMatch(m -> m.text().contains("НОЧЬЮ"));
     }
+
+    @Test
+    void queuedRunExplainsWhyItIsWaiting() throws Exception {
+        useGroups(2);
+        clock.set(LocalDateTime.of(2026, 9, 29, 2, 0));
+        var night = create("НОЧЬЮ", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        dispatcher.cycle();
+
+        assertThat(controller.get(night.id()).current().waiting()).contains("ждёт рабочего окна с 08:00", "слать и вне рабочего окна");
+
+        var anyTime = create("СРАЗУ", new Schedule(RepeatMode.ONCE, null, null, null, List.of(), true), true);
+        assertThat(controller.get(anyTime.id()).current().waiting()).isNull();
+
+        dispatcher.pause();
+        assertThat(controller.get(anyTime.id()).current().waiting()).contains("на паузе");
+    }
 }

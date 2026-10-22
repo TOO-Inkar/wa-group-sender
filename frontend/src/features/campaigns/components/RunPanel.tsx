@@ -1,4 +1,4 @@
-import { RotateCcw } from 'lucide-react'
+import { Clock, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useCampaignAction, useDeliveries } from '../api'
@@ -8,6 +8,7 @@ import { download } from '@/shared/lib/download'
 import { formatTime } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
 import { Badge, type Tone } from '@/shared/ui/badge'
+import { toneSurface } from '@/shared/ui/tone'
 import { Button } from '@/shared/ui/button'
 import { useConfirm } from '@/shared/ui/confirm-context'
 import { Input, Select } from '@/shared/ui/input'
@@ -86,6 +87,13 @@ export function RunPanel({ runs }: { runs: Run[] }) {
         </span>
       </div>
 
+      {run.waiting && (
+        <p className={cn('flex items-start gap-2 rounded-lg px-3 py-2 text-sm', toneSurface.warn)}>
+          <Clock className="mt-0.5 size-4 shrink-0" />
+          <span>Не отправляется: {run.waiting}</span>
+        </p>
+      )}
+
       <div className="grid grid-cols-[repeat(auto-fit,minmax(96px,1fr))] gap-1.5">
         {tiles.map((t) => (
           <button
@@ -104,7 +112,7 @@ export function RunPanel({ runs }: { runs: Run[] }) {
 
       <div className="max-h-[52vh] overflow-auto rounded-xl border border-border bg-surface">
         {isPending && <p className="p-3 text-sm text-muted">Загрузка…</p>}
-        {!isPending && !deliveries.length && <p className="p-3 text-sm text-muted">Рассылка ещё не начиналась.</p>}
+        {!isPending && !deliveries.length && <p className="p-3 text-sm text-muted">{run.waiting ? 'Рассылка ещё не начиналась — причина выше.' : 'Рассылка ещё не начиналась.'}</p>}
         {!isPending && deliveries.length > 0 && !shown.length && <p className="p-3 text-sm text-muted">Ничего не найдено.</p>}
         {shown.map((d) => {
           const waiting = d.status === 'PENDING' && d.error
