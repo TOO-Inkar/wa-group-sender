@@ -44,6 +44,8 @@ export const formSchema = z
     intervalMinutes: z.number().int().min(30),
     intervalStart: time,
     intervalEnd: time,
+    extraTimes: z.array(time).max(3),
+    anyTime: z.boolean(),
     sendNow: z.boolean(),
   })
   .superRefine((v, ctx) => {
@@ -65,6 +67,9 @@ export const formSchema = z
     if (v.repeat === 'interval' && v.intervalEnd <= v.intervalStart) {
       ctx.addIssue({ code: 'custom', path: ['intervalEnd'], message: 'Конец позже начала' })
     }
+    if (new Set(v.extraTimes).size !== v.extraTimes.length) {
+      ctx.addIssue({ code: 'custom', path: ['extraTimes'], message: 'Одно и то же время указано дважды' })
+    }
   })
 
 export type FormValues = z.infer<typeof formSchema>
@@ -84,6 +89,8 @@ export const defaultValues = (): FormValues => ({
   intervalMinutes: 120,
   intervalStart: '08:00',
   intervalEnd: '23:00',
+  extraTimes: [],
+  anyTime: false,
   sendNow: true,
 })
 
@@ -106,20 +113,23 @@ export function targetOf(v: FormValues, lists: GroupList[]): { groups: string[] 
   return { groups: null, label: null }
 }
 
+export const repeats = (repeat: FormValues['repeat']) => repeat === 'daily' || repeat === 'interval'
+
 export function toRequest(v: FormValues, lists: GroupList[]): CampaignForm {
   const target = targetOf(v, lists)
   const content =
     v.mode === 'text'
       ? { mode: 'text', text: v.text, items: null, contact: null }
       : { mode: 'fields', items: filledItems(v.items), text: null, contact: v.contact.trim() || null }
+  const extraTimes = repeats(v.repeat) ? v.extraTimes : null
   const repeat =
     v.repeat === 'at'
-      ? { mode: 'ONCE' as const, start: v.atTime, end: null, intervalMinutes: null }
+      ? { mode: 'ONCE' as const, start: v.atTime, end: null, intervalMinutes: null, extraTimes }
       : v.repeat === 'daily'
-        ? { mode: 'DAILY' as const, start: v.dailyTime, end: null, intervalMinutes: null }
+        ? { mode: 'DAILY' as const, start: v.dailyTime, end: null, intervalMinutes: null, extraTimes }
         : v.repeat === 'interval'
-          ? { mode: 'INTERVAL' as const, start: v.intervalStart, end: v.intervalEnd, intervalMinutes: v.intervalMinutes }
-          : { mode: 'ONCE' as const, start: null, end: null, intervalMinutes: null }
+          ? { mode: 'INTERVAL' as const, start: v.intervalStart, end: v.intervalEnd, intervalMinutes: v.intervalMinutes, extraTimes }
+          : { mode: 'ONCE' as const, start: null, end: null, intervalMinutes: null, extraTimes }
   return {
     title: v.title.trim() || null,
     content,
@@ -127,6 +137,7 @@ export function toRequest(v: FormValues, lists: GroupList[]): CampaignForm {
     targetLabel: target.label,
     repeat,
     sendNow: v.repeat === 'now' ? true : v.repeat === 'at' ? false : v.sendNow,
+    anyTime: v.anyTime,
   }
 }
 
@@ -163,5 +174,5 @@ export function fromCampaign(c: Campaign, lists: GroupList[]): FormValues {
 
   // Название, совпадающее с маршрутом, — автоматическое: при смене маршрута сменится и оно.
   const auto = content.mode === 'fields' && c.title === content.items[0]?.route.trim()
-  return { ...base, ...content, title: auto ? '' : c.title, ...target, ...repeat, sendNow: false }
+  return { ...base, ...content, title: auto ? '' : c.title, ...target, ...repeat, extraTimes: c.extraTimes, anyTime: c.anyTime, sendNow: false }
 }

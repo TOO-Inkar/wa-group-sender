@@ -101,9 +101,10 @@ public class CampaignController {
 
     private CampaignService.Input input(CampaignForm form) {
         var content = form.content() == null ? new Content(null, null, null, null) : form.content();
-        var repeat = form.repeat() == null ? new Repeat(RepeatMode.ONCE, null, null, null) : form.repeat();
+        var repeat = form.repeat() == null ? new Repeat(RepeatMode.ONCE, null, null, null, null) : form.repeat();
+        var extra = repeat.extraTimes() == null ? List.<LocalTime>of() : repeat.extraTimes().stream().map(t -> time(t, "доп. время")).toList();
         var schedule = new Schedule(repeat.mode() == null ? RepeatMode.ONCE : repeat.mode(), time(repeat.start(), "время начала"),
-                time(repeat.end(), "время окончания"), repeat.intervalMinutes());
+                time(repeat.end(), "время окончания"), repeat.intervalMinutes(), extra, Boolean.TRUE.equals(form.anyTime()));
         return new CampaignService.Input(content.draft(), json.writeValueAsString(content), form.groups(), form.title(), form.targetLabel(),
                 schedule, form.sendNow() == null || form.sendNow());
     }
@@ -130,7 +131,7 @@ public class CampaignController {
                 to.groups().stream().map(group -> new Target(group.jid(), group.name())).toList(),
                 schedule.mode(), schedule.start() == null ? null : schedule.start().toString(),
                 schedule.end() == null ? null : schedule.end().toString(), schedule.intervalMinutes(),
-                campaign.enabled(), campaign.createdAt(), campaign.updatedAt(), campaign.nextRunAt(), campaign.lastRunAt(),
+                schedule.extraTimes().stream().map(LocalTime::toString).toList(), schedule.anyTime(), campaign.enabled(), campaign.createdAt(), campaign.updatedAt(), campaign.nextRunAt(), campaign.lastRunAt(),
                 current, runs.size(), shown);
     }
 
@@ -149,11 +150,12 @@ public class CampaignController {
         }
     }
 
-    public record Repeat(@Nullable RepeatMode mode, @Nullable String start, @Nullable String end, @Nullable Integer intervalMinutes) {
+    public record Repeat(@Nullable RepeatMode mode, @Nullable String start, @Nullable String end, @Nullable Integer intervalMinutes,
+                         @Nullable List<String> extraTimes) {
     }
 
     public record CampaignForm(@Nullable String title, @Nullable Content content, @Nullable List<String> groups, @Nullable String targetLabel,
-                               @Nullable Repeat repeat, @Nullable Boolean sendNow) {
+                               @Nullable Repeat repeat, @Nullable Boolean sendNow, @Nullable Boolean anyTime) {
     }
 
     public record Target(String jid, String name) {
@@ -165,7 +167,7 @@ public class CampaignController {
 
     public record CampaignView(String id, String title, String message, @Nullable String form, boolean targeted, @Nullable String targetLabel,
                                List<Target> targets, RepeatMode repeatMode, @Nullable String startTime, @Nullable String endTime,
-                               @Nullable Integer intervalMinutes, boolean enabled, Instant createdAt, Instant updatedAt,
-                               @Nullable Instant nextRunAt, @Nullable Instant lastRunAt, @Nullable Run current, int runCount, List<Run> runs) {
+                               @Nullable Integer intervalMinutes, List<String> extraTimes, boolean anyTime, boolean enabled,
+                               Instant createdAt, Instant updatedAt, @Nullable Instant nextRunAt, @Nullable Instant lastRunAt, @Nullable Run current, int runCount, List<Run> runs) {
     }
 }

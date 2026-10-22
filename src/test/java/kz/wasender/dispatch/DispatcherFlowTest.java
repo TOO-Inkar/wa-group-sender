@@ -109,4 +109,13 @@ class DispatcherFlowTest extends IntegrationTest {
         assertThat(sheet.row(row).get(SheetField.STATUS)).isEqualTo("Отправлено");
         assertThat(risk.eventsInWindow()).isEqualTo(1);
     }
+
+    @Test
+    void pauseAndResumeShowUpWithoutWaitingForTheNextCycle() {
+        dispatcher.pause();
+        assertThat(dispatcher.state()).isEqualTo(DispatcherState.PAUSED);
+
+        dispatcher.unpause();
+        assertThat(dispatcher.state()).isEqualTo(DispatcherState.IDLE);
+    }
 }

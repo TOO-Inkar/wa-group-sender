@@ -14,7 +14,8 @@ describe('форма заявки → запрос API', () => {
   it('сейчас, все группы', () => {
     const body = toRequest(filled({ contact: ' Ернар ' }), lists)
     expect(body.groups).toBeNull()
-    expect(body.repeat).toEqual({ mode: 'ONCE', start: null, end: null, intervalMinutes: null })
+    expect(body.repeat).toEqual({ mode: 'ONCE', start: null, end: null, intervalMinutes: null, extraTimes: null })
+    expect(body.anyTime).toBe(false)
     expect(body.sendNow).toBe(true)
     expect(body.content).toMatchObject({ mode: 'fields', contact: 'Ернар' })
     expect(body.content?.items?.[0]?.conditions).toBeNull()
@@ -24,8 +25,13 @@ describe('форма заявки → запрос API', () => {
     const body = toRequest(filled({ target: 'list', listId: '7', repeat: 'interval', intervalMinutes: 60, intervalStart: '05:00', intervalEnd: '23:00', sendNow: false }), lists)
     expect(body.groups).toEqual(['1@g.us', '2@g.us'])
     expect(body.targetLabel).toBe('Тест')
-    expect(body.repeat).toEqual({ mode: 'INTERVAL', start: '05:00', end: '23:00', intervalMinutes: 60 })
+    expect(body.repeat).toEqual({ mode: 'INTERVAL', start: '05:00', end: '23:00', intervalMinutes: 60, extraTimes: [] })
     expect(body.sendNow).toBe(false)
+  })
+
+  it('доп. время уходит только с повтором, «вне окна» — всегда', () => {
+    expect(toRequest(filled({ repeat: 'daily', extraTimes: ['05:00'], anyTime: true }), lists)).toMatchObject({ repeat: { mode: 'DAILY', extraTimes: ['05:00'] }, anyTime: true })
+    expect(toRequest(filled({ repeat: 'at', extraTimes: ['05:00'] }), lists).repeat?.extraTimes).toBeNull()
   })
 })
 
@@ -41,6 +47,7 @@ describe('проверка формы', () => {
   it('выбранные группы и время повтора', () => {
     expect(formSchema.safeParse(filled({ target: 'pick', groups: [] })).success).toBe(false)
     expect(formSchema.safeParse(filled({ repeat: 'interval', intervalStart: '10:00', intervalEnd: '09:00' })).success).toBe(false)
+    expect(formSchema.safeParse(filled({ repeat: 'daily', extraTimes: ['05:00', '05:00'] })).success).toBe(false)
     expect(formSchema.safeParse(filled()).success).toBe(true)
   })
 })
@@ -61,6 +68,8 @@ describe('правка заявки', () => {
     startTime: '05:00',
     endTime: null,
     intervalMinutes: null,
+    extraTimes: ['04:30'],
+    anyTime: true,
   } as unknown as Campaign
 
   it('восстанавливает поля, список и расписание; название по маршруту остаётся автоматическим', () => {
@@ -72,6 +81,8 @@ describe('правка заявки', () => {
     expect(v.listId).toBe('7')
     expect(v.repeat).toBe('daily')
     expect(v.dailyTime).toBe('05:00')
+    expect(v.extraTimes).toEqual(['04:30'])
+    expect(v.anyTime).toBe(true)
     expect(v.title).toBe('')
     expect(v.sendNow).toBe(false)
   })

@@ -51,11 +51,14 @@ test('заявка в панели: Enter по полям, повтор, пан�
 
   await sheet.getByRole('radio', { name: 'Повтор' }).click()
   await expect(sheet).toContainText('каждые 2 ч, 08:00–23:00')
+  await sheet.getByRole('button', { name: '05:00, например' }).click()
+  await expect(sheet).toContainText('05:00, 08:00, 10:00 … 22:00 — 9 запусков в день')
+  await expect(sheet).toContainText('каждые 2 ч, 08:00–23:00 + 05:00')
   await page.screenshot({ path: 'e2e-results/form.png' })
   await sheet.getByRole('button', { name: 'Запланировать' }).click()
 
   await expect(page).toHaveURL(/\/campaigns\/\d+$/)
-  await expect(page.getByRole('dialog')).toContainText('каждые 2 часа с 08:00 до 23:00')
+  await expect(page.getByRole('dialog')).toContainText('каждые 2 часа с 08:00 до 23:00 и в 05:00')
   await page.screenshot({ path: 'e2e-results/campaign.png' })
   await page.keyboard.press('Escape')
   await expect(page).toHaveURL(/\/campaigns$/)
@@ -165,6 +168,17 @@ test('настройки: окно и лимиты меняются в мода�
   await expect(dialog).toBeHidden()
   await expect(page.getByRole('button', { name: /Рабочее окно/ })).toContainText('90 в час')
   await page.screenshot({ path: 'e2e-results/settings.png' })
+})
+
+test('рассылка: одно состояние и одна кнопка', async ({ page }) => {
+  await login(page)
+  await nav(page, 'Настройки').click()
+  await page.getByRole('button', { name: 'Поставить на паузу' }).click()
+  await expect(page.getByText('На паузе', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Поставить на паузу' })).toBeHidden()
+  await page.getByRole('button', { name: 'Возобновить' }).click()
+  await expect(page.getByText(/^Работает · /)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Возобновить' })).toBeHidden()
 })
 
 test('телефон: меню и список заявок помещаются @phone', async ({ page }) => {

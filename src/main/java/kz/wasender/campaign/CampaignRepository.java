@@ -6,10 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 public class CampaignRepository {
@@ -21,7 +23,8 @@ public class CampaignRepository {
             rs.getBoolean("targeted"),
             rs.getString("target_label"),
             new Schedule(RepeatMode.valueOf(rs.getString("repeat_mode")), rs.getObject("start_time", LocalTime.class),
-                    rs.getObject("end_time", LocalTime.class), (Integer) rs.getObject("interval_minutes")),
+                    rs.getObject("end_time", LocalTime.class), (Integer) rs.getObject("interval_minutes"),
+                    parseTimes(rs.getString("extra_times")), rs.getBoolean("any_time")),
             rs.getBoolean("enabled"),
             rs.getBoolean("deleted"),
             rs.getObject("created_at", Instant.class),
@@ -56,11 +59,11 @@ public class CampaignRepository {
         var schedule = campaign.schedule();
         jdbc.sql("""
                         insert into campaign(id, title, draft, message, targeted, target_label, repeat_mode, start_time, end_time,
-                            interval_minutes, enabled, created_at, updated_at, next_run_at)
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+                            interval_minutes, extra_times, any_time, enabled, created_at, updated_at, next_run_at)
+                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
                 .params(campaign.id(), campaign.title(), campaign.draft(), campaign.message(), campaign.targeted(), campaign.targetLabel(),
-                        schedule.mode().name(), schedule.start(), schedule.end(), schedule.intervalMinutes(), campaign.enabled(),
-                        campaign.createdAt(), campaign.updatedAt(), campaign.nextRunAt())
+                        schedule.mode().name(), schedule.start(), schedule.end(), schedule.intervalMinutes(), formatTimes(schedule.extraTimes()),
+                        schedule.anyTime(), campaign.enabled(), campaign.createdAt(), campaign.updatedAt(), campaign.nextRunAt())
                 .update();
         replaceTargets(campaign.id(), targets);
     }
@@ -69,11 +72,12 @@ public class CampaignRepository {
         var schedule = campaign.schedule();
         jdbc.sql("""
                         update campaign set title = ?, draft = ?, message = ?, targeted = ?, target_label = ?, repeat_mode = ?,
-                            start_time = ?, end_time = ?, interval_minutes = ?, enabled = ?, updated_at = ?, next_run_at = ?
+                            start_time = ?, end_time = ?, interval_minutes = ?, extra_times = ?, any_time = ?, enabled = ?, updated_at = ?,
+                            next_run_at = ?
                         where id = ?""")
                 .params(campaign.title(), campaign.draft(), campaign.message(), campaign.targeted(), campaign.targetLabel(),
-                        schedule.mode().name(), schedule.start(), schedule.end(), schedule.intervalMinutes(), campaign.enabled(),
-                        campaign.updatedAt(), campaign.nextRunAt(), campaign.id())
+                        schedule.mode().name(), schedule.start(), schedule.end(), schedule.intervalMinutes(), formatTimes(schedule.extraTimes()),
+                        schedule.anyTime(), campaign.enabled(), campaign.updatedAt(), campaign.nextRunAt(), campaign.id())
                 .update();
         replaceTargets(campaign.id(), targets);
     }
@@ -93,6 +97,14 @@ public class CampaignRepository {
 
     public List<String> targets(String id) {
         return jdbc.sql("select group_jid from campaign_target where campaign_id = ? order by group_jid").param(id).query(String.class).list();
+    }
+
+    private static List<LocalTime> parseTimes(String value) {
+        return value == null || value.isBlank() ? List.of() : Arrays.stream(value.split(",")).map(LocalTime::parse).toList();
+    }
+
+    private static String formatTimes(List<LocalTime> times) {
+        return times.isEmpty() ? null : times.stream().map(LocalTime::toString).collect(Collectors.joining(","));
     }
 
     private void replaceTargets(String id, Collection<String> targets) {
