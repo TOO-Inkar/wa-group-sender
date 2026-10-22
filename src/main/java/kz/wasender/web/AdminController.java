@@ -1,6 +1,8 @@
 package kz.wasender.web;
 
-import kz.wasender.config.DispatchProperties;
+import kz.wasender.campaign.CampaignService;
+import kz.wasender.campaign.RepeatMode;
+import kz.wasender.campaign.Schedule;
 import kz.wasender.config.MessageProperties;
 import kz.wasender.dispatch.DeliveryRepository;
 import kz.wasender.dispatch.DeliveryStatus;
@@ -15,6 +17,7 @@ import kz.wasender.request.RequestRecord;
 import kz.wasender.request.RequestRepository;
 import kz.wasender.request.RequestStatus;
 import kz.wasender.risk.RiskMonitor;
+import kz.wasender.settings.SettingsService;
 import kz.wasender.sheets.SheetField;
 import kz.wasender.template.PreviewService;
 import org.springframework.http.HttpStatus;
@@ -52,13 +55,14 @@ public class AdminController {
     private final RequestIntake intake;
     private final GroupListRepository groupLists;
     private final GroupRepository groups;
-    private final DispatchProperties dispatch;
+    private final SettingsService settings;
     private final MessageProperties message;
+    private final CampaignService campaigns;
 
     public AdminController(Dispatcher dispatcher, RiskMonitor risk, GroupSyncService groupSync, AlertService alerts,
                            RequestRepository requests, PreviewService preview, DeliveryRepository deliveries, RequestIntake intake,
-                           GroupListRepository groupLists, GroupRepository groups, DispatchProperties dispatch,
-                           MessageProperties message) {
+                           GroupListRepository groupLists, GroupRepository groups, SettingsService settings,
+                           MessageProperties message, CampaignService campaigns) {
         this.dispatcher = dispatcher;
         this.risk = risk;
         this.groupSync = groupSync;
@@ -69,8 +73,9 @@ public class AdminController {
         this.intake = intake;
         this.groupLists = groupLists;
         this.groups = groups;
-        this.dispatch = dispatch;
+        this.settings = settings;
         this.message = message;
+        this.campaigns = campaigns;
     }
 
     @PostMapping("/resume")
@@ -131,8 +136,11 @@ public class AdminController {
     @PostMapping("/requests")
     public ResponseEntity<?> createRequest(@RequestBody NewRequest request) {
         try {
-            var created = intake.create(request.draft(), request.groups());
-            return ResponseEntity.status(HttpStatus.CREATED).body(view(created));
+            // Разовая заявка, которая рассылается сразу; ответ — её рассылка, как и раньше.
+            var campaign = campaigns.create(new CampaignService.Input(request.draft(), null, request.groups(), null, null,
+                    new Schedule(RepeatMode.ONCE, null, null, null), true));
+            var run = campaigns.activeRuns(campaign.id()).getFirst();
+            return ResponseEntity.status(HttpStatus.CREATED).body(view(run));
         } catch (RequestIntake.RejectedException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
@@ -176,10 +184,12 @@ public class AdminController {
     /** The dispatch schedule the admin page explains to the user. */
     @GetMapping("/schedule")
     public Map<String, Object> schedule() {
+        var dispatch = settings.dispatch();
         return Map.of(
                 "windowStart", dispatch.windowStart().toString(),
                 "windowEnd", dispatch.windowEnd().toString(),
                 "weekendsEnabled", dispatch.weekendsEnabled(),
+                "hourlyLimit", dispatch.hourlyLimit(),
                 "contact", message.contact() == null ? "" : message.contact());
     }
 
@@ -254,12 +264,12 @@ public class AdminController {
 
     public record RequestView(String id, Integer sheetRow, String message, RequestStatus status, String error,
                               Instant queuedAt, Instant startedAt, Instant completedAt, DeliveryRepository.Progress progress,
-                              Integer targetGroups) {
+                              Integer targetGroups, String campaignId) {
 
         /** targetGroups is the number of chosen groups, or null when the request goes to every active group. */
         static RequestView of(RequestRecord request, DeliveryRepository.Progress progress, Integer targetGroups) {
             return new RequestView(request.id(), request.sheetRow(), request.message(), request.status(), request.error(),
-                    request.queuedAt(), request.startedAt(), request.completedAt(), progress, targetGroups);
+                    request.queuedAt(), request.startedAt(), request.completedAt(), progress, targetGroups, request.campaignId());
         }
     }
 }

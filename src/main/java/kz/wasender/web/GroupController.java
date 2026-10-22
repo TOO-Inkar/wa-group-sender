@@ -19,6 +19,6 @@ public class GroupController {
 
     @GetMapping("/api/groups")
     public List<GroupRecord> groups(@RequestParam(defaultValue = "false") boolean activeOnly) {
-        return groups.findAll().stream().filter(group -> !activeOnly || group.active()).toList();
+        return groups.findPresent().stream().filter(group -> !activeOnly || group.active()).toList();
     }
 }

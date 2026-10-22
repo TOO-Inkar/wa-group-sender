@@ -49,6 +49,8 @@ public class HealthController {
                 risk.eventsInWindow(),
                 risk.pauseMultiplier(),
                 groups.activeCount(),
+                dispatcher.sentLastHour(),
+                dispatcher.hourlyLimit(),
                 OffsetDateTime.now(clock).toString());
     }
 
@@ -64,6 +66,8 @@ public class HealthController {
             int riskEventsInWindow,
             double pauseMultiplier,
             long activeGroups,
+            int sentLastHour,
+            int hourlyLimit,
             String time) {
     }
 }

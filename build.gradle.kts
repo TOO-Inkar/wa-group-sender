@@ -25,6 +25,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-core")
+    // Только BCrypt для пароля страницы входа, без Spring Security целиком
+    implementation("org.springframework.security:spring-security-crypto")
     runtimeOnly("com.h2database:h2")
 
     // Выгрузка отчётов: Excel и PDF

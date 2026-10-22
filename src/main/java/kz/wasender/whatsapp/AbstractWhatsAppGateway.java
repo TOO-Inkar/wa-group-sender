@@ -54,6 +54,10 @@ public abstract class AbstractWhatsAppGateway implements WhatsAppGateway {
             case GatewayEvent.Banned ignored -> updateState(SessionState.BANNED);
             case GatewayEvent.RemovedFromGroup ignored -> {
             }
+            case GatewayEvent.DirectMessage ignored -> {
+            }
+            case GatewayEvent.IncomingCall ignored -> {
+            }
         }
         for (var listener : listeners) {
             try {

@@ -37,6 +37,46 @@ public class DeliveryRepository {
         }
     }
 
+    /** Следующая доставка, которую можно делать сейчас: отложенные до not_before пропускаются. */
+    public Optional<DeliveryRecord> nextReady(String requestId, Instant now) {
+        return jdbc.sql("select * from delivery where request_id = ? and status = 'PENDING' and (not_before is null or not_before <= ?) "
+                        + "order by position limit 1")
+                .params(requestId, now)
+                .query(MAPPER)
+                .optional();
+    }
+
+    /** Когда освободится ближайшая отложенная доставка рассылки. */
+    public Optional<Instant> earliestPostponed(String requestId) {
+        return jdbc.sql("select min(not_before) from delivery where request_id = ? and status = 'PENDING' and not_before is not null")
+                .param(requestId)
+                .query(Instant.class)
+                .optional();
+    }
+
+    /** Доставка ждёт до notBefore; причина видна в админке. */
+    public void postpone(long id, Instant notBefore, String reason, Instant at) {
+        jdbc.sql("update delivery set not_before = ?, error = ?, updated_at = ? where id = ?")
+                .params(notBefore, truncate(reason), at, id)
+                .update();
+    }
+
+    /** Попыток отправки в группы с момента since — для лимита номера в час. */
+    public int attemptsSince(Instant since) {
+        return jdbc.sql("select count(*) from delivery where status in ('SENT', 'FAILED') and updated_at >= ?")
+                .param(since)
+                .query(Integer.class)
+                .single();
+    }
+
+    /** Закрывает рассылку: всё, что не отправлено, помечается пропущенным с причиной; возвращает сколько. */
+    public int skipPending(String requestId, String reason, Instant at) {
+        return jdbc.sql("update delivery set status = 'SKIPPED', error = ?, not_before = null, updated_at = ? "
+                        + "where request_id = ? and status = 'PENDING'")
+                .params(truncate(reason), at, requestId)
+                .update();
+    }
+
     public Optional<DeliveryRecord> nextPending(String requestId) {
         return jdbc.sql("select * from delivery where request_id = ? and status = 'PENDING' order by position limit 1")
                 .param(requestId)
@@ -53,7 +93,7 @@ public class DeliveryRepository {
     }
 
     public void updateStatus(long id, DeliveryStatus status, String error, Instant at) {
-        jdbc.sql("update delivery set status = ?, error = ?, updated_at = ? where id = ?")
+        jdbc.sql("update delivery set status = ?, error = ?, not_before = null, updated_at = ? where id = ?")
                 .params(status.name(), truncate(error), at, id)
                 .update();
     }

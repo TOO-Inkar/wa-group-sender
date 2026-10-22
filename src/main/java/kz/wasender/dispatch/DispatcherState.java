@@ -9,6 +9,9 @@ public enum DispatcherState {
     PAUSED,
     OUTSIDE_WINDOW,
     DAILY_LIMIT_REACHED,
+    HOURLY_LIMIT_REACHED,
+    // все рассылки ждут: в оставшихся группах последнее сообщение наше
+    WAITING_GROUPS,
     WAITING_SESSION,
     NO_ACTIVE_GROUPS,
     STOPPED_BY_RISK,

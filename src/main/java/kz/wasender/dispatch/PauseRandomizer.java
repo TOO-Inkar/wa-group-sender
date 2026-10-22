@@ -1,32 +1,48 @@
 package kz.wasender.dispatch;
 
 import kz.wasender.config.DispatchProperties;
+import kz.wasender.settings.SettingsService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.function.Supplier;
 import java.util.random.RandomGenerator;
 
 @Component
 public class PauseRandomizer {
 
-    private final DispatchProperties properties;
+    private final Supplier<DispatchProperties> properties;
     private final RandomGenerator random;
 
+    @Autowired
+    public PauseRandomizer(SettingsService settings, RandomGenerator random) {
+        this.properties = settings::dispatch;
+        this.random = random;
+    }
+
     public PauseRandomizer(DispatchProperties properties, RandomGenerator random) {
-        this.properties = properties;
+        this.properties = () -> properties;
         this.random = random;
     }
 
     public Duration groupPause(double multiplier) {
-        return scale(between(properties.groupPauseMin(), properties.groupPauseMax()), multiplier);
+        var p = properties.get();
+        return scale(between(p.groupPauseMin(), p.groupPauseMax()), multiplier);
     }
 
     public Duration wavePause(double multiplier) {
-        return scale(between(properties.wavePauseMin(), properties.wavePauseMax()), multiplier);
+        var p = properties.get();
+        return scale(between(p.wavePauseMin(), p.wavePauseMax()), multiplier);
     }
 
     public Duration typing() {
-        return between(properties.typingMin(), properties.typingMax());
+        var p = properties.get();
+        return between(p.typingMin(), p.typingMax());
+    }
+
+    public int waveSize() {
+        return Math.max(1, properties.get().waveSize());
     }
 
     Duration between(Duration min, Duration max) {

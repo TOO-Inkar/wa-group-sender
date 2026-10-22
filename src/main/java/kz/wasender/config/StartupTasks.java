@@ -1,6 +1,8 @@
 package kz.wasender.config;
 
+import kz.wasender.campaign.CampaignService;
 import kz.wasender.dispatch.Dispatcher;
+import kz.wasender.notify.TelegramBot;
 import kz.wasender.group.GroupSyncService;
 import kz.wasender.sheets.SheetPoller;
 import kz.wasender.sheets.SheetUpdateBuffer;
@@ -30,10 +32,13 @@ public class StartupTasks {
     private final SheetUpdateBuffer buffer;
     private final GroupSyncService groupSync;
     private final Dispatcher dispatcher;
+    private final CampaignService campaigns;
+    private final TelegramBot telegramBot;
 
     public StartupTasks(AppProperties app, SheetsProperties sheets, GroupsProperties groups, WatchdogProperties watchdog,
                         DispatchProperties dispatch, TaskScheduler scheduler, SessionWatchdog sessionWatchdog, SheetPoller poller,
-                        SheetUpdateBuffer buffer, GroupSyncService groupSync, Dispatcher dispatcher) {
+                        SheetUpdateBuffer buffer, GroupSyncService groupSync, Dispatcher dispatcher, CampaignService campaigns,
+                        TelegramBot telegramBot) {
         this.app = app;
         this.sheets = sheets;
         this.groups = groups;
@@ -45,6 +50,8 @@ public class StartupTasks {
         this.buffer = buffer;
         this.groupSync = groupSync;
         this.dispatcher = dispatcher;
+        this.campaigns = campaigns;
+        this.telegramBot = telegramBot;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -64,6 +71,9 @@ public class StartupTasks {
         }
         repeat(buffer::flushQuietly, sheets.progressFlushInterval());
         repeat(groupSync::syncQuietly, groups.syncInterval());
+        // Расписание заявок: проверка раз в 30 секунд, рассылка стартует не позже чем через полминуты после своего времени.
+        repeat(campaigns::tickQuietly, Duration.ofSeconds(30));
+        telegramBot.start();
         if (dispatch.autostart()) {
             dispatcher.start();
         }

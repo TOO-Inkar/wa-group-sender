@@ -1,10 +1,12 @@
 package kz.wasender.web;
 
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kz.wasender.config.SecurityProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -12,14 +14,43 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Clock;
 
 @Component
 public class AdminTokenFilter extends OncePerRequestFilter {
 
     private final SecurityProperties properties;
+    private final SessionTokens sessions;
+
+    @Autowired
+    public AdminTokenFilter(SecurityProperties properties, SessionTokens sessions) {
+        this.properties = properties;
+        this.sessions = sessions;
+    }
 
     public AdminTokenFilter(SecurityProperties properties) {
-        this.properties = properties;
+        this(properties, new SessionTokens(properties, Clock.systemUTC()));
+    }
+
+    /** Вход: токен в заголовке (API, curl) или cookie сессии со страницы входа. */
+    static boolean authorized(HttpServletRequest request, SecurityProperties properties, SessionTokens sessions) {
+        var expected = properties.adminToken();
+        if (expected == null || expected.isBlank()) {
+            return false;
+        }
+        var provided = request.getHeader(properties.header());
+        if (provided != null && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8))) {
+            return true;
+        }
+        var cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (SessionTokens.COOKIE.equals(cookie.getName()) && sessions.valid(cookie.getValue())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
@@ -35,8 +66,7 @@ public class AdminTokenFilter extends OncePerRequestFilter {
             reject(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "ADMIN_TOKEN is not configured");
             return;
         }
-        var provided = request.getHeader(properties.header());
-        if (provided == null || !MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8))) {
+        if (!authorized(request, properties, sessions)) {
             reject(response, HttpServletResponse.SC_UNAUTHORIZED, "invalid or missing " + properties.header());
             return;
         }

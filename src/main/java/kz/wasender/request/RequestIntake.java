@@ -69,6 +69,20 @@ public class RequestIntake {
         return requests.find(id).orElseThrow();
     }
 
+    /**
+     * Проверяет заявку и адресатов и возвращает текст сообщения; ничего не ставит в очередь.
+     * id нужен для нумерации по ID (MESSAGE_NUMBERING), может быть null.
+     */
+    public String compose(Draft draft, String id, Collection<String> targetGroups) {
+        var rows = validate(draft);
+        var targets = new LinkedHashSet<>(targetGroups == null ? List.<String>of() : targetGroups);
+        var unavailable = targets.stream().filter(jid -> !groups.isSendable(jid)).toList();
+        if (!unavailable.isEmpty()) {
+            throw new RejectedException("в эти группы писать нельзя (номер не участник или пишут только админы): " + String.join(", ", unavailable));
+        }
+        return message(draft, rows, id);
+    }
+
     public String preview(Map<SheetField, String> fields) {
         return renderer.render(row(fields));
     }

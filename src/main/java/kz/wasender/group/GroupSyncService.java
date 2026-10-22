@@ -74,11 +74,17 @@ public class GroupSyncService {
                 log.info("GROUP renamed group_jid={} from=\"{}\" to=\"{}\"", group.jid(), previous.name(), group.name());
             }
         }
+        // Группы, которых нет в списке номера (номер вышел из них или привязан другой номер), уходят из списка и рассылки.
+        var absent = 0;
         for (var previous : before.values()) {
-            if (!seen.contains(previous.jid()) && previous.active()) {
-                groups.deactivate(previous.jid(), now);
-                log.info("GROUP deactivated group_jid={} name=\"{}\" reason=missing-from-chat-list", previous.jid(), previous.name());
+            if (!seen.contains(previous.jid()) && groups.markAbsent(previous.jid(), now) > 0) {
+                absent++;
+                log.info("GROUP hidden group_jid={} name=\"{}\" was_active={} reason=missing-from-chat-list", previous.jid(), previous.name(),
+                        previous.active());
             }
+        }
+        if (absent > 0) {
+            log.info("GROUPS {} groups are not in the number's chat list any more and were hidden", absent);
         }
         var archived = (int) fetched.stream().filter(group -> group.archived()).count();
         var active = (int) groups.activeCount();
