@@ -548,7 +548,7 @@ func (b *bridge) handleSend(w http.ResponseWriter, r *http.Request) {
 	}
 	cli, err := b.client()
 	if err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error(), "unavailable": false})
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error(), "unavailable": false, "offline": true})
 		return
 	}
 	resp, err := cli.SendMessage(r.Context(), jid, &waE2E.Message{Conversation: proto.String(req.Text)})
@@ -559,7 +559,7 @@ func (b *bridge) handleSend(w http.ResponseWriter, r *http.Request) {
 		if serverError {
 			go logRejectedGroup(cli, jid, err)
 		}
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unavailable": groupUnavailable(err), "rejected": rejected})
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error(), "unavailable": groupUnavailable(err), "rejected": rejected, "offline": offline(err)})
 		return
 	}
 	if jid.Server == types.GroupServer {
@@ -591,8 +591,17 @@ func logRejectedGroup(cli *whatsmeow.Client, jid types.JID, sendErr error) {
 }
 
 func groupUnavailable(err error) bool {
-	for _, target := range []error{whatsmeow.ErrNotInGroup, whatsmeow.ErrGroupNotFound, whatsmeow.ErrIQForbidden,
-		whatsmeow.ErrIQNotFound, whatsmeow.ErrIQNotAcceptable, whatsmeow.ErrIQGone} {
+	return isAny(err, whatsmeow.ErrNotInGroup, whatsmeow.ErrGroupNotFound, whatsmeow.ErrIQForbidden,
+		whatsmeow.ErrIQNotFound, whatsmeow.ErrIQNotAcceptable, whatsmeow.ErrIQGone)
+}
+
+// The connection dropped while sending: a network problem, not a sign that WhatsApp is restricting the number.
+func offline(err error) bool {
+	return isAny(err, whatsmeow.ErrNotConnected, whatsmeow.ErrIQTimedOut, whatsmeow.ErrIQDisconnected, context.DeadlineExceeded)
+}
+
+func isAny(err error, targets ...error) bool {
+	for _, target := range targets {
 		if errors.Is(err, target) {
 			return true
 		}

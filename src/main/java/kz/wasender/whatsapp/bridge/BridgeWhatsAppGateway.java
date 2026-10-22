@@ -109,9 +109,10 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
                     .toBodilessEntity();
         } catch (RestClientResponseException e) {
             var error = bridgeError(e);
-            throw new SendException(error.error(), Boolean.TRUE.equals(error.unavailable()), Boolean.TRUE.equals(error.rejected()), e);
+            throw new SendException(error.error(), Boolean.TRUE.equals(error.unavailable()), Boolean.TRUE.equals(error.rejected()),
+                    Boolean.TRUE.equals(error.offline()), e);
         } catch (RestClientException e) {
-            throw new SendException("bridge: " + e.getMessage(), false, e);
+            throw SendException.connectionLost("bridge: " + e.getMessage(), e);
         }
     }
 
@@ -227,7 +228,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
             }
         } catch (RuntimeException ignored) {
         }
-        return new BridgeError(e.getStatusCode() + " " + e.getResponseBodyAsString(), false, false);
+        return new BridgeError(e.getStatusCode() + " " + e.getResponseBodyAsString(), false, false, false);
     }
 
     // Boxed: Jackson 3 не принимает отсутствующее поле для примитива, а мост пустые поля не шлёт.
@@ -243,6 +244,6 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     record Last(Boolean known, Boolean fromMe, Long at) {
     }
 
-    record BridgeError(String error, Boolean unavailable, Boolean rejected) {
+    record BridgeError(String error, Boolean unavailable, Boolean rejected, Boolean offline) {
     }
 }
