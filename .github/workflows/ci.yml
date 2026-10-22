@@ -9,8 +9,7 @@ on:
 permissions:
   contents: read
 
-# PR-прогоны отменяют устаревшие, а push в main — нет: иначе новый push
-# убьёт идущий deploy посреди выкладки.
+# PR-прогоны отменяют устаревшие, а push в main — нет: автодеплой ждёт зелёного CI именно этого коммита.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -85,60 +84,5 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
-  deploy:
-    name: Deploy to inkbpadev
-    needs: [build]
-    # Выключен: проект переезжает на боевой сервер, стенд inkbpadev больше не выкладываем.
-    # Вернуть: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    if: false
-    runs-on: [self-hosted, linux, x64]
-    timeout-minutes: 30
-    # Второй деплой ждёт первый, а не отменяет его посреди выкладки.
-    concurrency:
-      group: deploy-wa-group-sender
-      cancel-in-progress: false
-    env:
-      # Общий кэш Gradle для всех org-раннеров, вне _work.
-      GRADLE_USER_HOME: /opt/gradle-cache
-      # Секреты лежат вне рабочего каталога: checkout делает git clean -ffdx.
-      # Создаёт их deploy/inkbpadev/setup-host.sh.
-      ENV_FILE: /etc/wa-group-sender/.env
-      # Стек живёт в постоянном каталоге, а не в _work раннера.
-      STAND_DIR: /srv/stands/wa-group-sender
-    defaults:
-      run:
-        working-directory: /srv/stands/wa-group-sender
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Check the host is prepared
-        working-directory: ${{ github.workspace }}
-        run: |
-          test -r "$ENV_FILE" || { echo "::error::$ENV_FILE не найден — запусти deploy/inkbpadev/setup-host.sh"; exit 1; }
-          test -w "$STAND_DIR" || { echo "::error::$STAND_DIR нет или недоступен на запись — запусти deploy/inkbpadev/setup-host.sh"; exit 1; }
-
-      # В стенд попадает ровно проверенный коммит: git archive берёт только
-      # отслеживаемые файлы, --delete убирает то, что из репозитория удалили.
-      # Список миграций прежней версии запоминается до синхронизации: по нему
-      # deploy.sh решает, возвращать ли при откате ещё и базу.
-      - name: Sync the tested commit into the stand
-        working-directory: ${{ github.workspace }}
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          migrations="$STAND_DIR/src/main/resources/db/migration"
-          if [ -d "$migrations" ]; then ls -1 "$migrations"; fi > "$STAND_DIR/.migrations-before"
-          staging="$RUNNER_TEMP/stand"
-          rm -rf "$staging" && mkdir -p "$staging"
-          git archive --format=tar "$GITHUB_SHA" | tar -x -C "$staging"
-          rsync -a --checksum --delete \
-            --exclude=/.deployed-sha --exclude=/.migrations-before --exclude=/.deploy.lock \
-            "$staging/" "$STAND_DIR/"
-          echo "$GITHUB_SHA" > "$STAND_DIR/.deployed-sha"
-
-      # Тег отката, сборка, копия базы H2, запуск и проверка стенда.
-      - name: Deploy
-        run: deploy/inkbpadev/deploy.sh
+# Выкатка на прод — не здесь: сервер сам забирает main после зелёного CI (scripts/autodeploy.sh на сервере)
+# и отчитывается в GitHub проверкой «CD / production» и деплойментом production.
