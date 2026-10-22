@@ -5,3 +5,6 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 e2e-results/
+
+# Корневой .gitignore прячет *.json (ключи Google); конфиги фронтенда — нужны.
+!*.json
