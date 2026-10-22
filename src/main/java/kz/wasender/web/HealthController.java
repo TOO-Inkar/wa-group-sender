@@ -34,7 +34,8 @@ public class HealthController {
         this.clock = clock;
     }
 
-    @GetMapping("/api/health")
+    /** /api/health — для healthcheck Docker изнутри; страница админки берёт то же через /api/admin/health (нужен вход). */
+    @GetMapping({"/api/health", "/api/admin/health"})
     public Health health() {
         var today = warmup.today();
         return new Health(

@@ -209,9 +209,9 @@ function showView(name) {
 
 async function refreshHealth() {
   try {
-    const response = await fetch('/api/health');
-    health = await response.json();
-  } catch {
+    health = await api('/api/admin/health');
+  } catch (error) {
+    if (error instanceof Unauthorized) { handleError(error); return; }
     health = null;
   }
   renderHealth();
