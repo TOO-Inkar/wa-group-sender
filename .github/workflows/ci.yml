@@ -80,9 +80,77 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  e2e:
+    name: E2E (fake WhatsApp)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      E2E_PASSWORD: demo-pass
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend
+
+      - name: Build the app image
+        run: docker build -t wa-group-sender:e2e .
+
+      # Profile "fake" replaces WhatsApp with an in-memory gateway, so nothing is ever sent for real.
+      - name: Start the app with the fake profile
+        run: |
+          hash=$(docker run --rm httpd:2.4-alpine htpasswd -nbBC 10 x "$E2E_PASSWORD" | cut -d: -f2)
+          docker run -d --name wa-e2e -p 127.0.0.1:18080:8080 \
+            -e SPRING_PROFILES_ACTIVE=fake -e SHEETS_ENABLED=false -e SERVER_PORT=8080 \
+            -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD_HASH="$hash" -e ADMIN_TOKEN=e2e \
+            -e SPRING_DATASOURCE_URL=jdbc:h2:mem:e2e \
+            wa-group-sender:e2e
+          for _ in $(seq 90); do
+            curl -fs -o /dev/null http://127.0.0.1:18080/login && exit 0
+            sleep 2
+          done
+          docker logs wa-e2e
+          exit 1
+
+      - name: Run Playwright
+        run: >-
+          docker run --rm --network host -e CI=1 -e E2E_PASSWORD
+          -v "$PWD/frontend":/w -w /w mcr.microsoft.com/playwright:v1.49.0-noble
+          npx playwright test --reporter=line
+
+      - name: App log
+        if: failure()
+        run: docker logs wa-e2e 2>&1 | tail -200
+
+      - name: Upload Playwright traces and screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: e2e-results
+          path: |
+            frontend/test-results
+            frontend/e2e-results
+          retention-days: 7
+          if-no-files-found: ignore
+
   deploy:
     name: Deploy to production
-    needs: [build, frontend]
+    needs: [build, frontend, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
