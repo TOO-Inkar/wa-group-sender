@@ -460,10 +460,11 @@ details > summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .subscriber:last-child { border-bottom: none; }
 .form label.inline { display: flex; font-weight: 400; }
 
-/* --- помощь ----------------------------------------------------------------- */
+/* --- сводка настроек -------------------------------------------------------- */
 
-.help { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
-.help .card { display: grid; gap: 8px; align-content: start; }
-.help ol, .help ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; line-height: 1.45; }
-.request-body > .stack { align-content: start; }
-.request-actions button { align-self: center; }
+.summary { display: grid; gap: 2px; border-top: 1px solid var(--border); padding-top: 8px; }
+.summary-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; }
+.summary-label { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.small-chat { border-radius: 10px; min-height: 0; padding: 10px; max-height: 220px; overflow: auto; }
+.small-chat .bubble { max-width: 100%; font-size: 13.5px; }
+dialog.modal .form label.inline { display: flex; }

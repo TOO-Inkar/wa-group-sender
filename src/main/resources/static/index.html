@@ -44,7 +44,6 @@
       <button data-view="groups">Группы</button>
       <button data-view="connection">Подключение <span id="nav-conn" class="dot"></span></button>
       <button data-view="settings">Настройки <span id="nav-subs" class="badge" hidden></span></button>
-      <button data-view="help">Помощь</button>
     </nav>
     <button id="logout" class="link side-logout">Выйти</button>
   </aside>
@@ -285,57 +284,24 @@
             <button id="btn-pause" class="secondary">Пауза</button>
             <button id="btn-resume" class="primary">Возобновить</button>
           </div>
-          <p class="hint">Пауза срабатывает после текущей отправки. «Возобновить» снимает и паузу, и остановку по риску.</p>
+          <div class="summary">
+            <div class="summary-row">
+              <span><span class="summary-label">Рабочее окно</span><b id="sum-window">…</b></span>
+              <button class="link small" data-dialog="settings-window-dialog">Изменить</button>
+            </div>
+            <div class="summary-row">
+              <span><span class="summary-label">Лимиты</span><b id="sum-limits">…</b></span>
+              <button class="link small" data-dialog="settings-window-dialog">Изменить</button>
+            </div>
+          </div>
         </div>
 
-        <form id="settings-window" class="card form" novalidate>
-          <h2>Рабочее окно и лимиты</h2>
-          <div class="two">
-            <label>С <input id="s-window-start" type="time" required></label>
-            <label>До <input id="s-window-end" type="time" required></label>
-          </div>
-          <label class="inline"><input id="s-weekends" type="checkbox"> Рассылать и в выходные</label>
-          <div class="two">
-            <label>Лимит в час <input id="s-hourly" type="number" min="0" step="1"><span class="hint">все заявки вместе; 0 — без лимита</span></label>
-            <label>Лимит в день <input id="s-daily" type="number" min="0" step="1"><span class="hint">0 — без лимита</span></label>
-          </div>
-          <label class="inline"><input id="s-warmup" type="checkbox"> Прогрев нового номера (45, 80, 120, 170, 220 в первые дни)</label>
-          <details>
-            <summary>Паузы — меняйте осторожно</summary>
-            <div class="form details-body">
-              <div class="two">
-                <label>Между группами, от, сек <input id="s-gpause-min" type="number" min="0"></label>
-                <label>до, сек <input id="s-gpause-max" type="number" min="0"></label>
-              </div>
-              <div class="two">
-                <label>Волна, групп <input id="s-wave" type="number" min="1"></label>
-                <label>Ждать после своего сообщения, мин <input id="s-gap" type="number" min="0"><span class="hint">0 — не проверять</span></label>
-              </div>
-              <div class="two">
-                <label>Пауза между волнами, от, мин <input id="s-wpause-min" type="number" min="0"></label>
-                <label>до, мин <input id="s-wpause-max" type="number" min="0"></label>
-              </div>
-            </div>
-          </details>
-          <p id="settings-window-error" class="error" hidden></p>
-          <div class="row"><button type="submit" class="primary">Сохранить</button><span id="settings-window-ok" class="hint"></span></div>
-        </form>
-
-        <form id="settings-reply" class="card form" novalidate>
+        <div class="card">
           <h2>Автоответчик</h2>
-          <p class="muted small">Кто напишет или позвонит на номер рассылки, получит этот текст. Одному человеку — не чаще раза в указанное время.</p>
-          <label class="inline"><input id="r-enabled" type="checkbox"> Отвечать на личные сообщения</label>
-          <label class="inline"><input id="r-calls" type="checkbox"> Отклонять звонки и отвечать тем же текстом</label>
-          <label>Текст ответа
-            <textarea id="r-text" rows="6"></textarea>
-          </label>
-          <div class="row">
-            <label class="inline">Не чаще раза в <input id="r-cooldown" type="number" min="0" class="narrow"> ч</label>
-            <button type="button" id="r-default" class="link small">Вернуть стандартный текст</button>
-          </div>
-          <p id="settings-reply-error" class="error" hidden></p>
-          <div class="row"><button type="submit" class="primary">Сохранить</button><span id="settings-reply-ok" class="hint"></span></div>
-        </form>
+          <p id="sum-reply" class="muted"></p>
+          <div class="chat small-chat"><div id="sum-reply-text" class="bubble"></div></div>
+          <div class="row"><button class="secondary" data-dialog="settings-reply-dialog">Изменить</button></div>
+        </div>
 
         <div class="card">
           <h2>Уведомления в Telegram</h2>
@@ -349,74 +315,66 @@
       </div>
     </section>
 
-    <!-- Помощь -->
-    <section id="view-help" hidden>
-      <div class="page-head">
-        <h1>Как пользоваться</h1>
-        <p class="muted">Коротко о том, как устроена рассылка и что где нажимать.</p>
-      </div>
-      <div class="help">
-        <div class="card">
-          <h2>1. Подключите номер</h2>
-          <ol>
-            <li>Нужен <b>отдельный номер</b> только для рассылки: способ неофициальный, WhatsApp может его заблокировать.</li>
-            <li>На телефоне: WhatsApp → Настройки → Чаты → включите <b>«Оставлять чаты в архиве»</b>.</li>
-            <li>Перенесите в <b>Архив</b> группы, в которые нужно рассылать.</li>
-            <li>Вкладка <b>Подключение</b> → на телефоне «Связанные устройства» → «Привязка устройства» → наведите камеру на QR.</li>
-            <li>Через минуту на вкладке <b>Группы</b> появятся группы этого номера.</li>
-          </ol>
-        </div>
-        <div class="card">
-          <h2>2. Создайте заявку</h2>
-          <ol>
-            <li><b>Новая заявка</b> → заполните поля. Справа сразу видно сообщение.</li>
-            <li>В полях «Машины и тоннаж» и «Доп. условия» каждая строка — отдельная строка сообщения.</li>
-            <li><b>Enter</b> — перейти к следующему полю, <b>Shift+Enter</b> — новая строка внутри поля, <b>Ctrl+Enter</b> — отправить.</li>
-            <li>«Контакт в конце сообщения» — у каждой заявки свой.</li>
-            <li>Готовое сообщение можно вставить целиком: переключатель «Готовый текст».</li>
-          </ol>
-        </div>
-        <div class="card">
-          <h2>3. Куда и когда</h2>
-          <ul>
-            <li><b>Все активные группы</b> — группы из Архива, куда номер может писать.</li>
-            <li><b>Список</b> — сохранённый набор групп (создаётся на вкладке «Группы»). <b>Выбрать группы</b> — любые, например одну тестовую.</li>
-            <li><b>Сейчас</b> — один раз. <b>Каждый день в 05:00</b> — заявка уходит ежедневно с этого времени, даже если рабочее окно начинается позже.</li>
-            <li><b>Повторять в течение дня</b> — например, каждые 2 часа с 08:00 до 23:00.</li>
-          </ul>
-        </div>
-        <div class="card">
-          <h2>4. Как идёт рассылка</h2>
-          <ul>
-            <li>Сообщения уходят <b>по одному</b>, с паузами, с «печатает…», волнами. Это защищает номер от блокировки.</li>
-            <li>Несколько заявок рассылаются <b>параллельно, по очереди</b>: каждая — в своём порядке групп, но лимиты и паузы общие для номера.</li>
-            <li>Если в группе <b>последнее сообщение наше</b>, туда не пишем, пока кто-то не напишет или не пройдёт пауза (Настройки → Паузы).</li>
-            <li>Если повтор по расписанию наступил, а прошлая рассылка ещё идёт, повтор пропускается — номер не разгоняется.</li>
-            <li>Лимиты в час и в день — в Настройках. Что не влезло, уйдёт позже само.</li>
-          </ul>
-        </div>
-        <div class="card">
-          <h2>5. Заявки: правка, остановка, удаление</h2>
-          <ul>
-            <li>Нажмите на заявку → <b>Изменить</b>. Новый текст уйдёт со следующей рассылки (идущая досылает прежний).</li>
-            <li><b>Выключить</b> — остановить рассылку и расписание; <b>Включить</b> — вернуть.</li>
-            <li><b>Отправить сейчас</b> — разослать ещё раз, не дожидаясь расписания.</li>
-            <li><b>Удалить</b> — заявка исчезнет из списка, история останется в отчётах.</li>
-            <li>У каждой рассылки видно, куда ушло, где ошибка, где пропущено и почему.</li>
-          </ul>
-        </div>
-        <div class="card">
-          <h2>6. Уведомления и автоответчик</h2>
-          <ul>
-            <li>Чтобы получать уведомления (разлогин, блокировка, ошибки), напишите Telegram-боту <b>/start</b>, затем одобрите запрос: Настройки → Уведомления.</li>
-            <li>Автоответчик отвечает тем, кто пишет или звонит на номер рассылки. Текст — в Настройках.</li>
-            <li>Если пришло «номер разлогинен» — откройте Подключение и отсканируйте новый QR. Очередь и прогресс сохранятся.</li>
-          </ul>
-        </div>
-      </div>
-    </section>
   </main>
 </div>
+
+<!-- Рабочее окно и лимиты -->
+<dialog id="settings-window-dialog" class="modal">
+  <form id="settings-window" class="modal-body form" novalidate>
+    <h2>Рабочее окно и лимиты</h2>
+    <div class="two">
+      <label>С <input id="s-window-start" type="time" required></label>
+      <label>До <input id="s-window-end" type="time" required></label>
+    </div>
+    <label class="inline"><input id="s-weekends" type="checkbox"> Рассылать и в выходные</label>
+    <div class="two">
+      <label>Лимит в час <input id="s-hourly" type="number" min="0" step="1"><span class="hint">0 — без лимита</span></label>
+      <label>Лимит в день <input id="s-daily" type="number" min="0" step="1"><span class="hint">0 — без лимита</span></label>
+    </div>
+    <label class="inline"><input id="s-warmup" type="checkbox"> Прогрев нового номера</label>
+    <details>
+      <summary>Паузы — меняйте осторожно</summary>
+      <div class="form details-body">
+        <div class="two">
+          <label>Между группами, от, сек <input id="s-gpause-min" type="number" min="0"></label>
+          <label>до, сек <input id="s-gpause-max" type="number" min="0"></label>
+        </div>
+        <div class="two">
+          <label>Волна, групп <input id="s-wave" type="number" min="1"></label>
+          <label>Ждать после своего сообщения, мин <input id="s-gap" type="number" min="0"></label>
+        </div>
+        <div class="two">
+          <label>Пауза между волнами, от, мин <input id="s-wpause-min" type="number" min="0"></label>
+          <label>до, мин <input id="s-wpause-max" type="number" min="0"></label>
+        </div>
+      </div>
+    </details>
+    <p id="settings-window-error" class="error" hidden></p>
+    <div class="modal-actions">
+      <button type="button" class="link" data-close>Отмена</button>
+      <button type="submit" class="primary">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Автоответчик -->
+<dialog id="settings-reply-dialog" class="modal wide">
+  <form id="settings-reply" class="modal-body form" novalidate>
+    <h2>Автоответчик</h2>
+    <label class="inline"><input id="r-enabled" type="checkbox"> Отвечать на личные сообщения</label>
+    <label class="inline"><input id="r-calls" type="checkbox"> Отклонять звонки и отвечать тем же текстом</label>
+    <label>Текст ответа <textarea id="r-text" rows="7"></textarea></label>
+    <div class="row">
+      <label class="inline">Одному человеку не чаще раза в <input id="r-cooldown" type="number" min="0" class="narrow"> ч</label>
+      <button type="button" id="r-default" class="link small">Стандартный текст</button>
+    </div>
+    <p id="settings-reply-error" class="error" hidden></p>
+    <div class="modal-actions">
+      <button type="button" class="link" data-close>Отмена</button>
+      <button type="submit" class="primary">Сохранить</button>
+    </div>
+  </form>
+</dialog>
 
 <!-- Выбор групп -->
 <dialog id="picker" class="modal wide">

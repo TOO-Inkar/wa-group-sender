@@ -1491,6 +1491,33 @@ async function loadSettings() {
   }
 }
 
+// Сводка на странице: что сейчас установлено; поменять — в окне по кнопке «Изменить».
+function renderSettingsSummary() {
+  const s = settings;
+  if (!s) return;
+  const hours = s.windowStart === s.windowEnd ? 'круглосуточно' : `${s.windowStart}–${s.windowEnd}`;
+  $('sum-window').textContent = `${hours}, ${s.weekendsEnabled ? 'ежедневно' : 'по будням'}`;
+  $('sum-limits').textContent = [
+    s.hourlyLimit ? `${s.hourlyLimit} в час` : 'без лимита в час',
+    s.dailyLimit ? `${s.dailyLimit} в день` : 'без лимита в день',
+    s.warmupEnabled ? 'прогрев включён' : 'без прогрева',
+  ].join(' · ');
+  const parts = [];
+  if (s.autoReplyEnabled) parts.push('отвечает на сообщения');
+  if (s.autoReplyRejectCalls) parts.push('отклоняет звонки');
+  $('sum-reply').textContent = parts.length
+    ? `Включён: ${parts.join(', ')}. Одному человеку — не чаще раза в ${s.autoReplyCooldownHours} ч.`
+    : 'Выключен: на сообщения и звонки номер не отвечает.';
+  $('sum-reply-text').innerHTML = waFormat(s.autoReplyText || '');
+}
+
+function openSettingsDialog(id) {
+  if (!settings) return;
+  fillSettings();
+  ['settings-window-error', 'settings-reply-error'].forEach((e) => { $(e).hidden = true; });
+  $(id).showModal();
+}
+
 function fillSettings() {
   const s = settings;
   $('s-window-start').value = s.windowStart;
@@ -1509,6 +1536,7 @@ function fillSettings() {
   $('r-calls').checked = s.autoReplyRejectCalls;
   $('r-cooldown').value = s.autoReplyCooldownHours;
   $('r-text').value = s.autoReplyText;
+  renderSettingsSummary();
 }
 
 async function saveSettings(event, which) {
@@ -1524,14 +1552,12 @@ async function saveSettings(event, which) {
     autoReplyCooldownHours: number('r-cooldown'), autoReplyText: $('r-text').value,
   };
   const error = $(`settings-${which}-error`);
-  const ok = $(`settings-${which}-ok`);
   error.hidden = true;
-  ok.textContent = '';
   try {
     settings = await api('/api/admin/settings', { method: 'PUT', body });
     fillSettings();
-    ok.textContent = 'Сохранено';
-    setTimeout(() => { ok.textContent = ''; }, 4000);
+    $(`settings-${which}-dialog`).close();
+    toast('Настройки сохранены');
     loadSchedule();
     refreshHealth();
   } catch (e) {
@@ -1559,8 +1585,9 @@ function renderTelegram() {
     ? 'Бот не настроен: нужен TELEGRAM_BOT_TOKEN в .env на сервере.'
     : `Чтобы получать уведомления, напишите боту ${telegram.botUsername ? `<b>@${esc(telegram.botUsername)}</b>` : ''} команду <code>/start</code>, затем одобрите запрос здесь. Отписаться — <code>/stop</code>.`;
   const status = { PENDING: ['ждёт одобрения', 'warn'], APPROVED: ['получает', 'ok'], REJECTED: ['отклонён', 'bad'] };
-  const configured = telegram.configuredChats.map((id) => `<div class="subscriber">
-      <span><b>chat ${esc(id)}</b><span class="jid">из настроек сервера (.env)</span></span>
+  const configured = telegram.configuredChats.map((c) => `<div class="subscriber">
+      <span><b>${esc(c.name || `чат ${c.chatId}`)}</b>${c.username ? ` <span class="muted">@${esc(c.username)}</span>` : ''}
+        <span class="jid">задан в настройках сервера (.env), удаляется только там</span></span>
       <span class="pill ok">получает</span>
     </div>`);
   const subs = telegram.subscribers.map((s) => `<div class="subscriber">
@@ -1878,6 +1905,12 @@ $('btn-alert').addEventListener('click', testAlert);
 $('settings-window').addEventListener('submit', (event) => saveSettings(event, 'window'));
 $('settings-reply').addEventListener('submit', (event) => saveSettings(event, 'reply'));
 $('r-default').addEventListener('click', () => { if (settings) $('r-text').value = settings.defaultAutoReplyText; });
+document.addEventListener('click', (event) => {
+  const open = event.target.closest('[data-dialog]');
+  if (open) { openSettingsDialog(open.dataset.dialog); return; }
+  const close = event.target.closest('[data-close]');
+  if (close) close.closest('dialog').close();
+});
 $('tg-subscribers').addEventListener('click', onSubscriberClick);
 
 $('ask-form').addEventListener('submit', () => finishAsk(true));

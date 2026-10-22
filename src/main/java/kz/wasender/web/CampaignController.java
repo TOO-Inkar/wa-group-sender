@@ -6,6 +6,7 @@ import kz.wasender.campaign.RepeatMode;
 import kz.wasender.campaign.Schedule;
 import kz.wasender.campaign.CampaignRepository;
 import kz.wasender.dispatch.DeliveryRepository;
+import kz.wasender.group.GroupListRepository;
 import kz.wasender.request.RequestIntake;
 import kz.wasender.request.RequestRecord;
 import kz.wasender.request.RequestRepository;
@@ -41,14 +42,16 @@ public class CampaignController {
     private final RequestRepository requests;
     private final DeliveryRepository deliveries;
     private final JsonMapper json;
+    private final GroupListRepository groupLists;
 
     public CampaignController(CampaignService service, CampaignRepository campaigns, RequestRepository requests, DeliveryRepository deliveries,
-                              JsonMapper json) {
+                              JsonMapper json, GroupListRepository groupLists) {
         this.service = service;
         this.campaigns = campaigns;
         this.requests = requests;
         this.deliveries = deliveries;
         this.json = json;
+        this.groupLists = groupLists;
     }
 
     @GetMapping
@@ -138,12 +141,30 @@ public class CampaignController {
         var targets = campaign.targeted() ? campaigns.targets(campaign.id()) : List.<String>of();
         var names = service.groupNames();
         var schedule = campaign.schedule();
-        return new CampaignView(campaign.id(), campaign.title(), campaign.message(), campaign.draft(), campaign.targeted(), campaign.targetLabel(),
+        return new CampaignView(campaign.id(), campaign.title(), campaign.message(), campaign.draft(), campaign.targeted(),
+                targetLabel(campaign, targets, names),
                 targets.stream().map(jid -> new Target(jid, names.apply(jid))).toList(),
                 schedule.mode(), schedule.start() == null ? null : schedule.start().toString(),
                 schedule.end() == null ? null : schedule.end().toString(), schedule.intervalMinutes(),
                 campaign.enabled(), campaign.createdAt(), campaign.updatedAt(), campaign.nextRunAt(), campaign.lastRunAt(),
                 current, runs.size(), shown);
+    }
+
+    /**
+     * Как показать адресатов. У заявок, созданных до сохранения названия, его нет: тогда название списка групп
+     * с теми же группами, а если такого списка нет — названия самих групп.
+     */
+    private String targetLabel(CampaignRecord campaign, List<String> targets, java.util.function.Function<String, String> names) {
+        if (!campaign.targeted() || (campaign.targetLabel() != null && !campaign.targetLabel().isBlank())) {
+            return campaign.targetLabel();
+        }
+        var set = new java.util.HashSet<>(targets);
+        var list = groupLists.findAll().stream().filter(l -> new java.util.HashSet<>(l.groups()).equals(set)).findFirst();
+        if (list.isPresent()) {
+            return list.get().name();
+        }
+        var shown = targets.stream().limit(3).map(names).collect(java.util.stream.Collectors.joining(", "));
+        return targets.size() > 3 ? shown + " и ещё " + (targets.size() - 3) : shown;
     }
 
     private Run run(RequestRecord request) {
