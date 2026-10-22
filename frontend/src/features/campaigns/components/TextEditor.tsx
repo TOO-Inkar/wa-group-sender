@@ -10,7 +10,6 @@ const MARKS = [
   { mark: '~', label: <s>З</s>, title: 'Зачёркнутый' },
 ]
 
-/** Готовый текст: разметка WhatsApp кнопками, эмодзи, разделитель. */
 export function TextEditor() {
   const { register, setValue, getValues, formState } = useFormContext<FormValues>()
   const ref = useRef<HTMLTextAreaElement | null>(null)

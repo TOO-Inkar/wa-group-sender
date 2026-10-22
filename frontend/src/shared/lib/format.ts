@@ -1,6 +1,5 @@
-export const ZONE = 'Asia/Almaty'
+const ZONE = 'Asia/Almaty'
 
-/** 1 группа, 2 группы, 5 групп. */
 export function plural(n: number, one: string, few: string, many: string): string {
   const mod10 = n % 10
   const mod100 = n % 100
@@ -8,7 +7,8 @@ export function plural(n: number, one: string, few: string, many: string): strin
   return `${n} ${word}`
 }
 
-/** «22.10, 13:00» в часовом поясе сервиса. */
+export const groupsCount = (n: number) => plural(n, 'группа', 'группы', 'групп')
+
 export function formatTime(value: string | number | null | undefined): string {
   if (value == null) return ''
   const ms = typeof value === 'number' ? value : Date.parse(value)
@@ -22,12 +22,10 @@ export function formatTime(value: string | number | null | undefined): string {
   })
 }
 
-/** Дата в часовом поясе сервиса в виде 2026-10-05. */
 export function isoDay(date: Date): string {
   return date.toLocaleDateString('sv-SE', { timeZone: ZONE })
 }
 
-/** «каждый час», «каждые 2 часа», «каждые 1,5 часа». */
 export function intervalText(minutes: number | null | undefined): string {
   if (!minutes) return ''
   if (minutes % 60 === 0) return minutes === 60 ? 'каждый час' : `каждые ${plural(minutes / 60, 'час', 'часа', 'часов')}`

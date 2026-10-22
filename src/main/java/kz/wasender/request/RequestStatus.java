@@ -12,6 +12,10 @@ public enum RequestStatus {
         this.sheetText = sheetText;
     }
 
+    public boolean active() {
+        return this == QUEUED || this == SENDING;
+    }
+
     public String sheetText() {
         return sheetText;
     }

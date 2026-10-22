@@ -12,7 +12,6 @@ import java.util.Map;
 
 @RestController
 public class QrController {
-
     private final QrService qr;
     private final WhatsAppGateway gateway;
 

@@ -12,7 +12,6 @@ import java.time.ZoneId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class WorkWindowTest {
-
     private static final ZoneId ALMATY = ZoneId.of("Asia/Almaty");
 
     private static WorkWindow window(LocalTime start, LocalTime end, boolean weekends) {

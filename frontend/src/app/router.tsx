@@ -8,7 +8,6 @@ import { GroupsPage } from '@/pages/GroupsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 
-/** Адреса страниц; SpaController на бэкенде отдаёт на них index.html. */
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   {

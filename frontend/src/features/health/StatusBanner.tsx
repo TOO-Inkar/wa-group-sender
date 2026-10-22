@@ -1,10 +1,10 @@
 import { Link } from 'react-router'
 import { useHealth } from './api'
 import { cn } from '@/shared/lib/cn'
+import { toneSurface } from '@/shared/ui/tone'
 
 type Banner = { tone: 'warn' | 'bad'; text: string; link?: { to: string; label: string } }
 
-/** Полоса наверху — только когда нужно вмешаться; обычное состояние — в индикаторе меню (StatusChip). */
 export function StatusBanner() {
   const { data: h, isError } = useHealth()
   let banner: Banner | null = null
@@ -15,7 +15,7 @@ export function StatusBanner() {
   else if (h?.dispatcher === 'paused') banner = { tone: 'warn', text: 'Рассылка на паузе.', link: { to: '/settings', label: 'Возобновить' } }
   if (!banner) return null
   return (
-    <div className={cn('mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm font-medium', banner.tone === 'bad' ? 'bg-bad-bg text-bad-text' : 'bg-warn-bg text-warn-text')}>
+    <div className={cn('mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm font-medium', toneSurface[banner.tone])}>
       <span>{banner.text}</span>
       {banner.link && (
         <Link to={banner.link.to} className="rounded-lg bg-surface px-3 py-1 text-text">

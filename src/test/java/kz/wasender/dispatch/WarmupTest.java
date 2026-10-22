@@ -13,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @TestPropertySource(properties = {"app.warmup.enabled=true", "app.warmup.daily-limits=50,100"})
 class WarmupTest extends IntegrationTest {
-
     @Autowired
     WarmupService warmup;
 

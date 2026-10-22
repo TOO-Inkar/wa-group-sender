@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/shared/api/client'
 
-export const telegramKeys = { all: ['telegram'] as const }
+const telegramKeys = { all: ['telegram'] as const }
 
-/** Получатели уведомлений; раз в минуту — чтобы новые запросы /start появились сами. */
 export function useTelegram() {
   return useQuery({ queryKey: telegramKeys.all, queryFn: () => unwrap(api.GET('/api/admin/telegram')), refetchInterval: 60_000 })
 }

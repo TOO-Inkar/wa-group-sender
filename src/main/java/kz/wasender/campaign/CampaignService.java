@@ -2,13 +2,11 @@ package kz.wasender.campaign;
 
 import kz.wasender.dispatch.Dispatcher;
 import kz.wasender.dispatch.WorkWindow;
-import kz.wasender.group.GroupRecord;
-import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestIdGenerator;
 import kz.wasender.request.RequestIntake;
 import kz.wasender.request.RequestRecord;
 import kz.wasender.request.RequestRepository;
-import kz.wasender.request.RequestStatus;
+import kz.wasender.sheets.SheetField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,37 +18,30 @@ import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-/**
- * Заявки из админки и их расписание. Каждая отправка заявки — новая рассылка (request) со своим планом;
- * диспетчер ведёт несколько рассылок сразу, деля между ними паузы и лимиты номера.
- */
 @Service
 public class CampaignService {
-
     private static final Logger log = LoggerFactory.getLogger(CampaignService.class);
     private static final int MAX_TITLE = 200;
-    private static final int MAX_LABEL = 500;
 
     private final CampaignRepository campaigns;
     private final RequestRepository requests;
     private final RequestIdGenerator requestIds;
     private final RequestIntake intake;
-    private final GroupRepository groups;
+    private final CampaignRecipients recipients;
     private final Dispatcher dispatcher;
     private final WorkWindow window;
     private final Clock clock;
 
     public CampaignService(CampaignRepository campaigns, RequestRepository requests, RequestIdGenerator requestIds, RequestIntake intake,
-                           GroupRepository groups, Dispatcher dispatcher, WorkWindow window, Clock clock) {
+                           CampaignRecipients recipients, Dispatcher dispatcher, WorkWindow window, Clock clock) {
         this.campaigns = campaigns;
         this.requests = requests;
         this.requestIds = requestIds;
         this.intake = intake;
-        this.groups = groups;
+        this.recipients = recipients;
         this.dispatcher = dispatcher;
         this.window = window;
         this.clock = clock;
@@ -59,10 +50,11 @@ public class CampaignService {
     @Transactional
     public synchronized CampaignRecord create(Input input) {
         var targets = targets(input);
-        var message = intake.compose(input.draft(), null, targets);
+        var message = intake.compose(input.draft(), targets);
         var now = Instant.now(clock);
         var first = input.sendNow() ? ZonedDateTime.now(clock) : input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled());
-        var campaign = new CampaignRecord(nextId(), title(input, message), input.form(), message, !targets.isEmpty(), label(input, targets),
+        var label = recipients.labelToStore(input.targetLabel(), targets);
+        var campaign = new CampaignRecord(nextId(), title(input, message), input.form(), message, !targets.isEmpty(), label,
                 input.schedule(), true, false, now, now, first == null ? null : first.toInstant(), null);
         campaigns.insert(campaign, targets);
         log.info("CAMPAIGN created id={} title=\"{}\" repeat={} start={} end={} interval={} targets={} first_run={}", campaign.id(),
@@ -72,22 +64,19 @@ public class CampaignService {
         return campaigns.find(campaign.id()).orElseThrow();
     }
 
-    /**
-     * Меняет текст, адресатов и расписание. Ещё не начатая рассылка получает новый текст;
-     * уже идущая досылает старый, новый уйдёт со следующей.
-     */
     @Transactional
     public synchronized CampaignRecord update(String id, Input input) {
         var current = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
         var targets = targets(input);
-        var message = intake.compose(input.draft(), null, targets);
+        var message = intake.compose(input.draft(), targets);
         var now = Instant.now(clock);
         var next = current.nextRunAt();
         if (current.enabled() && !current.schedule().equals(input.schedule())) {
             var first = input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled());
             next = first == null ? null : first.toInstant();
         }
-        var updated = new CampaignRecord(id, title(input, message), input.form(), message, !targets.isEmpty(), label(input, targets),
+        var label = recipients.labelToStore(input.targetLabel(), targets);
+        var updated = new CampaignRecord(id, title(input, message), input.form(), message, !targets.isEmpty(), label,
                 input.schedule(), current.enabled(), false, current.createdAt(), now, next, current.lastRunAt());
         campaigns.update(updated, targets);
         var queued = requests.updateQueuedMessage(id, message, targets);
@@ -98,7 +87,6 @@ public class CampaignService {
         return campaigns.find(id).orElseThrow();
     }
 
-    /** Заявка удаляется из списка, её незаконченная рассылка останавливается; история остаётся в отчётах. */
     @Transactional
     public synchronized void delete(String id) {
         campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
@@ -107,7 +95,6 @@ public class CampaignService {
         log.info("CAMPAIGN deleted id={}", id);
     }
 
-    /** Выключенная заявка не рассылается по расписанию, идущая рассылка останавливается. */
     @Transactional
     public synchronized CampaignRecord setEnabled(String id, boolean enabled) {
         var campaign = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
@@ -125,7 +112,6 @@ public class CampaignService {
         return campaigns.find(id).orElseThrow();
     }
 
-    /** Разослать заявку прямо сейчас, не дожидаясь расписания. */
     @Transactional
     public synchronized RequestRecord runNow(String id) {
         var campaign = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
@@ -135,7 +121,6 @@ public class CampaignService {
         return spawn(campaign, Instant.now(clock)).orElseThrow();
     }
 
-    /** Запускает рассылки заявок, чьё время подошло; вызывается по таймеру. Возвращает, сколько запущено. */
     @Transactional
     public synchronized int tick() {
         var started = 0;
@@ -157,7 +142,7 @@ public class CampaignService {
 
     public List<RequestRecord> activeRuns(String id) {
         return requests.findByCampaign(id).stream()
-                .filter(run -> run.status() == RequestStatus.QUEUED || run.status() == RequestStatus.SENDING)
+                .filter(run -> run.status().active())
                 .toList();
     }
 
@@ -175,10 +160,7 @@ public class CampaignService {
         return spawned.isPresent();
     }
 
-    /**
-     * Новая рассылка заявки. Если прошлая ещё идёт с сегодняшнего дня — этот запуск пропускается (номер не разгоняем);
-     * если она со вчера и раньше — она устарела, закрывается, и стартует новая.
-     */
+    // Прошлая рассылка с сегодня ещё идёт — повтор пропускаем; со вчера — устарела, закрываем.
     private Optional<RequestRecord> spawn(CampaignRecord campaign, Instant now) {
         var today = LocalDate.now(clock);
         for (var previous : activeRuns(campaign.id())) {
@@ -219,12 +201,11 @@ public class CampaignService {
         return Long.toString(max + 1);
     }
 
-    /** Название заявки: заданное вручную, маршрут из полей или первая строка готового текста. */
     private static String title(Input input, String message) {
         var title = input.title() == null ? "" : input.title().strip();
-        var items = input.draft().isText() ? List.<java.util.Map<kz.wasender.sheets.SheetField, String>>of() : input.draft().items();
+        var items = input.draft().isText() ? List.<Map<SheetField, String>>of() : input.draft().items();
         if (title.isEmpty() && !items.isEmpty()) {
-            var route = items.getFirst().get(kz.wasender.sheets.SheetField.ROUTE);
+            var route = items.getFirst().get(SheetField.ROUTE);
             if (route != null && !route.isBlank()) {
                 title = route.strip() + (items.size() > 1 ? " и ещё " + (items.size() - 1) : "");
             }
@@ -236,45 +217,17 @@ public class CampaignService {
         return title.length() > MAX_TITLE ? title.substring(0, MAX_TITLE - 1) + "…" : title;
     }
 
-    /** Как показать адресатов: название списка из админки или названия выбранных групп. */
-    private String label(Input input, List<String> targets) {
-        if (targets.isEmpty()) {
-            return null;
-        }
-        if (input.targetLabel() != null && !input.targetLabel().isBlank()) {
-            var label = input.targetLabel().strip();
-            return label.length() > MAX_LABEL ? label.substring(0, MAX_LABEL - 1) + "…" : label;
-        }
-        var names = groups.findAll().stream().filter(g -> g.name() != null && !g.name().isBlank())
-                .collect(Collectors.toMap(GroupRecord::jid, GroupRecord::name, (a, b) -> a));
-        var shown = targets.stream().limit(3).map(jid -> names.getOrDefault(jid, jid)).collect(Collectors.joining(", "));
-        var label = targets.size() > 3 ? shown + " и ещё " + (targets.size() - 3) : shown;
-        return label.length() > MAX_LABEL ? label.substring(0, MAX_LABEL - 1) + "…" : label;
-    }
-
-    public Function<String, String> groupNames() {
-        var names = groups.findAll().stream().filter(g -> g.name() != null && !g.name().isBlank())
-                .collect(Collectors.toMap(GroupRecord::jid, GroupRecord::name, (a, b) -> a));
-        return jid -> names.getOrDefault(jid, jid);
-    }
-
-    /**
-     * Что приходит со страницы: draft — содержимое для проверки и сборки текста, form — те же поля в JSON для повторного
-     * открытия, groups — адресаты (пусто — все активные группы), sendNow — первая рассылка сразу.
-     */
     public record Input(RequestIntake.Draft draft, String form, List<String> groups, String title, String targetLabel, Schedule schedule,
                         boolean sendNow) {
     }
 
     public static class NotFoundException extends RuntimeException {
-
         public NotFoundException(String id) {
             super("заявка " + id + " не найдена");
         }
     }
 
     public static class ConflictException extends RuntimeException {
-
         public ConflictException(String message) {
             super(message);
         }

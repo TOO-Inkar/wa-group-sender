@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campaignState, metaLine, scheduleText, whereText } from './model'
+import { campaignState, matchesFilter, scheduleShort, scheduleText, whereText } from './model'
 import type { Campaign, Run } from '@/shared/api/types'
 
 const run = (over: Partial<Run> = {}): Run => ({
@@ -39,7 +39,12 @@ const campaign = (over: Partial<Campaign> = {}): Campaign => ({
 describe('заявка в списке', () => {
   it('показывает название списка групп, а не «1 группа»', () => {
     expect(whereText(campaign())).toBe('Тест')
-    expect(metaLine(campaign())).toBe('ещё не начата · Тест · один раз · создана 21.10, 22:07')
+  })
+
+  it('фильтр «Идут» — рассылаются и в очереди', () => {
+    expect(matchesFilter(campaign(), 'active')).toBe(true)
+    expect(matchesFilter(campaign({ current: null, nextRunAt: '2026-10-23T00:00:00Z' }), 'active')).toBe(false)
+    expect(matchesFilter(campaign({ current: null, nextRunAt: '2026-10-23T00:00:00Z' }), 'scheduled')).toBe(true)
   })
 
   it('без названия списка — число групп, без адресатов — все активные', () => {
@@ -59,5 +64,7 @@ describe('заявка в списке', () => {
     expect(scheduleText({ repeatMode: 'DAILY', startTime: '05:00', endTime: null, intervalMinutes: null })).toBe('каждый день в 05:00')
     expect(scheduleText({ repeatMode: 'INTERVAL', startTime: '08:00', endTime: '23:00', intervalMinutes: 120 })).toBe('каждые 2 часа с 08:00 до 23:00')
     expect(scheduleText({ repeatMode: 'INTERVAL', startTime: '08:00', endTime: null, intervalMinutes: 90 }, '20:00')).toBe('каждые 1,5 часа с 08:00 до 20:00')
+    expect(scheduleShort({ repeatMode: 'INTERVAL', startTime: '08:00', endTime: '23:00', intervalMinutes: 120 })).toBe('каждые 2 ч, 08:00–23:00')
+    expect(scheduleShort({ repeatMode: 'DAILY', startTime: '05:00', endTime: null, intervalMinutes: null })).toBe('ежедневно 05:00')
   })
 })

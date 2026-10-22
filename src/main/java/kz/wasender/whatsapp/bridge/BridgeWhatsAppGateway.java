@@ -26,14 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * WhatsApp through the wa-bridge sidecar (whatsmeow, see bridge/). The bridge owns the WhatsApp session;
- * this class forwards commands over HTTP and turns the bridge's event stream into {@link GatewayEvent}s.
- */
 @Component
 @Profile("!fake")
 public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
-
     private static final Logger log = LoggerFactory.getLogger(BridgeWhatsAppGateway.class);
     private static final int EVENTS_WAIT_SECONDS = 20;
     private static final Duration RETRY_DELAY = Duration.ofSeconds(2);
@@ -67,7 +62,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
         updateState(SessionState.CONNECTING);
         try {
             if (poller == null) {
-                // The cursor is taken before /connect, so no event emitted by the connect is missed.
+                // Курсор берётся до /connect, чтобы не потерять события самого подключения.
                 var start = client.get().uri("/events?after=-1&wait=0").retrieve().body(EventBatch.class);
                 poller = Thread.ofVirtual().name("wa-bridge-events").start(() -> poll(start.instance(), start.next()));
             }
@@ -129,7 +124,6 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
             }
             return Optional.of(new LastMessage(Boolean.TRUE.equals(last.fromMe()), Instant.ofEpochSecond(last.at())));
         } catch (RestClientException e) {
-            // Старый мост без /last или сбой: не мешаем отправке.
             log.debug("Last message unknown group_jid={}: {}", groupJid, e.toString());
             return Optional.empty();
         }
@@ -184,8 +178,8 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
                 if (batch == null) {
                     continue;
                 }
+                // Мост перезапустился и потерял сессию и события — переподключит watchdog.
                 if (!batch.instance().equals(instance)) {
-                    // The bridge restarted and lost its connection and events; the watchdog will reconnect.
                     log.warn("Bridge restarted (instance {} -> {})", instance, batch.instance());
                     instance = batch.instance();
                     cursor = 0;
@@ -232,12 +226,11 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
                 return error;
             }
         } catch (RuntimeException ignored) {
-            // not a bridge JSON body
         }
         return new BridgeError(e.getStatusCode() + " " + e.getResponseBodyAsString(), false, false);
     }
 
-    // Boxed: Jackson 3 rejects a missing field for a primitive, and the bridge omits empty ones.
+    // Boxed: Jackson 3 не принимает отсутствующее поле для примитива, а мост пустые поля не шлёт.
     record Event(long seq, String type, String payload, String reason, Boolean autoReconnect, String jid) {
     }
 

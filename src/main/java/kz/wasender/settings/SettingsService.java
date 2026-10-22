@@ -17,13 +17,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Настройки, которые меняются из админки без перезапуска: рабочее окно, лимиты, паузы, автоответчик.
- * Значение из базы перекрывает значение из .env; удалённое из базы снова берётся из .env.
- */
 @Service
 public class SettingsService {
-
     private static final Logger log = LoggerFactory.getLogger(SettingsService.class);
 
     public static final String DEFAULT_AUTOREPLY_TEXT = """
@@ -49,7 +44,6 @@ public class SettingsService {
         this.clock = clock;
     }
 
-    /** Параметры рассылки с учётом правок из админки. */
     public DispatchProperties dispatch() {
         var d = dispatch;
         return new DispatchProperties(d.autostart(),
@@ -79,7 +73,6 @@ public class SettingsService {
                 text == null || text.isBlank() ? DEFAULT_AUTOREPLY_TEXT : text);
     }
 
-    /** Действующие значения в виде, удобном странице настроек. */
     public View view() {
         var d = dispatch();
         var w = warmup();
@@ -90,7 +83,6 @@ public class SettingsService {
                 a.enabled(), a.rejectCalls(), (int) a.cooldown().toHours(), a.text(), DEFAULT_AUTOREPLY_TEXT);
     }
 
-    /** Сохраняет изменённые поля; null — поле не меняется. Ошибка в любом поле — не сохраняется ничего. */
     public synchronized View update(View changes) {
         var values = new LinkedHashMap<Setting, String>();
         if (changes.windowStart() != null) values.put(Setting.WINDOW_START, parseTime(changes.windowStart(), "начало окна").toString());
@@ -135,7 +127,6 @@ public class SettingsService {
         return view();
     }
 
-    /** Все значения строками, как они хранятся; для проверки пар «от–до». */
     private Map<Setting, String> snapshot() {
         var d = dispatch();
         return Map.of(Setting.GROUP_PAUSE_MIN, d.groupPauseMin().toString(), Setting.GROUP_PAUSE_MAX, d.groupPauseMax().toString(),
@@ -192,7 +183,6 @@ public class SettingsService {
                         try {
                             overrides.put(Setting.valueOf(entry.getKey()), entry.getValue());
                         } catch (IllegalArgumentException ignored) {
-                            // настройка из более новой версии
                         }
                     });
             loaded = true;
@@ -228,7 +218,6 @@ public class SettingsService {
         AUTOREPLY_ENABLED, AUTOREPLY_REJECT_CALLS, AUTOREPLY_COOLDOWN, AUTOREPLY_TEXT
     }
 
-    /** Поля страницы настроек. В запросе на изменение null — оставить как есть. */
     public record View(String windowStart, String windowEnd, Boolean weekendsEnabled, Integer hourlyLimit, Integer dailyLimit,
                        Boolean warmupEnabled, Integer groupPauseMinSeconds, Integer groupPauseMaxSeconds, Integer waveSize,
                        Integer wavePauseMinMinutes, Integer wavePauseMaxMinutes, Integer ownMessageGapMinutes,
@@ -237,7 +226,6 @@ public class SettingsService {
     }
 
     public static class InvalidSettingException extends RuntimeException {
-
         public InvalidSettingException(String message) {
             super(message);
         }

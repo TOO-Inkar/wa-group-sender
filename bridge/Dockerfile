@@ -1,5 +1,4 @@
 FROM golang:1.26-bookworm AS build
-# Версия whatsmeow — коммит из go.mau.fi/whatsmeow; зависимости разрешаются от него при сборке.
 ARG WHATSMEOW_REF=d9538eeba3acffa047f794a99e1b42bc111e2aee
 ENV GOTOOLCHAIN=auto CGO_ENABLED=1
 WORKDIR /src

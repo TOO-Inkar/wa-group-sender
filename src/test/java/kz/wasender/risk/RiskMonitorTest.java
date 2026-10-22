@@ -9,7 +9,6 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RiskMonitorTest extends IntegrationTest {
-
     @Test
     void warningThresholdStretchesPauses() {
         for (var i = 0; i < 4; i++) {

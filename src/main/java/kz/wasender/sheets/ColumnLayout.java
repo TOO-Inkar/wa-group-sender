@@ -9,7 +9,6 @@ import java.util.Locale;
 import java.util.Map;
 
 public class ColumnLayout {
-
     private final Map<SheetField, Integer> indexes = new EnumMap<>(SheetField.class);
     private final List<String> missing = new ArrayList<>();
 

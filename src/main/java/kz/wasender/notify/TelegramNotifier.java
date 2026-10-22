@@ -14,7 +14,6 @@ import java.util.Map;
 
 @Component
 public class TelegramNotifier implements Notifier {
-
     private static final Logger log = LoggerFactory.getLogger(TelegramNotifier.class);
 
     private final NotifyProperties.Telegram properties;
@@ -61,7 +60,6 @@ public class TelegramNotifier implements Notifier {
         return delivered;
     }
 
-    /** Получатели: chat_id из .env и одобренные в админке подписчики бота. */
     public List<String> chatIds() {
         var ids = new LinkedHashSet<String>(configuredChatIds());
         if (subscribers != null) {
@@ -70,7 +68,6 @@ public class TelegramNotifier implements Notifier {
         return List.copyOf(ids);
     }
 
-    /** chat_id из TELEGRAM_CHAT_IDS: их нельзя отписать из админки. */
     public List<String> configuredChatIds() {
         if (properties.chatIds() == null) {
             return List.of();
@@ -78,7 +75,6 @@ public class TelegramNotifier implements Notifier {
         return properties.chatIds().stream().map(String::strip).filter(id -> !id.isEmpty()).toList();
     }
 
-    /** Отправка одному чату, без префикса и подсчёта; true — доставлено. */
     public boolean sendTo(String chatId, String text) {
         if (properties.botToken() == null || properties.botToken().isBlank()) {
             return false;

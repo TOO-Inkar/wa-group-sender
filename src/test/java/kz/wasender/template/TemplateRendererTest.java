@@ -2,8 +2,8 @@ package kz.wasender.template;
 
 import kz.wasender.config.MessageProperties;
 import kz.wasender.config.SheetsProperties;
-import kz.wasender.sheets.CsvParser;
 import kz.wasender.sheets.ColumnLayout;
+import kz.wasender.sheets.CsvParser;
 import kz.wasender.sheets.SheetField;
 import kz.wasender.sheets.SheetRow;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,6 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TemplateRendererTest {
-
     static final String CONTACT = "Диспетчер (тест) +7 000 000 00 00";
     static final SheetsProperties.Columns COLUMNS = new SheetsProperties.Columns("ID", "Маршрут", "Дата / срочность",
             "Машины и тоннаж", "Груз", "Фрахт", "Доп. условия", "Статус", "Отправлено / всего", "Завершено");

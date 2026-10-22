@@ -7,10 +7,11 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Repository
 public class GroupRepository {
-
     private static final RowMapper<GroupRecord> MAPPER = (rs, n) -> new GroupRecord(
             rs.getString("jid"),
             rs.getString("name"),
@@ -25,7 +26,6 @@ public class GroupRepository {
             rs.getInt("rejected_count"),
             rs.getBoolean("rejected"));
 
-    /** Rejections in a row after which a group leaves the dispatch. */
     static final int REJECTIONS_TO_EXCLUDE = 2;
 
     private final JdbcClient jdbc;
@@ -34,17 +34,21 @@ public class GroupRepository {
         this.jdbc = jdbc;
     }
 
-    /** Все группы, когда-либо виденные, — для названий в истории и отчётах. */
     public List<GroupRecord> findAll() {
         return jdbc.sql("select * from wa_group order by active desc, name, jid").query(MAPPER).list();
     }
 
-    /** Группы из последнего списка номера: группы прежнего номера и покинутые сюда не попадают. */
+    public Map<String, String> namesByJid() {
+        return jdbc.sql("select jid, name from wa_group where name is not null and trim(name) <> ''")
+                .query((rs, n) -> Map.entry(rs.getString("jid"), rs.getString("name")))
+                .list().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
     public List<GroupRecord> findPresent() {
         return jdbc.sql("select * from wa_group where present order by active desc, name, jid").query(MAPPER).list();
     }
 
-    /** Группы, которых не было в свежем списке номера, уходят из списка и из рассылки; возвращает сколько. */
     public int markAbsent(String jid, Instant at) {
         return jdbc.sql("update wa_group set present = false, active = false, last_sync = ? where jid = ? and present")
                 .params(at, jid).update();
@@ -62,7 +66,6 @@ public class GroupRepository {
         return jdbc.sql("select count(*) from wa_group where jid = ? and active").param(jid).query(Integer.class).single() > 0;
     }
 
-    /** The number is in the group and may write there; unlike active, the group need not be archived. */
     public boolean isSendable(String jid) {
         return jdbc.sql("select count(*) from wa_group where jid = ? and present and member and can_send and not community and not too_large and not rejected")
                 .param(jid).query(Integer.class).single() > 0;
@@ -72,7 +75,6 @@ public class GroupRepository {
         upsert(group, false, false, at);
     }
 
-    /** Stores the group; it takes part in the dispatch when eligible, not too large and not rejected by WhatsApp. */
     public void upsert(GroupInfo group, boolean tooLarge, boolean rejected, Instant at) {
         jdbc.sql("""
                         merge into wa_group(jid, name, archived, member, can_send, active, last_sync, participants, community, too_large, present)
@@ -82,7 +84,6 @@ public class GroupRepository {
                 .update();
     }
 
-    /** Counts a 479 rejection; returns true when the group has just been excluded for it. */
     public boolean recordRejection(String jid, Instant at) {
         jdbc.sql("update wa_group set rejected_count = rejected_count + 1 where jid = ?").param(jid).update();
         return jdbc.sql("update wa_group set rejected = true, active = false, last_sync = ? where jid = ? and not rejected and rejected_count >= ?")
@@ -90,12 +91,10 @@ public class GroupRepository {
                 .update() > 0;
     }
 
-    /** A send went through: the group is fine again. */
     public void clearRejections(String jid) {
         jdbc.sql("update wa_group set rejected_count = 0, rejected = false where jid = ? and (rejected_count > 0 or rejected)").param(jid).update();
     }
 
-    /** Puts a group excluded for rejections back into the dispatch by hand. */
     public boolean resetRejections(String jid, Instant at) {
         return jdbc.sql("""
                         update wa_group set rejected_count = 0, rejected = false, last_sync = ?,

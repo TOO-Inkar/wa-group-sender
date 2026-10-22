@@ -11,7 +11,6 @@ import java.util.random.RandomGenerator;
 
 @Component
 public class PauseRandomizer {
-
     private final Supplier<DispatchProperties> properties;
     private final RandomGenerator random;
 

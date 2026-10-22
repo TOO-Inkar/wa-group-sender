@@ -1,5 +1,4 @@
 services:
-  # WhatsApp-клиент на whatsmeow (bridge/). Порт наружу не публикуется: к нему ходит только wa-group-sender.
   wa-bridge:
     build: ./bridge
     image: wa-group-sender-bridge:1.0.0

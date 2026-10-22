@@ -4,12 +4,8 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ESCAPES[c] ?? c)
 }
 
-/**
- * Разметка WhatsApp в HTML: ```моно```, *жирный*, _курсив_, ~зачёркнутый~. Как в самом WhatsApp, знак работает,
- * если снаружи к нему не прилегает буква или цифра, а внутри он касается текста. Текст экранируется до разметки,
- * поэтому результат безопасно вставлять как HTML.
- */
 export function whatsappToHtml(text: string): string {
+  // Как в WhatsApp: знак не должен касаться букв снаружи и должен касаться текста внутри.
   const inline = (source: string, mark: string, tag: string) => {
     const m = mark === '*' ? '\\*' : mark
     const re = new RegExp(`(?<![\\p{L}\\p{N}])${m}(?=\\S)([^\\n]*?\\S)${m}(?![\\p{L}\\p{N}])`, 'gu')

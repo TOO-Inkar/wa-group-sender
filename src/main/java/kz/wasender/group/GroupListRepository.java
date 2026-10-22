@@ -9,10 +9,8 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-/** Named sets of groups saved in the admin page to send a request to some groups instead of all. */
 @Repository
 public class GroupListRepository {
-
     private final JdbcClient jdbc;
 
     public GroupListRepository(JdbcClient jdbc) {
@@ -27,7 +25,6 @@ public class GroupListRepository {
                 .toList();
     }
 
-    /** Creates the list or replaces the groups of the list with this name. */
     @Transactional
     public GroupList save(String name, Collection<String> groupJids, Instant at) {
         var id = jdbc.sql("select id from group_list where name = ?").param(name).query(Long.class).optional()

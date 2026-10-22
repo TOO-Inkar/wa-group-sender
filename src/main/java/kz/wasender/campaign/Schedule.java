@@ -4,14 +4,7 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 
-/**
- * Расписание заявки. start — время первой отправки дня (у разовой заявки null — сразу),
- * end — до какого времени запускать повторы и слать (null — до конца общего рабочего окна),
- * intervalMinutes — шаг повторов для INTERVAL.
- */
 public record Schedule(RepeatMode mode, LocalTime start, LocalTime end, Integer intervalMinutes) {
-
-    /** Самый частый повтор: чаще номер не успеет обойти группы и получит бан. */
     public static final int MIN_INTERVAL_MINUTES = 30;
 
     public Schedule {
@@ -31,10 +24,6 @@ public record Schedule(RepeatMode mode, LocalTime start, LocalTime end, Integer 
         }
     }
 
-    /**
-     * Следующий запуск строго позже after; null — повторов больше нет.
-     * windowEnd — конец общего окна, если у заявки своего нет; без выходных — суббота и воскресенье пропускаются.
-     */
     public ZonedDateTime nextAfter(ZonedDateTime after, LocalTime windowEnd, boolean weekends) {
         return switch (mode) {
             case ONCE -> null;
@@ -43,7 +32,6 @@ public record Schedule(RepeatMode mode, LocalTime start, LocalTime end, Integer 
         };
     }
 
-    /** Первый запуск для новой (или изменённой) заявки, считая от now. */
     public ZonedDateTime first(ZonedDateTime now, LocalTime windowEnd, boolean weekends) {
         if (mode == RepeatMode.ONCE) {
             if (start == null) {
@@ -68,7 +56,6 @@ public record Schedule(RepeatMode mode, LocalTime start, LocalTime end, Integer 
         return nextDay(after, weekends, start, false);
     }
 
-    /** Ближайший рабочий день во время time: сегодня, если сегодня ещё не прошло и sameDay, иначе дальше. */
     private static ZonedDateTime nextDay(ZonedDateTime after, boolean weekends, LocalTime time, boolean sameDay) {
         var candidate = after.with(time);
         if (!sameDay || !candidate.isAfter(after)) {

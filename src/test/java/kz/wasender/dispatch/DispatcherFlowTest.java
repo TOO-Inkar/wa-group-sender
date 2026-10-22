@@ -11,7 +11,6 @@ import java.util.HashSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DispatcherFlowTest extends IntegrationTest {
-
     @Test
     void requestFromSheetReachesOnlyActiveArchivedGroups() throws Exception {
         var sync = groupSync.sync();
@@ -86,7 +85,6 @@ class DispatcherFlowTest extends IntegrationTest {
 
         runUntilBlocked(500);
 
-        // Вторая не ждёт конца первой: рассылки чередуются, каждая идёт в каждую группу один раз.
         var texts = gateway.sent().stream().map(message -> message.text()).toList();
         assertThat(texts).hasSize(10);
         assertThat(texts.subList(0, 2)).allMatch(text -> text.contains("Первая"));

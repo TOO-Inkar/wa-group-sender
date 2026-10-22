@@ -1,15 +1,10 @@
 import { ApiError } from '@/shared/api/client'
 
-/** Скачивание файла через fetch (cookie сессии уходит сама); имя — из Content-Disposition. */
 export async function download(url: string, fallbackName: string): Promise<void> {
   const response = await fetch(url, { credentials: 'same-origin' })
   if (!response.ok) {
-    let message = `Ошибка сервера (HTTP ${response.status})`
-    try {
-      message = ((await response.json()) as { message?: string }).message ?? message
-    } catch {
-      // не JSON
-    }
+    const body = (await response.json().catch(() => null)) as { message?: string } | null
+    const message = body?.message ?? `Ошибка сервера (HTTP ${response.status})`
     throw new ApiError(response.status, message)
   }
   const blob = await response.blob()

@@ -3,9 +3,8 @@ import { toast } from 'sonner'
 import { useCampaignAction } from './api'
 import { whereText } from './model'
 import type { Campaign } from '@/shared/api/types'
-import { useConfirm } from '@/shared/ui/confirm'
+import { useConfirm } from '@/shared/ui/confirm-context'
 
-/** Действия над заявкой с подтверждением и итогом — одни и те же в меню строки и в панели заявки. */
 export function useCampaignCommands() {
   const action = useCampaignAction()
   const confirm = useConfirm()

@@ -7,7 +7,6 @@ import java.util.stream.Stream;
 
 @Component
 public class RequestIdGenerator {
-
     private final RequestRepository requests;
 
     public RequestIdGenerator(RequestRepository requests) {

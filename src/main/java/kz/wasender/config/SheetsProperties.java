@@ -19,7 +19,6 @@ public record SheetsProperties(
         Retry retry,
         int alertAfterFailures,
         String completedFormat) {
-
     public record Columns(
             String id,
             String route,
@@ -31,7 +30,6 @@ public record SheetsProperties(
             String status,
             String progress,
             String completed) {
-
         public String header(SheetField field) {
             return switch (field) {
                 case ID -> id;

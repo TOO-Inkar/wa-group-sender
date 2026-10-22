@@ -1,6 +1,5 @@
 import { cn } from '@/shared/lib/cn'
 
-/** Переключатель из нескольких вариантов в одну строку — вместо столбика радиокнопок. */
 export function Segmented<T extends string>({
   value,
   options,

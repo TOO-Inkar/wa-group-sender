@@ -9,7 +9,6 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SheetPollerTest extends IntegrationTest {
-
     @Test
     void rowWithMissingFieldsGetsReadableErrorAndIsNotQueued() {
         var row = sheet.addRow(Map.of(SheetField.ROUTE, "АЛМАТЫ → АСТАНА", SheetField.DATE, "Срочно", SheetField.CARGO, "Мука"));

@@ -8,7 +8,6 @@ import java.util.Optional;
 
 @Repository
 public class DailyCounterRepository {
-
     private final JdbcClient jdbc;
 
     public DailyCounterRepository(JdbcClient jdbc) {

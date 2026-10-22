@@ -9,7 +9,7 @@ import { formatTime } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
 import { Badge, type Tone } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { useConfirm } from '@/shared/ui/confirm'
+import { useConfirm } from '@/shared/ui/confirm-context'
 import { Input, Select } from '@/shared/ui/input'
 
 type Filter = 'all' | 'sent' | 'waiting' | 'failed' | 'skipped'
@@ -25,7 +25,6 @@ const GROUP_STATE: Record<DeliveryStatus, { text: string; tone: Tone }> = {
 const bucket = (d: Delivery): Exclude<Filter, 'all'> =>
   d.status === 'SENT' ? 'sent' : d.status === 'FAILED' ? 'failed' : d.status === 'SKIPPED' ? 'skipped' : 'waiting'
 
-/** Одна рассылка: сводка цифрами (они же фильтр), поиск по группам, отчёты и повтор ошибок. */
 export function RunPanel({ runs }: { runs: Run[] }) {
   const [runId, setRunId] = useState(runs[0]?.id ?? '')
   const [filter, setFilter] = useState<Filter>('all')

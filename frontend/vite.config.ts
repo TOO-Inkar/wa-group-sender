@@ -3,8 +3,6 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-// Сборка кладётся в dist/; Docker-образ копирует её в статику Spring Boot (один адрес, cookie без CORS).
-// При разработке /api проксируется на бэкенд: BACKEND_URL или локальный demo-экземпляр.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },

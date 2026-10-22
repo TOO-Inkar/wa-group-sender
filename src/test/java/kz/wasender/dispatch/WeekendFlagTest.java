@@ -10,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @TestPropertySource(properties = "app.dispatch.weekends-enabled=false")
 class WeekendFlagTest extends IntegrationTest {
-
     @Test
     void requestWaitsOverWeekendWhenFlagIsOff() throws Exception {
         useGroups(3);

@@ -24,14 +24,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * The report as a PDF to send to the customer: summary figures, the requests, and either every send of one request or
- * the problem sends and per-group totals of a period. PT Sans (OFL, bundled in resources/fonts) carries the Cyrillic;
- * characters it has no glyph for, such as emoji, are left out instead of printing as empty boxes.
- */
 @Component
 public class PdfReportWriter {
-
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
     private static final Color INK = new Color(0x14, 0x20, 0x27);
     private static final Color MUTED = new Color(0x5d, 0x6b, 0x74);
@@ -224,7 +218,6 @@ public class PdfReportWriter {
         return time == null ? "—" : time.format(STAMP);
     }
 
-    /** Drops characters the font cannot draw (emoji, keycap marks) and the spaces they leave behind. */
     String clean(String text) {
         if (text == null) {
             return "";

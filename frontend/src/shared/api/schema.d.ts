@@ -600,6 +600,12 @@ export interface components {
             name: string | null;
             groups: string[] | null;
         };
+        GroupList: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            groups: string[];
+        };
         CampaignForm: {
             title: string | null;
             content: components["schemas"]["Content"] | null;
@@ -814,12 +820,6 @@ export interface components {
             hourlyLimit: number;
             time: string;
         };
-        GroupList: {
-            /** Format: int64 */
-            id: number;
-            name: string;
-            groups: string[];
-        };
         SheetRow: {
             /** Format: int32 */
             rowNumber: number;
@@ -924,7 +924,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["GroupList"];
                 };
             };
         };

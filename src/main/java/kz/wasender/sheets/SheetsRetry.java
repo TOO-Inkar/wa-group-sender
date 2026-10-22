@@ -13,7 +13,6 @@ import java.util.concurrent.Callable;
 
 @Component
 public class SheetsRetry {
-
     private static final Logger log = LoggerFactory.getLogger(SheetsRetry.class);
 
     private final SheetsProperties.Retry properties;

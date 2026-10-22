@@ -102,7 +102,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "object"
+                                    "$ref": "#/components/schemas/GroupList"
                                 }
                             }
                         }
@@ -1232,6 +1232,29 @@
                     "name"
                 ]
             },
+            "GroupList": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "groups",
+                    "id",
+                    "name"
+                ]
+            },
             "CampaignForm": {
                 "type": "object",
                 "properties": {
@@ -2181,29 +2204,6 @@
                     "time",
                     "warmupDay",
                     "warmupLimitToday"
-                ]
-            },
-            "GroupList": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "groups": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "required": [
-                    "groups",
-                    "id",
-                    "name"
                 ]
             },
             "SheetRow": {

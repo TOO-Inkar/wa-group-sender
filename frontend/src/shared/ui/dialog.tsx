@@ -3,7 +3,6 @@ import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
 
-/** Модальное окно (Radix): фокус внутри, Esc и клик по фону закрывают. */
 export function Dialog({
   open,
   onOpenChange,

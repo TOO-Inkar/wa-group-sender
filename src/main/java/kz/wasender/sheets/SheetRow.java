@@ -4,7 +4,6 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public record SheetRow(int rowNumber, Map<SheetField, String> values) {
-
     public SheetRow {
         var copy = new EnumMap<SheetField, String>(SheetField.class);
         values.forEach((field, value) -> copy.put(field, value == null ? "" : value.strip()));

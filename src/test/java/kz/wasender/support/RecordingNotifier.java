@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class RecordingNotifier implements Notifier {
-
     private final List<String> messages = new CopyOnWriteArrayList<>();
 
     @Override

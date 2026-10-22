@@ -9,7 +9,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ColumnLayoutTest {
-
     private static final SheetsProperties.Columns COLUMNS = new SheetsProperties.Columns("ID", "Маршрут", "Дата / срочность",
             "Машины и тоннаж", "Груз", "Фрахт", "Доп. условия", "Статус", "Отправлено / всего", "Завершено");
 

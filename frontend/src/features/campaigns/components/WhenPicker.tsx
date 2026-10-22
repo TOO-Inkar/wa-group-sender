@@ -1,20 +1,19 @@
 import { useFormContext, useWatch } from 'react-hook-form'
 import type { FormValues } from '../form'
 import { intervalText } from '@/shared/lib/format'
-import { Checkbox, Input, Select } from '@/shared/ui/input'
+import { Caption, Checkbox, Input, Select } from '@/shared/ui/input'
 import { Segmented } from '@/shared/ui/segmented'
 
 const INTERVALS = [60, 90, 120, 180, 240]
 const time = 'w-auto px-2 py-1.5 text-sm'
 
-/** Когда: сейчас · в заданное время · ежедневно · повтор — одной строкой, время рядом. */
 export function WhenPicker() {
   const { register, setValue, control, formState } = useFormContext<FormValues>()
   const [repeat, intervalMinutes] = useWatch({ control, name: ['repeat', 'intervalMinutes'] })
 
   return (
     <div className="grid gap-1.5">
-      <span className="text-[13px] font-medium text-muted">Когда</span>
+      <Caption>Когда</Caption>
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
           value={repeat}

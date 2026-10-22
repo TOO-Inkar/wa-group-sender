@@ -10,7 +10,6 @@ export function GroupName({ group }: { group: Group }) {
   )
 }
 
-/** Почему группа в рассылке или нет — коротко, бейджами. */
 export function GroupTags({ group, onReset }: { group: Group; onReset?: (jid: string) => void }) {
   return (
     <span className="flex flex-wrap items-center gap-1">

@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useSaveSettings, useSettings } from './api'
+import { autoReplyText } from './model'
 import type { Settings } from '@/shared/api/types'
 import { Button } from '@/shared/ui/button'
 import { Card, CardTitle } from '@/shared/ui/card'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Checkbox, Field, Input, Textarea } from '@/shared/ui/input'
-import { WhatsAppBubble } from '@/shared/ui/misc'
+import { WhatsAppBubble } from '@/shared/ui/whatsapp-bubble'
 
 type Values = Pick<Settings, 'autoReplyEnabled' | 'autoReplyRejectCalls' | 'autoReplyCooldownHours' | 'autoReplyText'>
 
@@ -56,18 +57,14 @@ function ReplyDialog({ settings, open, onOpenChange }: { settings: Settings; ope
   )
 }
 
-/** Автоответчик: включён ли и что отвечает; правка — в окне. */
 export function AutoReplyCard() {
   const { data: s } = useSettings()
   const [open, setOpen] = useState(false)
   if (!s) return <Card>Загрузка…</Card>
-  const parts = [s.autoReplyEnabled && 'отвечает на сообщения', s.autoReplyRejectCalls && 'отклоняет звонки'].filter(Boolean)
   return (
     <Card className="grid content-start gap-3">
       <CardTitle className="mb-0">Автоответчик</CardTitle>
-      <p className="text-sm text-muted">
-        {parts.length ? `${parts.join(', ')} · раз в ${s.autoReplyCooldownHours} ч на человека` : 'выключен'}
-      </p>
+      <p className="text-sm text-muted">{autoReplyText(s)}</p>
       <WhatsAppBubble text={s.autoReplyText} className="max-h-56 overflow-auto p-2.5" />
       <Button className="justify-self-start" onClick={() => setOpen(true)}>
         Изменить

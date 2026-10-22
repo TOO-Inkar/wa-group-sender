@@ -1,17 +1,15 @@
 package kz.wasender.web;
 
+import jakarta.servlet.http.Cookie;
 import kz.wasender.support.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import jakarta.servlet.http.Cookie;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AuthTest extends IntegrationTest {
-
     @Autowired
     AuthController auth;
     @Autowired

@@ -9,9 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AdminRequestsTest extends IntegrationTest {
-
     @Autowired
     AdminController admin;
 
@@ -104,8 +104,8 @@ class AdminRequestsTest extends IntegrationTest {
 
     @Test
     void groupListsAreSavedReplacedByNameAndDeleted() {
-        var saved = (kz.wasender.group.GroupListRepository.GroupList) admin.saveGroupList(
-                new AdminController.GroupListRequest("Тест", List.of("2@g.us", "1@g.us", "1@g.us"))).getBody();
+        var saved = admin.saveGroupList(
+                new AdminController.GroupListRequest("Тест", List.of("2@g.us", "1@g.us", "1@g.us")));
         assertThat(saved.groups()).containsExactly("1@g.us", "2@g.us");
 
         admin.saveGroupList(new AdminController.GroupListRequest(" Тест ", List.of("3@g.us")));
@@ -113,7 +113,8 @@ class AdminRequestsTest extends IntegrationTest {
 
         assertThat(admin.deleteGroupList(saved.id()).getStatusCode().value()).isEqualTo(204);
         assertThat(admin.groupLists()).isEmpty();
-        assertThat(admin.saveGroupList(new AdminController.GroupListRequest("", List.of("1@g.us"))).getStatusCode().value()).isEqualTo(400);
+        assertThatThrownBy(() -> admin.saveGroupList(new AdminController.GroupListRequest("", List.of("1@g.us"))))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

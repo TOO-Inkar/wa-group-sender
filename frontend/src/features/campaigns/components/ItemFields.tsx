@@ -2,21 +2,20 @@ import { X } from 'lucide-react'
 import { useFieldArray, useFormContext } from 'react-hook-form'
 import { emptyItem, ITEM_LABELS, type FormValues, type ItemField } from '../form'
 import { cn } from '@/shared/lib/cn'
-import { Input, Textarea } from '@/shared/ui/input'
+import { Caption, Input, Textarea } from '@/shared/ui/input'
 
-// Сетка: Маршрут | Дата; Машины и тоннаж; Груз | Доп. условия; Фрахт. Порядок в DOM = порядок Enter.
 const LAYOUT: { name: ItemField; span?: boolean }[] = [{ name: 'route' }, { name: 'date' }, { name: 'vehicles', span: true }, { name: 'cargo' }, { name: 'conditions' }, { name: 'freight' }]
 
 function Label({ name, error }: { name: ItemField; error?: string }) {
   const meta = ITEM_LABELS[name]
   return (
-    <span className="flex items-baseline justify-between gap-2 text-[13px] font-medium text-muted">
+    <Caption className="flex items-baseline justify-between gap-2">
       <span>
         {meta.title}
         {meta.required && <span className="text-danger"> *</span>}
       </span>
       {error && <span className="font-normal text-danger">{error}</span>}
-    </span>
+    </Caption>
   )
 }
 

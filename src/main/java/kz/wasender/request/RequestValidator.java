@@ -8,7 +8,6 @@ import java.util.List;
 
 @Component
 public class RequestValidator {
-
     public List<SheetField> missingFields(SheetRow row) {
         return SheetField.REQUIRED.stream().filter(row::isBlank).toList();
     }

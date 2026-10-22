@@ -21,7 +21,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class SessionWatchdogTest {
-
     private final MutableClock clock = new MutableClock(LocalDateTime.of(2026, 9, 28, 10, 0));
     private final AlertService alerts = mock(AlertService.class);
     private final RiskMonitor risk = mock(RiskMonitor.class);
@@ -106,7 +105,6 @@ class SessionWatchdogTest {
     }
 
     static class FailingGateway extends AbstractWhatsAppGateway {
-
         int connects;
         boolean succeed;
         boolean alive = true;

@@ -14,7 +14,6 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ReportTest extends IntegrationTest {
-
     @Autowired
     AdminController admin;
     @Autowired

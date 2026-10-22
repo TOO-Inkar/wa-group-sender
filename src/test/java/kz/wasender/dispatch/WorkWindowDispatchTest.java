@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class WorkWindowDispatchTest extends IntegrationTest {
-
     @Test
     void nothingIsSentOutsideWindowAndQueueWaits() throws Exception {
         useGroups(5);

@@ -24,7 +24,6 @@ import java.util.random.RandomGenerator;
 @Component
 @Profile("fake")
 public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
-
     private static final Logger log = LoggerFactory.getLogger(FakeWhatsAppGateway.class);
 
     private final FakeProperties properties;
@@ -98,7 +97,6 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         rejectedCalls.add(callId);
     }
 
-    /** Кто-то другой написал в группу: наше сообщение больше не последнее. */
     public void simulateForeignMessage(String groupJid) {
         last.put(groupJid, new LastMessage(false, Instant.now(clock)));
     }
@@ -144,7 +142,6 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         resetGroups();
     }
 
-    /** The next {@code times} sends to the group are rejected by the server (error 479). */
     public void rejectFor(String groupJid, int times) {
         rejecting.put(groupJid, times);
     }
@@ -172,10 +169,6 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
 
     public void simulateLogout() {
         publish(new GatewayEvent.LoggedOut());
-    }
-
-    public void simulateQr(String payload) {
-        publish(new GatewayEvent.QrReceived(payload));
     }
 
     private void resetGroups() {

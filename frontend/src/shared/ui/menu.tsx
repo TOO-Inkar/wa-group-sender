@@ -3,9 +3,8 @@ import { MoreHorizontal } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
 
-export type MenuItem = { label: string; icon?: ReactNode; onSelect: () => void; disabled?: boolean; danger?: boolean; hidden?: boolean }
+type MenuItem = { label: string; icon?: ReactNode; onSelect: () => void; disabled?: boolean; danger?: boolean; hidden?: boolean }
 
-/** Меню действий «⋯» в строке таблицы. */
 export function RowMenu({ items, label = 'Действия' }: { items: MenuItem[]; label?: string }) {
   return (
     <Dropdown.Root>

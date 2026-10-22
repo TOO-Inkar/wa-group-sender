@@ -9,7 +9,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 public abstract class AbstractWhatsAppGateway implements WhatsAppGateway {
-
     private static final Logger log = LoggerFactory.getLogger(AbstractWhatsAppGateway.class);
 
     private final List<Consumer<GatewayEvent>> listeners = new CopyOnWriteArrayList<>();

@@ -16,7 +16,10 @@ export function Select({ className, ...props }: ComponentProps<'select'>) {
   return <select className={cn(control, 'w-auto', className)} {...props} />
 }
 
-/** Подпись, поле, подсказка и ошибка одним блоком. */
+export function Caption({ children, className }: { children: ReactNode; className?: string }) {
+  return <span className={cn('text-[13px] font-medium text-muted', className)}>{children}</span>
+}
+
 export function Field({
   label,
   required,

@@ -1,8 +1,7 @@
 import { z } from 'zod'
 import type { Campaign, CampaignForm, GroupList, RequestItem } from '@/shared/api/types'
 
-/** Поля одной заявки в порядке формы: Груз, Доп. условия и Фрахт последним. */
-export const ITEM_FIELDS = ['route', 'date', 'vehicles', 'cargo', 'conditions', 'freight'] as const
+const ITEM_FIELDS = ['route', 'date', 'vehicles', 'cargo', 'conditions', 'freight'] as const
 export type ItemField = (typeof ITEM_FIELDS)[number]
 
 export const ITEM_LABELS: Record<ItemField, { title: string; placeholder: string; required: boolean; rows?: number; hint?: string }> = {
@@ -92,14 +91,12 @@ function filledItems(items: Item[]): RequestItem[] {
   return items.filter((it) => ITEM_FIELDS.some((f) => it[f].trim())).map((it) => ({ ...it, conditions: it.conditions || null }))
 }
 
-/** Тело для предпросмотра: то, что уйдёт текстом. */
 export function previewBody(v: Pick<FormValues, 'mode' | 'items' | 'text' | 'contact'>) {
   if (v.mode === 'text') return v.text.trim() ? { text: v.text } : null
   const items = filledItems(v.items)
   return items.length ? { items, contact: v.contact.trim() || undefined } : null
 }
 
-/** Адресаты: groups (null — все активные) и как их показать в списке заявок. */
 export function targetOf(v: FormValues, lists: GroupList[]): { groups: string[] | null; label: string | null } {
   if (v.target === 'pick') return { groups: v.groups, label: null }
   if (v.target === 'list') {
@@ -135,7 +132,6 @@ export function toRequest(v: FormValues, lists: GroupList[]): CampaignForm {
 
 type StoredForm = { mode?: string; items?: Partial<Item>[] | null; text?: string | null; contact?: string | null }
 
-/** Значения формы для правки существующей заявки. */
 export function fromCampaign(c: Campaign, lists: GroupList[]): FormValues {
   const base = defaultValues()
   let stored: StoredForm | null = null

@@ -15,13 +15,8 @@ import java.time.Instant;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-/**
- * Автоответчик номера: на личное сообщение или звонок отвечает текстом из настроек, звонок отклоняет.
- * Одному человеку — не чаще, чем раз в cooldown, чтобы не переписываться с ботом бесконечно.
- */
 @Service
 public class AutoReplyService {
-
     private static final Logger log = LoggerFactory.getLogger(AutoReplyService.class);
 
     private final WhatsAppGateway gateway;
@@ -41,7 +36,6 @@ public class AutoReplyService {
         this.jdbc = jdbc;
         this.clock = clock;
         this.executor = executor;
-        // Ответ уходит не в потоке событий моста, чтобы не задерживать события сессии.
         gateway.subscribe(event -> {
             switch (event) {
                 case GatewayEvent.DirectMessage message -> executor.execute(() -> onDirectMessage(message));

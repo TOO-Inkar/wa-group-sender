@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public class CampaignRepository {
-
     private static final RowMapper<CampaignRecord> MAPPER = (rs, n) -> new CampaignRecord(
             rs.getString("id"),
             rs.getString("title"),
@@ -88,7 +87,6 @@ public class CampaignRepository {
         jdbc.sql("update campaign set enabled = ?, next_run_at = ?, updated_at = ? where id = ?").params(enabled, nextRunAt, at, id).update();
     }
 
-    /** Заявка скрывается, но её рассылки остаются в истории и отчётах. */
     public void markDeleted(String id, Instant at) {
         jdbc.sql("update campaign set deleted = true, enabled = false, next_run_at = null, updated_at = ? where id = ?").params(at, id).update();
     }

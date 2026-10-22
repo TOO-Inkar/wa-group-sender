@@ -3,22 +3,18 @@ package kz.wasender.web;
 import kz.wasender.config.SecurityProperties;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
-/**
- * Сессия страницы входа без хранения на сервере: срок действия и подпись HMAC-SHA256 ключом из ADMIN_TOKEN.
- * Смена ADMIN_TOKEN разлогинивает все браузеры.
- */
+// Сессия без хранения на сервере: срок и HMAC ключом ADMIN_TOKEN; смена токена разлогинит всех.
 @Component
 public class SessionTokens {
-
     public static final String COOKIE = "wa_session";
 
     private final SecurityProperties properties;

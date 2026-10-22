@@ -11,7 +11,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 class AutoReplyTest extends IntegrationTest {
-
     @Autowired
     SettingsService settings;
 

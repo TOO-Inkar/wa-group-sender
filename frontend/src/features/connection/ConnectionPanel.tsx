@@ -5,7 +5,6 @@ import { useHealth } from '@/features/health/api'
 import { SESSION_TEXT } from '@/features/health/texts'
 import { Card } from '@/shared/ui/card'
 
-/** QR для привязки номера: картинка обновляется раз в 3 секунды, пока номер не привязан. */
 export function ConnectionPanel() {
   const { data: health } = useHealth()
   const connected = health?.session === 'CONNECTED'

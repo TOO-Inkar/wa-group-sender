@@ -15,7 +15,6 @@ import java.util.Optional;
 
 @Service
 public class PreviewService {
-
     private final RequestSource source;
     private final TemplateRenderer renderer;
     private final SheetsProperties.Columns columns;
@@ -30,7 +29,6 @@ public class PreviewService {
         this.sheetsEnabled = sheets.enabled();
     }
 
-    /** The text of a queued or sent request; a sheet row not queued yet is rendered when the sheet is in use. */
     public Optional<String> byId(String id) {
         var stored = requests.find(id.strip()).map(RequestRecord::message);
         if (stored.isPresent() || !sheetsEnabled) {

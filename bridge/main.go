@@ -1,20 +1,4 @@
-// wa-bridge — WhatsApp-клиент на whatsmeow для wa-group-sender.
-//
-// Java-сервис ходит сюда по HTTP внутри compose-сети; наружу порт не
-// публикуется. Сессия (sqlite) лежит в /data.
-//
-//	GET  /status                 состояние, QR, счётчики
-//	POST /connect                подключиться (или напомнить о текущем состоянии)
-//	POST /disconnect             отключиться
-//	GET  /events?after=N&wait=S  события после N (long-poll); after=-1 — только курсор
-//	GET  /groups                 группы номера с признаком архива (ждёт синхронизации настроек)
-//	POST /send    {jid,text}     отправить текст
-//	POST /typing  {jid}          «печатает…»
-//	GET  /last?jid=J             последнее сообщение в группе: наше ли оно и когда
-//	POST /reject-call {jid,callId}  отклонить входящий звонок
-//
-// Кроме событий сессии в /events приходят direct_message (личное сообщение номеру)
-// и call (входящий звонок): на них отвечает автоответчик в Java-сервисе.
+// Package main is the WhatsApp (whatsmeow) sidecar for wa-group-sender, reachable only inside the compose network.
 package main
 
 import (
@@ -52,11 +36,9 @@ import (
 const (
 	maxEvents       = 500
 	appStateTimeout = 150 * time.Second
-	// Пауза между отдельными запросами названий групп, чтобы не упереться в лимит запросов.
-	nameQueryDelay = 300 * time.Millisecond
-	// Сколько всего времени одна выдача /groups может потратить на названия; остальное доберётся в следующий раз.
+	nameQueryDelay  = 300 * time.Millisecond
 	nameQueryBudget = 80 * time.Second
-	// Личные сообщения старше этого (пришли пачкой после переподключения) автоответчику не передаются.
+	// Older direct messages are a backlog replayed after a reconnect, not something to auto-reply to.
 	directMessageMaxAge = 10 * time.Minute
 )
 
@@ -91,7 +73,6 @@ type bridge struct {
 	nameMu sync.Mutex
 	names  map[string]string
 
-	// Последнее сообщение в каждой группе (своя база, схему whatsmeow не трогаем).
 	last *sql.DB
 }
 
@@ -114,9 +95,7 @@ func main() {
 	store.DeviceProps.RequireFullSync = proto.Bool(false)
 
 	logLevel := env("BRIDGE_LOG_LEVEL", "INFO")
-	// WAL и транзакции, сразу берущие блокировку на запись: когда сотни участников группы разом присылают
-	// retry receipt, отложенные транзакции упирались в «database is locked» — SQLite не ждёт busy_timeout,
-	// если чтение внутри транзакции пытается стать записью. Получатели тогда так и не получали сообщение.
+	// _txlock=immediate: deferred transactions hit "database is locked" on bursts of retry receipts (busy_timeout is not honoured on upgrade).
 	dsn := "file:" + env("BRIDGE_DB", "/data/bridge.db") +
 		"?_foreign_keys=on&_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=30000&_txlock=immediate"
 	container, err := sqlstore.New(ctx, "sqlite3", dsn, waLog.Stdout("DB", "WARN", false))
@@ -164,13 +143,11 @@ func main() {
 	}
 }
 
-// --- соединение ---------------------------------------------------------------
-
 func (b *bridge) connect() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.cli != nil && b.cli.IsConnected() {
-		// Java могла перезапуститься и не видеть прошлых событий: повторяем текущее состояние.
+		// Replay the state: a restarted Java service missed the original events.
 		switch {
 		case b.state == "CONNECTED":
 			b.emit(event{Type: "connected"})
@@ -183,7 +160,6 @@ func (b *bridge) connect() error {
 		b.cli.RemoveEventHandlers()
 		b.cli.Disconnect()
 	}
-	// После разлогина whatsmeow удаляет устройство из базы; GetFirstDevice отдаёт новое.
 	device, err := b.container.GetFirstDevice(context.Background())
 	if err != nil {
 		return fmt.Errorf("device: %w", err)
@@ -310,7 +286,7 @@ func (b *bridge) current(cli *whatsmeow.Client) bool {
 	return b.cli == cli
 }
 
-// setState вызывается под b.mu.
+// setState must be called with b.mu held.
 func (b *bridge) setState(state, qr string) {
 	if b.state != state {
 		slog.Info("SESSION state", "from", b.state, "to", state)
@@ -327,8 +303,6 @@ func (b *bridge) client() (*whatsmeow.Client, error) {
 	}
 	return b.cli, nil
 }
-
-// --- события -----------------------------------------------------------------
 
 func (b *bridge) emit(e event) {
 	b.evMu.Lock()
@@ -371,8 +345,6 @@ func (b *bridge) eventsAfter(after int64, wait time.Duration) (int64, []event) {
 		b.evCond.Wait()
 	}
 }
-
-// --- HTTP --------------------------------------------------------------------
 
 func (b *bridge) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	b.mu.Lock()
@@ -449,8 +421,7 @@ func (b *bridge) handleGroups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	// Признак архива приходит синхронизацией настроек (коллекция regular_low).
-	// Сразу после привязки её ещё нет — без неё все группы выглядели бы неархивными.
+	// The archived flag arrives with the regular_low app state; right after pairing every group would look unarchived.
 	if err := waitAppState(ctx, cli, appstate.WAPatchRegularLow); err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
 		return
@@ -482,11 +453,10 @@ func (b *bridge) handleGroups(w http.ResponseWriter, r *http.Request) {
 			participants = g.ParticipantCount
 		}
 		out = append(out, groupDTO{
-			JID:      g.JID.String(),
-			Name:     g.Name,
-			Archived: settings.Archived,
-			Member:   true,
-			// В само сообщество писать нельзя (сервер отвечает 420), только в его группу объявлений.
+			JID:          g.JID.String(),
+			Name:         g.Name,
+			Archived:     settings.Archived,
+			Member:       true,
 			CanSend:      !g.IsParent && (!g.IsAnnounce || admin),
 			Participants: participants,
 			Community:    g.IsParent,
@@ -496,8 +466,6 @@ func (b *bridge) handleGroups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// fillNames дополняет названия: в общем списке групп сервер отдаёт название не для всех.
-// Для остальных группа запрашивается отдельно, результат запоминается до перезапуска.
 func (b *bridge) fillNames(ctx context.Context, cli *whatsmeow.Client, groups []*types.GroupInfo) {
 	deadline := time.Now().Add(nameQueryBudget)
 	queried, missing := 0, 0
@@ -526,7 +494,6 @@ func (b *bridge) fillNames(ctx context.Context, cli *whatsmeow.Client, groups []
 			slog.Warn("GROUPS name query failed", "jid", key, "err", err)
 			missing++
 			if errors.Is(err, whatsmeow.ErrIQRateOverLimit) {
-				// Сервер просит притормозить: остальные названия доберём в следующую синхронизацию.
 				deadline = time.Now()
 			}
 			continue
@@ -586,9 +553,7 @@ func (b *bridge) handleSend(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := cli.SendMessage(r.Context(), jid, &waE2E.Message{Conversation: proto.String(req.Text)})
 	if err != nil {
-		// 479 (smax-invalid) сервер возвращает для групп примерно от 700 участников: whatsmeow кладёт ключ группы
-		// для каждого устройства каждого участника в один пакет. Это свойство группы, а не признак бана.
-		// Остальные коды (например, 420) не разобраны, поэтому остаются обычной ошибкой и сигналом риска.
+		// 479 is returned for very large groups (one stanza carries a key per participant device): a group property, not a ban signal.
 		serverError := errors.Is(err, whatsmeow.ErrServerReturnedError)
 		rejected := serverError && strings.HasSuffix(err.Error(), " 479")
 		if serverError {
@@ -603,7 +568,6 @@ func (b *bridge) handleSend(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"id": resp.ID, "timestamp": resp.Timestamp})
 }
 
-// logRejectedGroup пишет свойства группы, в которую сервер не принял сообщение, чтобы найти общее у таких групп.
 func logRejectedGroup(cli *whatsmeow.Client, jid types.JID, sendErr error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -652,7 +616,7 @@ func (b *bridge) handleTyping(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
 		return
 	}
-	// «Печатает…» видно, только пока устройство «в сети».
+	// Typing is only shown while the device is online.
 	if err := cli.SendPresence(r.Context(), types.PresenceAvailable); err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "presence: " + err.Error()})
 		return
@@ -664,10 +628,7 @@ func (b *bridge) handleTyping(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// --- входящие сообщения и звонки ----------------------------------------------
-
-// onMessage запоминает последнее сообщение в группе и передаёт автоответчику личные сообщения.
-// Реакции и служебные сообщения (правки, удаления) не считаются: они не сдвигают нашу заявку вверх.
+// Reactions and protocol messages (edits, revokes) do not push our post up, so they do not count as the last message.
 func (b *bridge) onMessage(cli *whatsmeow.Client, e *events.Message) {
 	if e.Message == nil || e.Message.GetReactionMessage() != nil || e.Message.GetProtocolMessage() != nil {
 		return
@@ -695,7 +656,6 @@ func openLastMessages(path string) (*sql.DB, error) {
 	return db, err
 }
 
-// recordLast хранит только более новое сообщение: после переподключения старые приходят пачкой.
 func (b *bridge) recordLast(jid string, fromMe bool, at time.Time) {
 	if at.IsZero() {
 		at = time.Now()
@@ -755,8 +715,6 @@ func (b *bridge) handleRejectCall(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
-
-// --- мелочи ------------------------------------------------------------------
 
 func isSelf(cli *whatsmeow.Client, jid types.JID) bool {
 	if jid.User == "" {

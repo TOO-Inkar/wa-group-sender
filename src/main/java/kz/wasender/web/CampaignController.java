@@ -1,20 +1,21 @@
 package kz.wasender.web;
 
+import kz.wasender.campaign.CampaignRecipients;
 import kz.wasender.campaign.CampaignRecord;
+import kz.wasender.campaign.CampaignRepository;
 import kz.wasender.campaign.CampaignService;
 import kz.wasender.campaign.RepeatMode;
 import kz.wasender.campaign.Schedule;
-import kz.wasender.campaign.CampaignRepository;
 import kz.wasender.dispatch.DeliveryRepository;
-import kz.wasender.group.GroupListRepository;
 import kz.wasender.request.RequestIntake;
 import kz.wasender.request.RequestRecord;
 import kz.wasender.request.RequestRepository;
 import kz.wasender.request.RequestStatus;
+import kz.wasender.sheets.SheetField;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,13 +30,10 @@ import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
-import org.jspecify.annotations.Nullable;
 
-/** Заявки из админки: список с рассылками, создание, правка, удаление, включение, запуск вручную. */
 @RestController
 @RequestMapping("/api/admin/campaigns")
 public class CampaignController {
-
     private static final int RUNS_IN_LIST = 5;
 
     private final CampaignService service;
@@ -43,16 +41,16 @@ public class CampaignController {
     private final RequestRepository requests;
     private final DeliveryRepository deliveries;
     private final JsonMapper json;
-    private final GroupListRepository groupLists;
+    private final CampaignRecipients recipients;
 
     public CampaignController(CampaignService service, CampaignRepository campaigns, RequestRepository requests, DeliveryRepository deliveries,
-                              JsonMapper json, GroupListRepository groupLists) {
+                              JsonMapper json, CampaignRecipients recipients) {
         this.service = service;
         this.campaigns = campaigns;
         this.requests = requests;
         this.deliveries = deliveries;
         this.json = json;
-        this.groupLists = groupLists;
+        this.recipients = recipients;
     }
 
     @GetMapping
@@ -98,20 +96,8 @@ public class CampaignController {
         return view(campaigns.find(id).orElseThrow(), RUNS_IN_LIST);
     }
 
-    @ExceptionHandler({RequestIntake.RejectedException.class, IllegalArgumentException.class})
-    ResponseEntity<?> rejected(RuntimeException e) {
-        return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-    }
 
-    @ExceptionHandler(CampaignService.NotFoundException.class)
-    ResponseEntity<?> notFound(RuntimeException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
-    }
 
-    @ExceptionHandler(CampaignService.ConflictException.class)
-    ResponseEntity<?> conflict(RuntimeException e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", e.getMessage()));
-    }
 
     private CampaignService.Input input(CampaignForm form) {
         var content = form.content() == null ? new Content(null, null, null, null) : form.content();
@@ -136,35 +122,16 @@ public class CampaignController {
     private CampaignView view(CampaignRecord campaign, int runLimit) {
         var runs = requests.findByCampaign(campaign.id());
         var shown = runs.stream().limit(runLimit).map(this::run).toList();
-        var current = runs.stream().filter(r -> r.status() == RequestStatus.QUEUED || r.status() == RequestStatus.SENDING).findFirst()
+        var current = runs.stream().filter(r -> r.status().active()).findFirst()
                 .map(this::run).orElse(null);
-        var targets = campaign.targeted() ? campaigns.targets(campaign.id()) : List.<String>of();
-        var names = service.groupNames();
+        var to = recipients.of(campaign);
         var schedule = campaign.schedule();
-        return new CampaignView(campaign.id(), campaign.title(), campaign.message(), campaign.draft(), campaign.targeted(),
-                targetLabel(campaign, targets, names),
-                targets.stream().map(jid -> new Target(jid, names.apply(jid))).toList(),
+        return new CampaignView(campaign.id(), campaign.title(), campaign.message(), campaign.draft(), campaign.targeted(), to.label(),
+                to.groups().stream().map(group -> new Target(group.jid(), group.name())).toList(),
                 schedule.mode(), schedule.start() == null ? null : schedule.start().toString(),
                 schedule.end() == null ? null : schedule.end().toString(), schedule.intervalMinutes(),
                 campaign.enabled(), campaign.createdAt(), campaign.updatedAt(), campaign.nextRunAt(), campaign.lastRunAt(),
                 current, runs.size(), shown);
-    }
-
-    /**
-     * Как показать адресатов. У заявок, созданных до сохранения названия, его нет: тогда название списка групп
-     * с теми же группами, а если такого списка нет — названия самих групп.
-     */
-    private String targetLabel(CampaignRecord campaign, List<String> targets, java.util.function.Function<String, String> names) {
-        if (!campaign.targeted() || (campaign.targetLabel() != null && !campaign.targetLabel().isBlank())) {
-            return campaign.targetLabel();
-        }
-        var set = new java.util.HashSet<>(targets);
-        var list = groupLists.findAll().stream().filter(l -> new java.util.HashSet<>(l.groups()).equals(set)).findFirst();
-        if (list.isPresent()) {
-            return list.get().name();
-        }
-        var shown = targets.stream().limit(3).map(names).collect(java.util.stream.Collectors.joining(", "));
-        return targets.size() > 3 ? shown + " и ещё " + (targets.size() - 3) : shown;
     }
 
     private Run run(RequestRecord request) {
@@ -172,23 +139,19 @@ public class CampaignController {
                 deliveries.progress(request.id()));
     }
 
-    /** Содержимое формы: по полям (items, contact) или готовый текст (text). */
     public record Content(@Nullable String mode, @Nullable List<AdminController.Item> items, @Nullable String text, @Nullable String contact) {
-
         RequestIntake.Draft draft() {
             if ("text".equals(mode)) {
                 return new RequestIntake.Draft(List.of(), text == null ? "" : text, null);
             }
-            var rows = items == null ? List.<Map<kz.wasender.sheets.SheetField, String>>of() : items.stream().map(AdminController.Item::fields).toList();
+            var rows = items == null ? List.<Map<SheetField, String>>of() : items.stream().map(AdminController.Item::fields).toList();
             return new RequestIntake.Draft(rows, null, contact);
         }
     }
 
-    /** Расписание: mode ONCE/DAILY/INTERVAL, start и end — «ЧЧ:ММ», intervalMinutes — для INTERVAL. */
     public record Repeat(@Nullable RepeatMode mode, @Nullable String start, @Nullable String end, @Nullable Integer intervalMinutes) {
     }
 
-    /** sendNow — первая рассылка сразу, не дожидаясь времени старта (по умолчанию да). */
     public record CampaignForm(@Nullable String title, @Nullable Content content, @Nullable List<String> groups, @Nullable String targetLabel,
                                @Nullable Repeat repeat, @Nullable Boolean sendNow) {
     }
@@ -200,7 +163,6 @@ public class CampaignController {
                       DeliveryRepository.Progress progress) {
     }
 
-    /** form — поля формы в JSON (для правки); current — идущая рассылка; runs — последние рассылки, новые первыми. */
     public record CampaignView(String id, String title, String message, @Nullable String form, boolean targeted, @Nullable String targetLabel,
                                List<Target> targets, RepeatMode repeatMode, @Nullable String startTime, @Nullable String endTime,
                                @Nullable Integer intervalMinutes, boolean enabled, Instant createdAt, Instant updatedAt,

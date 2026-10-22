@@ -26,7 +26,6 @@ import java.util.Map;
 @Component
 @Profile("fake")
 public class FakeRequestSource implements RequestSource {
-
     private static final Logger log = LoggerFactory.getLogger(FakeRequestSource.class);
 
     private final SheetsProperties properties;

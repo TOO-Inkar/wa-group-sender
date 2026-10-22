@@ -11,12 +11,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ScheduleTest {
-
     private static final ZoneId ALMATY = ZoneId.of("Asia/Almaty");
     private static final LocalTime WINDOW_END = LocalTime.of(23, 0);
 
     private static ZonedDateTime at(int day, int hour, int minute) {
-        // 2026-09-28 — понедельник, 2026-10-03 — суббота
         return LocalDateTime.of(2026, 9, day, hour, minute).atZone(ALMATY);
     }
 

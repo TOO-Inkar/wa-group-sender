@@ -8,7 +8,6 @@ import java.time.Instant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RestartRecoveryTest extends IntegrationTest {
-
     @Test
     void deliveryInterruptedMidSendIsTreatedAsSentAndNotRepeated() throws Exception {
         useGroups(12);
