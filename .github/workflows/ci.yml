@@ -38,16 +38,6 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # Админка — статика без сборки, поэтому синтаксис скрипта проверяется отдельно:
-      # иначе опечатка доехала бы до стенда пустой страницей.
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "24"
-
-      - name: Check the admin page script
-        run: node --check src/main/resources/static/app.js
-
       - name: Build and test
         run: ./gradlew build --no-daemon
         env:
@@ -62,6 +52,38 @@ jobs:
           path: build/reports/tests
           retention-days: 7
           if-no-files-found: ignore
+
+  # Админка: типы (в том числе сверка с OpenAPI бэкенда), линтер, тесты и сборка — как в Docker-образе.
+  frontend:
+    name: Frontend (typecheck, lint, test, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
 
   deploy:
     name: Deploy to inkbpadev

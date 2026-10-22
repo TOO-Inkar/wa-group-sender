@@ -38,6 +38,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -217,28 +218,30 @@ public class AdminController {
         return ResponseEntity.ok().contentType(TEXT_UTF8).body(intake.preview(request.draft()));
     }
 
-    public record PreviewRequest(String id, Map<String, String> fields) {
+    public record PreviewRequest(@Nullable String id, @Nullable Map<String, String> fields) {
     }
 
-    public record GroupListRequest(String name, List<String> groups) {
+    public record GroupListRequest(@Nullable String name, @Nullable List<String> groups) {
     }
 
-    public record Item(String route, String date, String vehicles, String cargo, String freight, String conditions) {
+    public record Item(@Nullable String route, @Nullable String date, @Nullable String vehicles, @Nullable String cargo, @Nullable String freight,
+                       @Nullable String conditions) {
 
         Map<SheetField, String> fields() {
             return new NewRequest(route, date, vehicles, cargo, freight, conditions, null).fields();
         }
     }
 
-    public record DeliveryView(String groupJid, String groupName, int position, DeliveryStatus status, String error) {
+    public record DeliveryView(String groupJid, @Nullable String groupName, int position, DeliveryStatus status, @Nullable String error) {
     }
 
     /**
      * A request from the admin page: either the fields of one request, or items (several requests combined into
      * one message), or a ready text sent as is. contact overrides MESSAGE_CONTACT for this message.
      */
-    public record NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions,
-                             List<String> groups, List<Item> items, String text, String contact) {
+    public record NewRequest(@Nullable String route, @Nullable String date, @Nullable String vehicles, @Nullable String cargo,
+                             @Nullable String freight, @Nullable String conditions, @Nullable List<String> groups, @Nullable List<Item> items,
+                             @Nullable String text, @Nullable String contact) {
 
         public NewRequest(String route, String date, String vehicles, String cargo, String freight, String conditions,
                           List<String> groups) {
@@ -262,9 +265,9 @@ public class AdminController {
         }
     }
 
-    public record RequestView(String id, Integer sheetRow, String message, RequestStatus status, String error,
-                              Instant queuedAt, Instant startedAt, Instant completedAt, DeliveryRepository.Progress progress,
-                              Integer targetGroups, String campaignId) {
+    public record RequestView(String id, @Nullable Integer sheetRow, String message, RequestStatus status, @Nullable String error,
+                              Instant queuedAt, @Nullable Instant startedAt, @Nullable Instant completedAt, DeliveryRepository.Progress progress,
+                              @Nullable Integer targetGroups, @Nullable String campaignId) {
 
         /** targetGroups is the number of chosen groups, or null when the request goes to every active group. */
         static RequestView of(RequestRecord request, DeliveryRepository.Progress progress, Integer targetGroups) {

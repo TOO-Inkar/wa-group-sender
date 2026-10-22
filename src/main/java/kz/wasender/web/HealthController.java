@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import org.jspecify.annotations.Nullable;
 
 @RestController
 public class HealthController {
@@ -60,7 +61,7 @@ public class HealthController {
             String session,
             int queueLength,
             int sentToday,
-            Integer warmupLimitToday,
+            @Nullable Integer warmupLimitToday,
             int warmupDay,
             String dispatcher,
             boolean stoppedByRisk,

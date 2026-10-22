@@ -1,0 +1,22 @@
+import type { components } from './schema'
+
+type S = components['schemas']
+
+export type Campaign = S['CampaignView']
+export type CampaignForm = S['CampaignForm']
+export type CampaignContent = S['Content']
+export type RequestItem = S['Item']
+export type Repeat = S['Repeat']
+export type RepeatMode = S['CampaignView']['repeatMode']
+export type Run = S['Run']
+export type RunStatus = Run['status']
+export type Progress = S['Progress']
+export type Delivery = S['DeliveryView']
+export type DeliveryStatus = Delivery['status']
+export type Group = S['GroupRecord']
+export type GroupList = S['GroupList']
+export type Health = S['Health']
+export type Settings = S['View']
+export type TelegramOverview = S['Overview']
+export type Subscriber = S['Subscriber']
+export type SyncResult = S['SyncResult']

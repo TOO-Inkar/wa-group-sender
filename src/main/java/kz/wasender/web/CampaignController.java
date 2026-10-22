@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** Заявки из админки: список с рассылками, создание, правка, удаление, включение, запуск вручную. */
 @RestController
@@ -60,13 +61,12 @@ public class CampaignController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> get(@PathVariable String id) {
-        return campaigns.find(id).<ResponseEntity<?>>map(campaign -> ResponseEntity.ok(view(campaign, Integer.MAX_VALUE)))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public CampaignView get(@PathVariable String id) {
+        return view(campaigns.find(id).orElseThrow(() -> new CampaignService.NotFoundException(id)), Integer.MAX_VALUE);
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody CampaignForm form) {
+    public ResponseEntity<CampaignView> create(@RequestBody CampaignForm form) {
         var created = service.create(input(form));
         return ResponseEntity.status(HttpStatus.CREATED).body(view(created, RUNS_IN_LIST));
     }
@@ -77,7 +77,7 @@ public class CampaignController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable String id) {
+    public ResponseEntity<Void> delete(@PathVariable String id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
     }
@@ -173,7 +173,7 @@ public class CampaignController {
     }
 
     /** Содержимое формы: по полям (items, contact) или готовый текст (text). */
-    public record Content(String mode, List<AdminController.Item> items, String text, String contact) {
+    public record Content(@Nullable String mode, @Nullable List<AdminController.Item> items, @Nullable String text, @Nullable String contact) {
 
         RequestIntake.Draft draft() {
             if ("text".equals(mode)) {
@@ -185,24 +185,25 @@ public class CampaignController {
     }
 
     /** Расписание: mode ONCE/DAILY/INTERVAL, start и end — «ЧЧ:ММ», intervalMinutes — для INTERVAL. */
-    public record Repeat(RepeatMode mode, String start, String end, Integer intervalMinutes) {
+    public record Repeat(@Nullable RepeatMode mode, @Nullable String start, @Nullable String end, @Nullable Integer intervalMinutes) {
     }
 
     /** sendNow — первая рассылка сразу, не дожидаясь времени старта (по умолчанию да). */
-    public record CampaignForm(String title, Content content, List<String> groups, String targetLabel, Repeat repeat, Boolean sendNow) {
+    public record CampaignForm(@Nullable String title, @Nullable Content content, @Nullable List<String> groups, @Nullable String targetLabel,
+                               @Nullable Repeat repeat, @Nullable Boolean sendNow) {
     }
 
     public record Target(String jid, String name) {
     }
 
-    public record Run(String id, RequestStatus status, String error, Instant queuedAt, Instant startedAt, Instant completedAt,
+    public record Run(String id, RequestStatus status, @Nullable String error, Instant queuedAt, @Nullable Instant startedAt, @Nullable Instant completedAt,
                       DeliveryRepository.Progress progress) {
     }
 
     /** form — поля формы в JSON (для правки); current — идущая рассылка; runs — последние рассылки, новые первыми. */
-    public record CampaignView(String id, String title, String message, String form, boolean targeted, String targetLabel,
-                               List<Target> targets, RepeatMode repeatMode, String startTime, String endTime, Integer intervalMinutes,
-                               boolean enabled, Instant createdAt, Instant updatedAt, Instant nextRunAt, Instant lastRunAt,
-                               Run current, int runCount, List<Run> runs) {
+    public record CampaignView(String id, String title, String message, @Nullable String form, boolean targeted, @Nullable String targetLabel,
+                               List<Target> targets, RepeatMode repeatMode, @Nullable String startTime, @Nullable String endTime,
+                               @Nullable Integer intervalMinutes, boolean enabled, Instant createdAt, Instant updatedAt,
+                               @Nullable Instant nextRunAt, @Nullable Instant lastRunAt, @Nullable Run current, int runCount, List<Run> runs) {
     }
 }

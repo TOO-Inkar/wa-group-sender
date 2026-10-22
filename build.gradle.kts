@@ -27,6 +27,8 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     // Только BCrypt для пароля страницы входа, без Spring Security целиком
     implementation("org.springframework.security:spring-security-crypto")
+    // Описание API (OpenAPI) для типов фронтенда: frontend/ генерирует из него src/shared/api/schema.d.ts
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1")
     runtimeOnly("com.h2database:h2")
 
     // Выгрузка отчётов: Excel и PDF

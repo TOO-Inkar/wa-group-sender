@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Страница входа: логин и пароль (bcrypt-хеш в ADMIN_PASSWORD_HASH) → cookie сессии.
@@ -81,11 +82,9 @@ public class AuthController {
 
     /** Вошёл ли браузер: страница решает, показать вход или админку. */
     @GetMapping("/me")
-    public ResponseEntity<?> me(HttpServletRequest request) {
+    public Me me(HttpServletRequest request) {
         // 200 в обоих случаях: страница входа не должна сыпать ошибками в консоль браузера.
-        return AdminTokenFilter.authorized(request, properties, sessions)
-                ? ResponseEntity.ok(Map.of("authenticated", true, "username", properties.username()))
-                : ResponseEntity.ok(Map.of("authenticated", false));
+        return AdminTokenFilter.authorized(request, properties, sessions) ? new Me(true, properties.username()) : new Me(false, null);
     }
 
     private boolean matches(String password) {
@@ -124,6 +123,9 @@ public class AuthController {
         return real == null || real.isBlank() ? request.getRemoteAddr() : real.strip();
     }
 
-    public record Login(String username, String password) {
+    public record Me(boolean authenticated, @Nullable String username) {
+    }
+
+    public record Login(@Nullable String username, @Nullable String password) {
     }
 }
