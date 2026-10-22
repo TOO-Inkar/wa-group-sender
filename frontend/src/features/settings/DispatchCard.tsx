@@ -114,7 +114,7 @@ export function DispatchCard() {
   return (
     <Card className="grid content-start gap-3">
       <CardTitle className="mb-0">Рассылка</CardTitle>
-      <p className="text-sm text-muted">Сейчас: {health ? (DISPATCHER_TEXT[health.dispatcher] ?? health.dispatcher) : '…'}.</p>
+      <p className="text-sm text-muted">{health ? (DISPATCHER_TEXT[health.dispatcher] ?? health.dispatcher) : '…'}</p>
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => control.mutate('pause', { onSuccess: () => toast.success('Рассылка на паузе') })}>Пауза</Button>
         <Button variant="primary" onClick={() => control.mutate('resume', { onSuccess: () => toast.success('Рассылка возобновлена') })}>

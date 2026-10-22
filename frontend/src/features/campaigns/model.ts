@@ -63,8 +63,19 @@ export function metaLine(c: Campaign): string {
 
 /** Технические причины доставки — понятными словами. */
 export function deliveryReason(error: string): string {
+  if (/последнее сообщение/.test(error)) return 'последнее сообщение в группе наше — отправим позже'
   if (/group inactive/.test(error)) return 'группа вышла из рассылки'
   if (/error 479/.test(error)) return 'WhatsApp отклонил отправку в эту группу'
   if (/not connected/.test(error)) return 'не было связи с WhatsApp'
   return error
+}
+
+/** Коротко для колонки таблицы: «ежедневно 05:00», «каждые 2 ч, 08–23», «в 15:00», «сразу». */
+export function scheduleShort(c: Pick<Campaign, 'repeatMode' | 'startTime' | 'endTime' | 'intervalMinutes'>, windowEnd = ''): string {
+  if (c.repeatMode === 'DAILY') return `ежедневно ${c.startTime}`
+  if (c.repeatMode === 'INTERVAL') {
+    const h = (c.intervalMinutes ?? 0) / 60
+    return `каждые ${String(h).replace('.', ',')} ч, ${c.startTime}–${c.endTime ?? windowEnd}`
+  }
+  return c.startTime ? `один раз в ${c.startTime}` : 'один раз'
 }

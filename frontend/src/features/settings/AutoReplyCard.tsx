@@ -66,7 +66,7 @@ export function AutoReplyCard() {
     <Card className="grid content-start gap-3">
       <CardTitle className="mb-0">Автоответчик</CardTitle>
       <p className="text-sm text-muted">
-        {parts.length ? `Включён: ${parts.join(', ')}. Одному человеку — не чаще раза в ${s.autoReplyCooldownHours} ч.` : 'Выключен: на сообщения и звонки номер не отвечает.'}
+        {parts.length ? `${parts.join(', ')} · раз в ${s.autoReplyCooldownHours} ч на человека` : 'выключен'}
       </p>
       <WhatsAppBubble text={s.autoReplyText} className="max-h-56 overflow-auto p-2.5" />
       <Button className="justify-self-start" onClick={() => setOpen(true)}>

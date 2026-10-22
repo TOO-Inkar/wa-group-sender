@@ -10,7 +10,7 @@ export const ITEM_LABELS: Record<ItemField, { title: string; placeholder: string
   date: { title: 'Дата / срочность', placeholder: 'Срочно, груз готов', required: true },
   vehicles: { title: 'Машины и тоннаж', placeholder: '120 м³ / 5 осей — 20 т', required: true, rows: 3, hint: 'Каждая строка — отдельная строка сообщения (Shift+Enter).' },
   cargo: { title: 'Груз', placeholder: 'Цемент', required: true },
-  conditions: { title: 'Доп. условия', placeholder: 'Необязательно, можно несколько строк', required: false, rows: 2 },
+  conditions: { title: 'Доп. условия', placeholder: 'Необязательно', required: false, rows: 2 },
   freight: { title: 'Фрахт', placeholder: '450 000 ₸', required: true },
 }
 
