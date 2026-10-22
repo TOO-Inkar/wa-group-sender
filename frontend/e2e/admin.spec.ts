@@ -160,13 +160,13 @@ test('готовый текст: эмодзи по вкладкам, разде�
 test('настройки: окно и лимиты меняются в модальном окне', async ({ page }) => {
   await login(page)
   await nav(page, 'Настройки').click()
-  await page.getByRole('button', { name: /Рабочее окно/ }).click()
+  await page.getByRole('button', { name: 'Изменить окно и лимиты' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('До', { exact: true }).fill('22:30')
   await dialog.getByLabel('Лимит в час').fill('90')
   await dialog.getByRole('button', { name: 'Сохранить' }).click()
   await expect(dialog).toBeHidden()
-  await expect(page.getByRole('button', { name: /Рабочее окно/ })).toContainText('90 в час')
+  await expect(page.getByText('90 в час · без лимита в день')).toBeVisible()
   await page.screenshot({ path: 'e2e-results/settings.png' })
 })
 
