@@ -82,9 +82,10 @@ public class AuthController {
     /** Вошёл ли браузер: страница решает, показать вход или админку. */
     @GetMapping("/me")
     public ResponseEntity<?> me(HttpServletRequest request) {
+        // 200 в обоих случаях: страница входа не должна сыпать ошибками в консоль браузера.
         return AdminTokenFilter.authorized(request, properties, sessions)
-                ? ResponseEntity.ok(Map.of("username", properties.username()))
-                : ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "не выполнен вход"));
+                ? ResponseEntity.ok(Map.of("authenticated", true, "username", properties.username()))
+                : ResponseEntity.ok(Map.of("authenticated", false));
     }
 
     private boolean matches(String password) {

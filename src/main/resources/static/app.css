@@ -418,3 +418,52 @@ dialog::backdrop { background: rgba(10, 14, 20, .5); }
   box-shadow: 0 8px 28px rgba(16, 24, 40, .25);
 }
 .toast.bad { background: var(--danger); color: #ffffff; }
+
+/* --- вход ------------------------------------------------------------------- */
+
+.login-card { text-align: left; gap: 14px; padding: 28px; }
+.login-card > div:nth-child(2) { text-align: center; display: grid; gap: 4px; }
+.field.left { text-align: left; }
+.password { position: relative; display: block; }
+.password input { width: 100%; padding-right: 84px; }
+.password button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.big-button { padding: 11px 20px; font-size: 15px; }
+
+/* --- заявки: расписание, рассылки ------------------------------------------- */
+
+#request-search { margin-bottom: 12px; }
+.list-gap { gap: 12px; }
+.request.open { box-shadow: 0 4px 18px rgba(16, 24, 40, .10); }
+.request-meta b { color: var(--text); font-weight: 600; }
+.time { width: auto; padding: 6px 8px; }
+.narrow { width: 80px; }
+.option-body .row { gap: 6px; font-weight: 400; }
+.option-body select { width: auto; }
+.keys { text-align: center; }
+.runs-title { font-size: 14px; margin: 4px 0 0; }
+.runs { display: grid; gap: 6px; }
+.run { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.run.open { border-color: var(--accent); }
+.run-head { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; text-align: left; border-radius: 0; padding: 8px 12px; }
+.run-head:hover { background: var(--surface-2); }
+.run-time { font-weight: 600; }
+.run-body { border-top: 1px solid var(--border); padding: 10px 12px; display: grid; gap: 8px; }
+.run-body .deliveries { max-height: 300px; }
+.targets summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.targets ul { margin: 6px 0 0; padding-left: 20px; max-height: 180px; overflow: auto; color: var(--muted); }
+
+/* --- настройки -------------------------------------------------------------- */
+
+details > summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.details-body { margin-top: 10px; }
+.subscriber { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.subscriber:last-child { border-bottom: none; }
+.form label.inline { display: flex; font-weight: 400; }
+
+/* --- помощь ----------------------------------------------------------------- */
+
+.help { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.help .card { display: grid; gap: 8px; align-content: start; }
+.help ol, .help ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; line-height: 1.45; }
+.request-body > .stack { align-content: start; }
+.request-actions button { align-self: center; }

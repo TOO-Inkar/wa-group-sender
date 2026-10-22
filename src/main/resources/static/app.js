@@ -1,12 +1,12 @@
 'use strict';
 
 // Админка wa-group-sender: страница поверх HTTP API сервиса, без сборки.
-// Токен хранится в localStorage этого браузера и уходит в заголовке X-Admin-Token.
+// Вход по логину и паролю: сервер ставит HttpOnly-cookie сессии, страница её не видит и не хранит.
 
-const TOKEN_KEY = 'wa-admin-token';
 const DRAFT_KEY = 'wa-request-draft';
 const ZONE = 'Asia/Almaty';
-const FIELDS = ['route', 'date', 'vehicles', 'cargo', 'freight', 'conditions'];
+// Порядок полей формы: Груз, Доп. условия и Фрахт последним.
+const FIELDS = ['route', 'date', 'vehicles', 'cargo', 'conditions', 'freight'];
 const REQUIRED = { route: 'Маршрут', date: 'Дата / срочность', vehicles: 'Машины и тоннаж', cargo: 'Груз', freight: 'Фрахт' };
 
 const SESSION_TEXT = {
@@ -15,32 +15,44 @@ const SESSION_TEXT = {
 };
 const DISPATCHER_TEXT = {
   starting: 'запускается', idle: 'ждёт заявок', running: 'идёт рассылка', paused: 'на паузе', 'outside-window': 'вне рабочего окна',
-  'daily-limit-reached': 'дневной лимит исчерпан', 'waiting-session': 'ждёт подключения', 'no-active-groups': 'нет групп для рассылки',
-  'stopped-by-risk': 'остановлена по риску', stopped: 'остановлена',
+  'daily-limit-reached': 'дневной лимит исчерпан', 'hourly-limit-reached': 'лимит в час исчерпан',
+  'waiting-groups': 'ждёт: в оставшихся группах последнее сообщение наше', 'waiting-session': 'ждёт подключения',
+  'no-active-groups': 'нет групп для рассылки', 'stopped-by-risk': 'остановлена по риску', stopped: 'остановлена',
 };
-const REQUEST_TEXT = { QUEUED: 'В очереди', SENDING: 'Отправляется', DONE: 'Отправлено', FAILED: 'Ошибка' };
-const REQUEST_TONE = { QUEUED: '', SENDING: 'info', DONE: 'ok', FAILED: 'bad' };
+const RUN_TEXT = { QUEUED: 'в очереди', SENDING: 'идёт', DONE: 'отправлена', FAILED: 'ошибка' };
+const RUN_TONE = { QUEUED: '', SENDING: 'info', DONE: 'ok', FAILED: 'bad' };
+const CAMPAIGN_STATE = {
+  sending: { text: 'Рассылается', tone: 'info' },
+  waiting: { text: 'В очереди', tone: '' },
+  scheduled: { text: 'По расписанию', tone: 'ok' },
+  done: { text: 'Завершена', tone: 'ok' },
+  off: { text: 'Выключена', tone: 'warn' },
+};
 const DELIVERY_TEXT = { PENDING: 'ждёт', SENDING: 'отправляется', SENT: 'отправлено', FAILED: 'ошибка', SKIPPED: 'пропущено' };
 const DELIVERY_TONE = { PENDING: '', SENDING: 'info', SENT: 'ok', FAILED: 'bad', SKIPPED: 'warn' };
 
 const $ = (id) => document.getElementById(id);
 
-let token = readStore(TOKEN_KEY);
-let view = 'compose';
+let view = 'requests';
 let health = null;
 let schedule = null;
 let groups = [];
 let lists = [];
-let requests = [];
-let requestStatus = '';
+let campaigns = [];
+let campaignFilter = '';
+let openCampaign = null;
+let openRun = null;
+const details = {};
+const deliveries = {};
+let editing = null;
 let groupFilter = 'all';
-let openRequest = null;
-let deliveries = {};
 let shownJids = [];
 let qrUrl = null;
 let timers = [];
 let previewTimer = null;
 let previewSeq = 0;
+let settings = null;
+let telegram = null;
 const selected = new Set();
 
 // --- API ---------------------------------------------------------------------
@@ -48,9 +60,9 @@ const selected = new Set();
 class Unauthorized extends Error {}
 
 async function api(path, { method = 'GET', body, raw = false } = {}) {
-  const headers = { 'X-Admin-Token': token || '' };
+  const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  const response = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const response = await fetch(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
   if (response.status === 401) throw new Unauthorized();
   if (raw) return response;
   const type = response.headers.get('Content-Type') || '';
@@ -64,7 +76,7 @@ async function api(path, { method = 'GET', body, raw = false } = {}) {
 
 function handleError(error) {
   if (error instanceof Unauthorized) {
-    logout('Токен не подошёл, войдите заново');
+    showLogin('Сессия закончилась, войдите снова');
     return;
   }
   toast(error.message || String(error), true);
@@ -85,37 +97,64 @@ function writeStore(key, value) {
     if (value) localStorage.setItem(key, value);
     else localStorage.removeItem(key);
   } catch {
-    // без localStorage значение живёт до перезагрузки страницы
+    // без localStorage черновик живёт до перезагрузки страницы
   }
 }
 
 // --- вход --------------------------------------------------------------------
 
+function showLogin(message) {
+  timers.forEach(clearInterval);
+  timers = [];
+  $('app').hidden = true;
+  $('login').hidden = false;
+  $('login-password').value = '';
+  $('login-error').textContent = message || '';
+  $('login-error').hidden = !message;
+  ($('login-username').value ? $('login-password') : $('login-username')).focus();
+}
+
 async function login(event) {
   event.preventDefault();
-  token = $('token').value.trim();
+  const username = $('login-username').value.trim();
+  const password = $('login-password').value;
   $('login-error').hidden = true;
+  if (!username || !password) {
+    $('login-error').textContent = 'Введите логин и пароль';
+    $('login-error').hidden = false;
+    return;
+  }
+  const button = $('login-submit');
+  button.disabled = true;
+  button.textContent = 'Входим…';
   try {
-    await api('/api/admin/schedule');
-    writeStore(TOKEN_KEY, token);
+    const response = await fetch('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+      body: JSON.stringify({ username, password }),
+    });
+    if (!response.ok) {
+      let message = response.status === 401 ? 'Неверный логин или пароль' : `Ошибка сервера (HTTP ${response.status})`;
+      try { message = (await response.json()).message || message; } catch { /* не JSON */ }
+      throw new Error(message);
+    }
     start();
   } catch (error) {
-    token = null;
-    $('login-error').textContent = error instanceof Unauthorized ? 'Неверный токен' : error.message;
+    $('login-error').textContent = error.message;
     $('login-error').hidden = false;
+    $('login-password').select();
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Войти';
   }
 }
 
-function logout(message) {
-  timers.forEach(clearInterval);
-  timers = [];
-  token = null;
-  writeStore(TOKEN_KEY, null);
-  $('app').hidden = true;
-  $('login').hidden = false;
-  $('token').value = '';
-  $('login-error').textContent = message || '';
-  $('login-error').hidden = !message;
+async function logout() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  } catch {
+    // всё равно показываем вход
+  }
+  showLogin();
 }
 
 async function start() {
@@ -127,11 +166,13 @@ async function start() {
   loadSchedule();
   refreshGroups();
   refreshLists();
+  refreshTelegram();
   timers.forEach(clearInterval);
   timers = [
     setInterval(refreshHealth, 5000),
     setInterval(() => { if (view === 'connection') refreshQr(); }, 3000),
-    setInterval(() => { if (view === 'requests') refreshRequests(); }, 8000),
+    setInterval(() => { if (view === 'requests') refreshCampaigns(); }, 8000),
+    setInterval(refreshTelegram, 60000),
   ];
 }
 
@@ -141,6 +182,7 @@ async function loadSchedule() {
     renderBanner();
     renderComposeNote();
     renderContactHint();
+    renderRepeatNote();
   } catch (error) {
     handleError(error);
   }
@@ -149,16 +191,17 @@ async function loadSchedule() {
 // --- навигация ---------------------------------------------------------------
 
 function showView(name) {
+  if (name !== 'compose' && editing) stopEditing();
   view = name;
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
   document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== `view-${name}`; });
   renderSelectionBar();
   renderBanner();
-  if (name === 'compose') { renderTargets(); schedulePreview(0); }
-  if (name === 'requests') refreshRequests();
+  if (name === 'compose') { renderTargets(); renderRepeat(); schedulePreview(0); }
+  if (name === 'requests') refreshCampaigns();
   if (name === 'groups') { refreshGroups(); refreshLists(); }
   if (name === 'connection') { renderConnection(); refreshQr(); }
-  if (name === 'control') renderControl();
+  if (name === 'settings') { renderStats(); loadSettings(); refreshTelegram(); }
   window.scrollTo(0, 0);
 }
 
@@ -198,7 +241,7 @@ function renderHealth() {
   renderBanner();
   if (view === 'compose') renderTargets();
   if (view === 'connection') renderConnection();
-  if (view === 'control') renderControl();
+  if (view === 'settings') renderStats();
 }
 
 function windowText() {
@@ -230,20 +273,26 @@ function renderBanner() {
   } else if (health.stoppedByRisk) {
     tone = 'bad';
     text = `<b>Рассылка остановлена по риску:</b> сигналов за час — ${esc(health.riskEventsInWindow)}. Проверьте телефон и возобновите.`;
-    button = { label: 'Открыть управление', view: 'control' };
+    button = { label: 'Открыть настройки', view: 'settings' };
   } else if (health.dispatcher === 'paused') {
     tone = 'warn';
-    text = '<b>Рассылка на паузе.</b> Заявки ждут в очереди.';
-    button = { label: 'Открыть управление', view: 'control' };
+    text = '<b>Рассылка на паузе.</b> Заявки ждут.';
+    button = { label: 'Открыть настройки', view: 'settings' };
   } else if (health.dispatcher === 'outside-window') {
     tone = 'info';
-    text = `<b>Сейчас вне рабочего окна.</b> Заявки уйдут, когда оно откроется (${esc(windowText())}).`;
+    text = `<b>Сейчас вне рабочего окна.</b> Рассылка продолжится, когда оно откроется (${esc(windowText())}).`;
   } else if (health.dispatcher === 'daily-limit-reached') {
     tone = 'info';
     text = `<b>Дневной лимит исчерпан:</b> отправлено ${esc(health.sentToday)} из ${esc(health.warmupLimitToday)}. Остальное уйдёт завтра.`;
+  } else if (health.dispatcher === 'hourly-limit-reached') {
+    tone = 'info';
+    text = `<b>Лимит в час исчерпан:</b> ${esc(health.sentLastHour)} из ${esc(health.hourlyLimit)} за последний час. Рассылка продолжится сама.`;
+  } else if (health.dispatcher === 'waiting-groups') {
+    tone = 'info';
+    text = '<b>Ждём:</b> в оставшихся группах последнее сообщение наше. Рассылка продолжится, когда там кто-то напишет или пройдёт пауза.';
   } else if (health.dispatcher === 'running') {
     tone = 'ok';
-    text = `<b>Идёт рассылка.</b> Заявок в работе: ${esc(health.queueLength)}, отправлено сегодня: ${esc(health.sentToday)}.`;
+    text = `<b>Идёт рассылка.</b> Рассылок в работе: ${esc(health.queueLength)}, отправлено сегодня: ${esc(health.sentToday)}.`;
     button = { label: 'Смотреть заявки', view: 'requests' };
   }
   banner.hidden = !text;
@@ -257,36 +306,33 @@ function renderBanner() {
   }
 }
 
-// --- новая заявка ------------------------------------------------------------
+// --- форма заявки -------------------------------------------------------------
 
-const FIELD_VIEW = [
-  { name: 'route', title: 'Маршрут', placeholder: 'ХОРГОС → БАКУ' },
-  { name: 'date', title: 'Дата / срочность', placeholder: 'Срочно, груз готов' },
-  { name: 'vehicles', title: 'Машины и тоннаж', placeholder: '120 м³ / 5 осей — 20 т', area: 3, hint: 'Каждая строка поля — отдельная строка сообщения.' },
-  { name: 'cargo', title: 'Груз', placeholder: 'Цемент', half: true },
-  { name: 'freight', title: 'Фрахт', placeholder: '450 000 ₸', half: true },
-  { name: 'conditions', title: 'Доп. условия', placeholder: 'Необязательно, можно несколько строк', area: 2 },
-];
+const FIELD_VIEW = {
+  route: { title: 'Маршрут', placeholder: 'ХОРГОС → БАКУ' },
+  date: { title: 'Дата / срочность', placeholder: 'Срочно, груз готов' },
+  vehicles: { title: 'Машины и тоннаж', placeholder: '120 м³ / 5 осей — 20 т', area: 3, hint: 'Каждая строка — отдельная строка сообщения (Shift+Enter).' },
+  cargo: { title: 'Груз', placeholder: 'Цемент' },
+  conditions: { title: 'Доп. условия', placeholder: 'Необязательно, можно несколько строк', area: 2 },
+  freight: { title: 'Фрахт', placeholder: '450 000 ₸' },
+};
 
 let composeMode = 'fields';
 
-function fieldHtml(field) {
-  const required = REQUIRED[field.name] ? ' <span class="req">*</span>' : '';
+function fieldHtml(name) {
+  const field = FIELD_VIEW[name];
+  const required = REQUIRED[name] ? ' <span class="req">*</span>' : '';
   const input = field.area
-    ? `<textarea data-field="${field.name}" rows="${field.area}" placeholder="${esc(field.placeholder)}"></textarea>`
-    : `<input data-field="${field.name}" placeholder="${esc(field.placeholder)}" autocomplete="off">`;
+    ? `<textarea data-field="${name}" rows="${field.area}" placeholder="${esc(field.placeholder)}"></textarea>`
+    : `<input data-field="${name}" placeholder="${esc(field.placeholder)}" autocomplete="off">`;
   const hint = field.hint ? `<span class="hint">${esc(field.hint)}</span>` : '';
-  return `<label>${esc(field.title)}${required}${input}${hint}</label>`;
+  return `<label><span>${esc(field.title)}${required}</span>${input}${hint}</label>`;
 }
 
 function itemHtml() {
-  const full = FIELD_VIEW.filter((f) => !f.half);
-  const half = FIELD_VIEW.filter((f) => f.half);
   return `<div class="item-head"><b class="item-title"></b>
       <button type="button" class="link small danger" data-remove>Убрать</button></div>`
-    + full.slice(0, 3).map(fieldHtml).join('')
-    + `<div class="two">${half.map(fieldHtml).join('')}</div>`
-    + full.slice(3).map(fieldHtml).join('');
+    + FIELDS.map(fieldHtml).join('');
 }
 
 function addItem(values = {}) {
@@ -332,13 +378,19 @@ function setComposeMode(mode) {
   schedulePreview(0);
 }
 
-// Тело запроса: готовый текст или заявки по полям (несколько уйдут одним сообщением).
-function formBody() {
-  if (composeMode === 'text') return { text: $('ready-text').value };
-  const body = { items: filledItems().map(({ values }) => values) };
+// Содержимое: готовый текст или заявки по полям (несколько уйдут одним сообщением).
+function formContent() {
+  if (composeMode === 'text') return { mode: 'text', text: $('ready-text').value };
+  const content = { mode: 'fields', items: filledItems().map(({ values }) => values) };
   const contact = $('contact').value.trim();
-  if (contact) body.contact = contact;
-  return body;
+  if (contact) content.contact = contact;
+  return content;
+}
+
+// Тело для предпросмотра (старый формат API).
+function previewBody() {
+  const content = formContent();
+  return content.mode === 'text' ? { text: content.text } : { items: content.items, contact: content.contact };
 }
 
 function formIsEmpty() {
@@ -347,10 +399,9 @@ function formIsEmpty() {
 
 function renderContactHint() {
   const contact = schedule && schedule.contact ? schedule.contact : '';
-  $('contact').placeholder = contact || 'Не задан';
   $('contact-hint').textContent = contact
-    ? 'Пусто — возьмётся контакт из настроек. В сообщении из нескольких заявок он будет один раз, в конце.'
-    : 'Контакт в настройках не задан: без этого поля строки с контактом не будет.';
+    ? `Пусто — возьмётся «${contact}». В сообщении из нескольких заявок контакт будет один раз, в конце.`
+    : 'Пусто — строки с контактом в сообщении не будет.';
 }
 
 function targetMode() {
@@ -362,28 +413,28 @@ function setTargetMode(mode) {
   if (radio) radio.checked = true;
 }
 
-// Куда уйдёт заявка: groups === null — во все активные группы, иначе список JID.
+// Куда уйдёт заявка: groups === null — во все активные группы, иначе список JID; label — как показать в списке заявок.
 function currentTarget() {
   const mode = targetMode();
   if (mode === 'pick') {
-    return { groups: [...selected], count: selected.size, label: `${plural(selected.size, 'выбранную группу', 'выбранные группы', 'выбранных групп')}` };
+    return { groups: [...selected], count: selected.size, label: plural(selected.size, 'выбранную группу', 'выбранные группы', 'выбранных групп'), name: null };
   }
   if (mode === 'list') {
     const list = lists.find((item) => String(item.id) === $('target-list').value);
     if (list) {
-      return { groups: list.groups, count: list.groups.length, label: `список «${list.name}» (${plural(list.groups.length, 'группа', 'группы', 'групп')})` };
+      return { groups: list.groups, count: list.groups.length, label: `список «${list.name}» (${plural(list.groups.length, 'группа', 'группы', 'групп')})`, name: list.name };
     }
-    return { groups: [], count: 0, label: 'список не выбран' };
+    return { groups: [], count: 0, label: 'список не выбран', name: null };
   }
   const active = health ? health.activeGroups : 0;
-  return { groups: null, count: active, label: `все активные группы (${active})` };
+  return { groups: null, count: active, label: `все активные группы (${active})`, name: null };
 }
 
 function renderTargets() {
   const active = health ? health.activeGroups : 0;
   $('target-all-note').textContent = active
     ? `${plural(active, 'группа', 'группы', 'групп')} из «Архива», где номер может писать`
-    : 'сейчас таких групп нет — заявка подождёт в очереди';
+    : 'сейчас таких групп нет — заявка подождёт';
 
   const select = $('target-list');
   const html = lists.length
@@ -400,21 +451,91 @@ function renderTargets() {
 
   $('target-pick-note').textContent = selected.size
     ? `выбрано: ${plural(selected.size, 'группа', 'группы', 'групп')}`
-    : 'можно выбрать любые группы, куда номер может писать, — например одну тестовую';
+    : 'любые группы, куда номер может писать, — например одна тестовая';
+  renderSubmitLabel();
+  renderComposeNote();
+}
 
+function renderSubmitLabel() {
+  if (editing) {
+    $('new-submit').textContent = 'Сохранить изменения';
+    return;
+  }
+  const repeat = repeatMode();
+  if (repeat !== 'now') {
+    $('new-submit').textContent = 'Сохранить и запланировать';
+    return;
+  }
   const target = currentTarget();
   $('new-submit').textContent = target.count
     ? `Отправить в ${plural(target.count, 'группу', 'группы', 'групп')}`
-    : (target.groups === null ? 'Поставить в очередь' : 'Отправить');
-  renderComposeNote();
+    : 'Поставить в очередь';
 }
 
 function renderComposeNote() {
   const limit = health && health.warmupLimitToday != null
-    ? ` Сегодня можно отправить ещё ${Math.max(0, health.warmupLimitToday - health.sentToday)} из ${health.warmupLimitToday}.`
+    ? ` Сегодня можно ещё ${Math.max(0, health.warmupLimitToday - health.sentToday)} из ${health.warmupLimitToday}.`
     : '';
   $('new-note').textContent = `Сообщения уходят не сразу, а по одному с паузами, ${windowText()}.${limit}`;
 }
+
+// --- когда отправлять ---------------------------------------------------------
+
+function repeatMode() {
+  return new FormData($('new-form')).get('repeat') || 'now';
+}
+
+function setRepeatMode(mode) {
+  const radio = document.querySelector(`#new-form input[name=repeat][value=${mode}]`);
+  if (radio) radio.checked = true;
+}
+
+function repeatBody() {
+  const mode = repeatMode();
+  if (mode === 'at') return { repeat: { mode: 'ONCE', start: $('at-time').value }, sendNow: false };
+  if (mode === 'daily') return { repeat: { mode: 'DAILY', start: $('daily-time').value }, sendNow: $('send-now').checked };
+  if (mode === 'interval') {
+    return {
+      repeat: { mode: 'INTERVAL', start: $('interval-start').value, end: $('interval-end').value, intervalMinutes: Number($('interval-hours').value) },
+      sendNow: $('send-now').checked,
+    };
+  }
+  return { repeat: { mode: 'ONCE' }, sendNow: true };
+}
+
+function intervalText(minutes) {
+  if (!minutes) return '';
+  if (minutes % 60 === 0) return minutes === 60 ? 'каждый час' : `каждые ${plural(minutes / 60, 'час', 'часа', 'часов')}`;
+  return `каждые ${String(minutes / 60).replace('.', ',')} часа`;
+}
+
+function renderRepeat() {
+  const mode = repeatMode();
+  $('send-now-row').hidden = mode !== 'daily' && mode !== 'interval';
+  renderRepeatNote();
+  renderSubmitLabel();
+}
+
+function renderRepeatNote() {
+  const mode = repeatMode();
+  const now = $('send-now').checked;
+  let text = '';
+  if (mode === 'now') text = `Заявка уйдёт один раз, ${windowText()}.`;
+  if (mode === 'at') text = `Один раз: начнётся в ${$('at-time').value || '…'} (сегодня, если время ещё не прошло, иначе завтра).`;
+  if (mode === 'daily') {
+    text = `${now ? 'Первая рассылка — сразу, дальше' : 'Рассылка'} каждый день в ${$('daily-time').value || '…'}`
+      + ` — своё время, даже если рабочее окно начинается позже. Шлёт до ${schedule ? schedule.windowEnd : 'конца окна'}.`;
+  }
+  if (mode === 'interval') {
+    text = `${now ? 'Первая рассылка — сразу, дальше' : 'Рассылка'} ${intervalText(Number($('interval-hours').value))}`
+      + ` с ${$('interval-start').value || '…'} до ${$('interval-end').value || '…'}, каждый день.`
+      + ' Если прошлая рассылка ещё не закончилась, повтор пропускается.';
+  }
+  if (schedule && !schedule.weekendsEnabled && mode !== 'now') text += ' В выходные не рассылается.';
+  $('repeat-note').textContent = text;
+}
+
+// --- черновик, предпросмотр ---------------------------------------------------
 
 function showFormError(message) {
   $('new-error').textContent = message || '';
@@ -422,33 +543,43 @@ function showFormError(message) {
 }
 
 function saveDraft() {
+  if (editing) return;
   const items = [...document.querySelectorAll('#items .item')].map(itemValues);
-  const draft = { mode: composeMode, items, text: $('ready-text').value, contact: $('contact').value };
-  const empty = !draft.text.trim() && !draft.contact.trim() && items.every((v) => FIELDS.every((name) => !v[name]));
+  const draft = { mode: composeMode, items, text: $('ready-text').value, contact: $('contact').value, title: $('title').value };
+  const empty = !draft.text.trim() && !draft.contact.trim() && !draft.title.trim() && items.every((v) => FIELDS.every((name) => !v[name]));
   writeStore(DRAFT_KEY, empty && composeMode === 'fields' ? null : JSON.stringify(draft));
 }
 
-function restoreDraft() {
+function fillForm(draft) {
   $('items').innerHTML = '';
+  const items = draft && Array.isArray(draft.items) && draft.items.length ? draft.items : [{}];
+  items.forEach((values) => addItem(values || {}));
+  $('ready-text').value = draft && typeof draft.text === 'string' ? draft.text : '';
+  updateCount();
+  $('contact').value = draft && typeof draft.contact === 'string' ? draft.contact : '';
+  $('title').value = draft && typeof draft.title === 'string' ? draft.title : '';
+  setComposeMode(draft && draft.mode === 'text' ? 'text' : 'fields');
+}
+
+function restoreDraft() {
   let draft = null;
   try {
     draft = JSON.parse(readStore(DRAFT_KEY) || 'null');
   } catch {
     writeStore(DRAFT_KEY, null);
   }
-  const items = draft && Array.isArray(draft.items) && draft.items.length ? draft.items : [{}];
-  items.forEach((values) => addItem(values || {}));
-  $('ready-text').value = draft && typeof draft.text === 'string' ? draft.text : '';
-  updateCount();
-  $('contact').value = draft && typeof draft.contact === 'string' ? draft.contact : '';
-  setComposeMode(draft && draft.mode === 'text' ? 'text' : 'fields');
+  fillForm(draft);
 }
 
 function clearForm() {
   writeStore(DRAFT_KEY, null);
   const mode = composeMode;
-  restoreDraft();
+  fillForm(null);
   setComposeMode(mode);
+  setRepeatMode('now');
+  setTargetMode('all');
+  renderRepeat();
+  renderTargets();
 }
 
 function schedulePreview(delay = 350) {
@@ -457,7 +588,6 @@ function schedulePreview(delay = 350) {
 }
 
 async function renderPreview() {
-  const body = formBody();
   const box = $('new-preview');
   if (formIsEmpty()) {
     box.className = 'bubble empty';
@@ -468,7 +598,7 @@ async function renderPreview() {
   }
   const seq = ++previewSeq;
   try {
-    const text = await api('/api/admin/requests/preview', { method: 'POST', body });
+    const text = await api('/api/admin/requests/preview', { method: 'POST', body: previewBody() });
     if (seq !== previewSeq) return;
     box.className = 'bubble';
     box.innerHTML = waFormat(text);
@@ -490,6 +620,27 @@ function waFormat(text) {
   html = inline(html, '_', 'i');
   html = inline(html, '~', 's');
   return html;
+}
+
+// Enter — к следующему полю, Shift+Enter — новая строка в многострочных полях, Ctrl+Enter — отправить.
+function onFieldKey(event) {
+  if (event.key !== 'Enter' || event.isComposing) return;
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault();
+    $('new-form').requestSubmit();
+    return;
+  }
+  const target = event.target;
+  if (!target.matches('#items [data-field], #contact, #title')) return;
+  if (event.shiftKey) {
+    if (target.tagName !== 'TEXTAREA') event.preventDefault();
+    return;
+  }
+  event.preventDefault();
+  const order = [...document.querySelectorAll('#items [data-field]'), $('contact'), $('title')];
+  const next = order[order.indexOf(target) + 1];
+  if (next) next.focus();
+  else $('new-submit').focus();
 }
 
 // --- редактор готового текста -------------------------------------------------
@@ -538,8 +689,8 @@ function wrapSelection(mark) {
   const area = editor();
   area.focus();
   const { selectionStart: start, selectionEnd: end, value } = area;
-  const selected = value.slice(start, end);
-  if (!selected) {
+  const picked = value.slice(start, end);
+  if (!picked) {
     area.value = value.slice(0, start) + mark + mark + value.slice(end);
     area.selectionStart = area.selectionEnd = start + mark.length;
     afterEdit();
@@ -552,7 +703,7 @@ function wrapSelection(mark) {
     const already = inner.startsWith(mark) && inner.endsWith(mark) && inner.length > mark.length * 2;
     return match[1] + (already ? inner.slice(mark.length, -mark.length) : mark + inner + mark) + match[3];
   };
-  const wrapped = mark === '```' ? wrapOne(selected) : selected.split('\n').map(wrapOne).join('\n');
+  const wrapped = mark === '```' ? wrapOne(picked) : picked.split('\n').map(wrapOne).join('\n');
   area.value = value.slice(0, start) + wrapped + value.slice(end);
   area.selectionStart = start;
   area.selectionEnd = start + wrapped.length;
@@ -570,8 +721,7 @@ async function insertSnippet(kind) {
   } else if (kind === 'contact') {
     let contact = schedule && schedule.contact ? schedule.contact : '';
     if (!contact) {
-      contact = await ask({ title: 'Контакт', html: '<p>Контакт в настройках не задан. Введите его для этого сообщения.</p>',
-        input: 'Имя +7 7xx xxx xx xx', ok: 'Вставить' });
+      contact = await ask({ title: 'Контакт', html: '<p>Введите контакт для этого сообщения.</p>', input: 'Имя +7 7xx xxx xx xx', ok: 'Вставить' });
       if (!contact) return;
     }
     insertText(`${lead}\n📞 *${contact}*`);
@@ -595,7 +745,7 @@ function toggleEmoji(open) {
 async function fieldsToText() {
   if (formIsEmpty()) { showFormError('Сначала заполните заявку.'); return; }
   try {
-    const text = await api('/api/admin/requests/preview', { method: 'POST', body: formBody() });
+    const text = await api('/api/admin/requests/preview', { method: 'POST', body: previewBody() });
     if ($('ready-text').value.trim() && !(await ask({ title: 'Заменить текст в редакторе?',
       html: '<p>В режиме «Готовый текст» уже есть сообщение. Оно заменится собранным из полей.</p>', ok: 'Заменить' }))) return;
     $('ready-text').value = text;
@@ -606,61 +756,86 @@ async function fieldsToText() {
   }
 }
 
+// --- отправка и редактирование ------------------------------------------------
+
+function validateFields() {
+  if (composeMode !== 'fields') return true;
+  const filled = filledItems();
+  const problems = [];
+  filled.forEach(({ item, values }, i) => {
+    const missing = [];
+    for (const [name, title] of Object.entries(REQUIRED)) {
+      const empty = !values[name];
+      item.querySelector(`[data-field=${name}]`).classList.toggle('invalid', empty);
+      if (empty) missing.push(title);
+    }
+    if (missing.length) problems.push(filled.length > 1 ? `заявка ${i + 1}: ${missing.join(', ')}` : missing.join(', '));
+  });
+  if (problems.length) {
+    showFormError(`Заполните: ${problems.join('; ')}.`);
+    const first = document.querySelector('#items .invalid');
+    if (first) first.focus();
+    return false;
+  }
+  return true;
+}
+
 async function submitRequest(event) {
   event.preventDefault();
   showFormError('');
-  const body = formBody();
   if (formIsEmpty()) {
     showFormError(composeMode === 'text' ? 'Вставьте текст сообщения.' : 'Заполните заявку.');
     return;
   }
-  if (composeMode === 'fields') {
-    const filled = filledItems();
-    const problems = [];
-    filled.forEach(({ item, values }, i) => {
-      const missing = [];
-      for (const [name, title] of Object.entries(REQUIRED)) {
-        const empty = !values[name];
-        item.querySelector(`[data-field=${name}]`).classList.toggle('invalid', empty);
-        if (empty) missing.push(title);
-      }
-      if (missing.length) problems.push(filled.length > 1 ? `заявка ${i + 1}: ${missing.join(', ')}` : missing.join(', '));
-    });
-    if (problems.length) {
-      showFormError(`Заполните: ${problems.join('; ')}.`);
-      return;
-    }
-  }
+  if (!validateFields()) return;
   const target = currentTarget();
   if (target.groups && !target.groups.length) {
     showFormError(targetMode() === 'pick' ? 'Выберите хотя бы одну группу.' : 'Выберите список групп.');
     return;
   }
+  const { repeat, sendNow } = repeatBody();
+  if (repeat.start === '' || repeat.end === '') {
+    showFormError('Укажите время.');
+    return;
+  }
+  const body = {
+    title: $('title').value.trim() || null,
+    content: formContent(),
+    groups: target.groups,
+    targetLabel: target.name,
+    repeat,
+    sendNow,
+  };
+
   let text = '';
   try {
-    text = await api('/api/admin/requests/preview', { method: 'POST', body });
+    text = await api('/api/admin/requests/preview', { method: 'POST', body: previewBody() });
   } catch (error) {
     handleError(error);
     return;
   }
+  const when = $('repeat-note').textContent;
   const ok = await ask({
-    title: target.count ? `Отправить в ${plural(target.count, 'группу', 'группы', 'групп')}?` : 'Поставить заявку в очередь?',
-    html: `<p>Куда: ${esc(target.label)}.${composeMode === 'fields' && filledItems().length > 1
-      ? ` В одном сообщении ${plural(filledItems().length, 'заявка', 'заявки', 'заявок')}.` : ''}</p>`
+    title: editing ? 'Сохранить изменения?' : (repeatMode() === 'now' && target.count
+      ? `Отправить в ${plural(target.count, 'группу', 'группы', 'групп')}?` : 'Сохранить заявку?'),
+    html: `<p>Куда: ${esc(target.label)}.<br>Когда: ${esc(when)}</p>`
       + `<div class="chat"><div class="bubble">${waFormat(text)}</div></div>`
-      + (target.count ? '' : '<p>Активных групп сейчас нет: заявка уйдёт, когда они появятся.</p>'),
-    ok: target.count ? 'Отправить' : 'Поставить в очередь',
+      + (editing ? '<p>Рассылка, которая уже идёт, досылает прежний текст; новый уйдёт со следующей.</p>' : ''),
+    ok: editing ? 'Сохранить' : (repeatMode() === 'now' ? 'Отправить' : 'Сохранить'),
   });
   if (!ok) return;
 
   const button = $('new-submit');
   button.disabled = true;
   try {
-    if (target.groups) body.groups = target.groups;
-    const created = await api('/api/admin/requests', { method: 'POST', body });
-    clearForm();
-    toast(`Заявка №${created.id} принята`);
-    openRequest = created.id;
+    const saved = editing
+      ? await api(`/api/admin/campaigns/${encodeURIComponent(editing)}`, { method: 'PUT', body })
+      : await api('/api/admin/campaigns', { method: 'POST', body });
+    toast(editing ? `Заявка №${saved.id} сохранена` : `Заявка №${saved.id} создана`);
+    if (editing) stopEditing();
+    else clearForm();
+    openCampaign = saved.id;
+    openRun = null;
     showView('requests');
     refreshHealth();
   } catch (error) {
@@ -670,6 +845,52 @@ async function submitRequest(event) {
     button.disabled = false;
     renderTargets();
   }
+}
+
+function startEditing(campaign) {
+  editing = campaign.id;
+  let form = null;
+  try { form = campaign.form ? JSON.parse(campaign.form) : null; } catch { form = null; }
+  if (!form || (!form.text && !(form.items && form.items.length))) form = { mode: 'text', text: campaign.message };
+  fillForm({ mode: form.mode, items: form.items, text: form.text || '', contact: form.contact || '', title: campaign.title });
+
+  selected.clear();
+  const list = campaign.targeted && lists.find((l) => l.name === campaign.targetLabel
+    && l.groups.length === campaign.targets.length && campaign.targets.every((t) => l.groups.includes(t.jid)));
+  if (!campaign.targeted) setTargetMode('all');
+  else if (list) { setTargetMode('list'); $('target-list').value = String(list.id); }
+  else { campaign.targets.forEach((t) => selected.add(t.jid)); setTargetMode('pick'); }
+
+  if (campaign.repeatMode === 'DAILY') { setRepeatMode('daily'); $('daily-time').value = campaign.startTime; }
+  else if (campaign.repeatMode === 'INTERVAL') {
+    setRepeatMode('interval');
+    $('interval-start').value = campaign.startTime;
+    $('interval-end').value = campaign.endTime || (schedule ? schedule.windowEnd : '23:00');
+    const option = [...$('interval-hours').options].find((o) => Number(o.value) === campaign.intervalMinutes);
+    if (!option) $('interval-hours').add(new Option(intervalText(campaign.intervalMinutes), campaign.intervalMinutes));
+    $('interval-hours').value = String(campaign.intervalMinutes);
+  } else if (campaign.startTime) { setRepeatMode('at'); $('at-time').value = campaign.startTime; }
+  else setRepeatMode('now');
+  $('send-now').checked = false;
+
+  $('compose-title').textContent = `Заявка №${campaign.id}: изменение`;
+  $('compose-lead').textContent = 'Поправьте текст, адресатов или расписание. Новый текст уйдёт со следующей рассылки.';
+  $('edit-cancel').hidden = false;
+  $('new-clear').hidden = true;
+  showView('compose');
+}
+
+function stopEditing() {
+  editing = null;
+  $('compose-title').textContent = 'Новая заявка';
+  $('compose-lead').textContent = 'Заполните поля — справа видно, как сообщение будет выглядеть в WhatsApp.';
+  $('edit-cancel').hidden = true;
+  $('new-clear').hidden = false;
+  $('send-now').checked = true;
+  setRepeatMode('now');
+  setTargetMode('all');
+  selected.clear();
+  restoreDraft();
 }
 
 // --- выбор групп в окне ------------------------------------------------------
@@ -697,87 +918,260 @@ function renderPicker() {
 
 // --- заявки ------------------------------------------------------------------
 
-async function refreshRequests() {
+async function refreshCampaigns() {
   try {
-    requests = await api('/api/admin/requests');
-    if (openRequest) await loadDeliveries(openRequest);
-    renderRequests();
+    campaigns = await api('/api/admin/campaigns');
+    if (openCampaign) {
+      await loadDetails(openCampaign);
+      // Только что созданная или изменённая заявка: сразу показываем её текущую рассылку.
+      const c = details[openCampaign];
+      const first = !openRun && c && (c.current || (c.runs && c.runs[0]));
+      if (first) openRun = first.id;
+    }
+    if (openRun) await loadDeliveries(openRun);
+    renderCampaigns();
   } catch (error) {
     handleError(error);
   }
 }
 
-async function loadDeliveries(id) {
+async function loadDetails(id) {
   try {
-    deliveries[id] = await api(`/api/admin/requests/${encodeURIComponent(id)}/deliveries`);
+    details[id] = await api(`/api/admin/campaigns/${encodeURIComponent(id)}`);
   } catch (error) {
     if (error instanceof Unauthorized) throw error;
-    deliveries[id] = [];
+    delete details[id];
   }
 }
 
-function requestTitle(request) {
-  const first = String(request.message || '').split('\n').find((line) => line.trim()) || '';
-  return first.replace(/[*_~]/g, '').trim() || `Заявка №${request.id}`;
+async function loadDeliveries(runId) {
+  try {
+    deliveries[runId] = await api(`/api/admin/requests/${encodeURIComponent(runId)}/deliveries`);
+  } catch (error) {
+    if (error instanceof Unauthorized) throw error;
+    deliveries[runId] = [];
+  }
 }
 
-function renderRequests() {
-  const shown = requests
-    .filter((r) => !requestStatus || r.status === requestStatus)
-    .sort((a, b) => timeValue(b.queuedAt) - timeValue(a.queuedAt));
+function campaignState(c) {
+  if (c.current) return c.current.status === 'SENDING' ? 'sending' : 'waiting';
+  if (!c.enabled) return c.repeatMode === 'ONCE' && c.lastRunAt ? 'done' : 'off';
+  if (c.nextRunAt) return 'scheduled';
+  return 'done';
+}
+
+function scheduleText(c) {
+  const end = c.endTime || (schedule ? schedule.windowEnd : '');
+  if (c.repeatMode === 'DAILY') return `каждый день в ${c.startTime}`;
+  if (c.repeatMode === 'INTERVAL') return `${intervalText(c.intervalMinutes)} с ${c.startTime} до ${end}`;
+  return c.startTime ? `один раз в ${c.startTime}` : 'один раз';
+}
+
+function whereText(c) {
+  if (!c.targeted) return 'все активные группы';
+  return c.targetLabel || plural(c.targets.length, 'группа', 'группы', 'групп');
+}
+
+function progressText(run) {
+  if (!run) return 'ещё не начата';
+  const p = run.progress || { total: 0, sent: 0, failed: 0, skipped: 0, pending: 0 };
+  if (!p.total) return run.status === 'FAILED' ? (run.error || 'ошибка') : 'ещё не начата';
+  return `отправлено ${p.sent} из ${p.total}${p.failed ? `, ошибок ${p.failed}` : ''}${p.skipped ? `, пропущено ${p.skipped}` : ''}`;
+}
+
+function percent(run) {
+  const p = run && run.progress;
+  return p && p.total ? Math.round(((p.sent + p.failed + p.skipped) / p.total) * 100) : 0;
+}
+
+function renderCampaigns() {
+  const query = $('request-search').value.trim().toLowerCase();
+  const shown = campaigns.filter((c) => {
+    const state = campaignState(c);
+    if (campaignFilter === 'sending' && state !== 'sending' && state !== 'waiting') return false;
+    if (campaignFilter && campaignFilter !== 'sending' && state !== campaignFilter) return false;
+    return !query || c.title.toLowerCase().includes(query) || (c.message || '').toLowerCase().includes(query);
+  });
   if (!shown.length) {
     $('request-list').innerHTML = `<div class="card empty-state">
-        <div>${requests.length ? 'С таким статусом заявок нет.' : 'Заявок пока нет.'}</div>
-        ${requests.length ? '' : '<button class="primary" data-go="compose">Создать первую заявку</button>'}
+        <div>${campaigns.length ? 'Таких заявок нет.' : 'Заявок пока нет.'}</div>
+        ${campaigns.length ? '' : '<button class="primary" data-go="compose">Создать первую заявку</button>'}
       </div>`;
     return;
   }
-  $('request-list').innerHTML = shown.map((r) => {
-    const p = r.progress || { total: 0, sent: 0, failed: 0, skipped: 0, pending: 0 };
-    const percent = p.total ? Math.round(((p.sent + p.failed + p.skipped) / p.total) * 100) : 0;
-    const where = r.targetGroups == null ? 'все активные группы' : plural(r.targetGroups, 'выбранная группа', 'выбранные группы', 'выбранных групп');
-    const counts = p.total
-      ? `отправлено ${p.sent} из ${p.total}${p.failed ? `, ошибок ${p.failed}` : ''}${p.skipped ? `, пропущено ${p.skipped}` : ''}`
-      : 'ещё не начата';
-    const canRetry = (r.status === 'DONE' || r.status === 'FAILED') && p.failed > 0;
-    const actions = `<div class="request-actions">
-        <button class="secondary small" data-report="${esc(r.id)}" data-format="xlsx">Отчёт Excel</button>
-        <button class="secondary small" data-report="${esc(r.id)}" data-format="pdf">Отчёт PDF</button>
-        ${canRetry ? `<button class="secondary small" data-retry="${esc(r.id)}">Повторить в группы с ошибкой (${p.failed})</button>` : ''}
-      </div>`;
-    const body = openRequest === r.id ? `<div class="request-body">
-        <div class="chat"><div class="bubble">${waFormat(r.message || '')}</div></div>
-        <div class="deliveries">${actions}${renderDeliveries(r.id)}</div>
-      </div>` : '';
-    return `<div class="card request">
-        <button class="request-head" data-id="${esc(r.id)}">
+  $('request-list').innerHTML = shown.map((c) => {
+    const state = CAMPAIGN_STATE[campaignState(c)];
+    const run = c.current || (c.runs && c.runs[0]) || null;
+    const next = c.enabled && c.nextRunAt && c.repeatMode !== 'ONCE' ? ` · следующая ${formatTime(c.nextRunAt)}` : '';
+    const nextOnce = c.enabled && c.nextRunAt && c.repeatMode === 'ONCE' && !c.current ? ` · начнётся ${formatTime(c.nextRunAt)}` : '';
+    const body = openCampaign === c.id ? renderCampaignBody(details[c.id] || c) : '';
+    return `<div class="card request${openCampaign === c.id ? ' open' : ''}">
+        <button class="request-head" data-id="${esc(c.id)}">
           <div class="request-top">
-            <span class="pill ${REQUEST_TONE[r.status] || ''}">${esc(REQUEST_TEXT[r.status] || r.status)}</span>
-            <span class="request-title">№${esc(r.id)} · ${esc(requestTitle(r))}</span>
+            <span class="pill ${state.tone}">${esc(state.text)}</span>
+            <span class="request-title">№${esc(c.id)} · ${esc(c.title)}</span>
           </div>
-          <div class="bar"><span style="width:${percent}%"></span></div>
-          <div class="request-meta">${esc(counts)} · ${esc(where)} · создана ${esc(formatTime(r.queuedAt))}`
-          + `${r.completedAt ? ` · завершена ${esc(formatTime(r.completedAt))}` : ''}`
-          + `${r.error ? ` · <span class="error">${esc(r.error)}</span>` : ''}</div>
+          <div class="bar"><span style="width:${percent(run)}%"></span></div>
+          <div class="request-meta">${esc(progressText(run))} · <b>${esc(whereText(c))}</b> · ${esc(scheduleText(c))}${esc(next)}${esc(nextOnce)}`
+          + ` · создана ${esc(formatTime(c.createdAt))}</div>
         </button>${body}
       </div>`;
   }).join('');
 }
 
+function renderCampaignBody(c) {
+  const state = campaignState(c);
+  const actions = `<div class="request-actions">
+      <button class="secondary small" data-edit="${esc(c.id)}">✏️ Изменить</button>
+      <button class="secondary small" data-run="${esc(c.id)}" ${c.current ? 'disabled title="Рассылка ещё идёт"' : ''}>▶ Отправить сейчас</button>
+      ${c.enabled || c.current
+        ? `<button class="secondary small" data-disable="${esc(c.id)}">⏸ Выключить</button>`
+        : (c.repeatMode !== 'ONCE' ? `<button class="secondary small" data-enable="${esc(c.id)}">⏵ Включить расписание</button>` : '')}
+      <button class="link small danger" data-delete="${esc(c.id)}">Удалить</button>
+    </div>`;
+  const targets = c.targeted
+    ? `<details class="targets"><summary>Группы: ${esc(whereText(c))} (${c.targets.length})</summary>
+        <ul>${c.targets.map((t) => `<li>${esc(t.name || t.jid)}</li>`).join('')}</ul></details>`
+    : '<p class="muted small">Группы: все активные группы на момент рассылки.</p>';
+  const schedulePart = `<p class="muted small">Когда: ${esc(scheduleText(c))}${state === 'scheduled' || (c.enabled && c.nextRunAt)
+    ? `, следующая — ${esc(formatTime(c.nextRunAt))}` : ''}${!c.enabled && c.repeatMode !== 'ONCE' ? ', расписание выключено' : ''}.</p>`;
+  const runs = (c.runs || []);
+  const runsHtml = runs.length
+    ? runs.map((run) => renderRun(run)).join('')
+    : '<p class="muted">Рассылок ещё не было.</p>';
+  return `<div class="request-body">
+      <div class="stack">
+        <div class="chat"><div class="bubble">${waFormat(c.message || '')}</div></div>
+        ${targets}
+        ${schedulePart}
+      </div>
+      <div class="stack">
+        ${actions}
+        <h3 class="runs-title">Рассылки${c.runCount > runs.length ? ` (последние ${runs.length} из ${c.runCount})` : ''}</h3>
+        <div class="runs">${runsHtml}</div>
+      </div>
+    </div>`;
+}
+
+function renderRun(run) {
+  const open = openRun === run.id;
+  const p = run.progress || {};
+  const canRetry = (run.status === 'DONE' || run.status === 'FAILED') && p.failed > 0;
+  return `<div class="run${open ? ' open' : ''}">
+      <button class="run-head" data-open-run="${esc(run.id)}">
+        <span class="pill ${RUN_TONE[run.status] || ''}">${esc(RUN_TEXT[run.status] || run.status)}</span>
+        <span class="run-time">${esc(formatTime(run.queuedAt))}</span>
+        <span class="muted small">${esc(progressText(run))}</span>
+      </button>
+      ${open ? `<div class="run-body">
+        <div class="request-actions">
+          <button class="secondary small" data-report="${esc(run.id)}" data-format="xlsx">Отчёт Excel</button>
+          <button class="secondary small" data-report="${esc(run.id)}" data-format="pdf">Отчёт PDF</button>
+          ${canRetry ? `<button class="secondary small" data-retry="${esc(run.id)}">Повторить в группы с ошибкой (${p.failed})</button>` : ''}
+        </div>
+        <div class="deliveries">${renderDeliveries(run.id)}</div>
+      </div>` : ''}
+    </div>`;
+}
+
 function renderDeliveries(id) {
   const items = deliveries[id];
   if (!items) return '<span class="muted">Загрузка…</span>';
-  if (!items.length) return '<span class="muted">Группы ещё не распределены: рассылка этой заявки не начиналась.</span>';
-  // PENDING с ошибкой — сервер отклонил отправку, группа ждёт повтора после остальных.
+  if (!items.length) return '<span class="muted">Группы ещё не распределены: рассылка не начиналась.</span>';
   return items.map((d) => {
-    const retrying = d.status === 'PENDING' && d.error;
-    const text = retrying ? 'повтор позже' : (DELIVERY_TEXT[d.status] || d.status);
-    const tone = retrying ? 'warn' : (DELIVERY_TONE[d.status] || '');
+    const waiting = d.status === 'PENDING' && d.error;
+    const text = waiting ? 'ждёт' : (DELIVERY_TEXT[d.status] || d.status);
+    const tone = waiting ? 'warn' : (DELIVERY_TONE[d.status] || '');
     return `<div class="delivery">
-      <span class="delivery-name">${esc(d.groupName || d.groupJid)}${d.error ? `<span class="jid">${esc(d.error)}</span>` : ''}</span>
+      <span class="delivery-name">${esc(d.groupName || d.groupJid)}${d.error ? `<span class="jid">${esc(deliveryReason(d.error))}</span>` : ''}</span>
       <span class="pill ${tone}">${esc(text)}</span>
     </div>`;
   }).join('');
+}
+
+// Технические причины — понятными словами.
+function deliveryReason(error) {
+  if (/group inactive/.test(error)) return 'группа вышла из рассылки';
+  if (/error 479/.test(error)) return 'WhatsApp отклонил отправку в эту группу';
+  if (/not connected/.test(error)) return 'не было связи с WhatsApp';
+  return error;
+}
+
+async function toggleCampaign(id) {
+  openCampaign = openCampaign === id ? null : id;
+  openRun = null;
+  renderCampaigns();
+  if (!openCampaign) return;
+  try {
+    await loadDetails(id);
+    const c = details[id];
+    const first = c && (c.current || (c.runs && c.runs[0]));
+    if (first) {
+      openRun = first.id;
+      renderCampaigns();
+      await loadDeliveries(first.id);
+    }
+    renderCampaigns();
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+async function toggleRun(id) {
+  openRun = openRun === id ? null : id;
+  renderCampaigns();
+  if (openRun) {
+    try {
+      await loadDeliveries(id);
+      renderCampaigns();
+    } catch (error) {
+      handleError(error);
+    }
+  }
+}
+
+async function campaignAction(id, action) {
+  const c = details[id] || campaigns.find((item) => item.id === id);
+  if (!c) return;
+  try {
+    if (action === 'edit') {
+      await loadDetails(id);
+      startEditing(details[id] || c);
+      return;
+    }
+    if (action === 'delete') {
+      const ok = await ask({ title: `Удалить заявку №${c.id}?`,
+        html: `<p>«${esc(c.title)}» пропадёт из списка${c.current ? ', её рассылка остановится' : ''}. История отправок останется в отчётах.</p>`, ok: 'Удалить' });
+      if (!ok) return;
+      await api(`/api/admin/campaigns/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      toast(`Заявка №${c.id} удалена`);
+      openCampaign = null;
+    }
+    if (action === 'disable') {
+      const ok = await ask({ title: `Выключить заявку №${c.id}?`,
+        html: `<p>${c.current ? 'Идущая рассылка остановится: в оставшиеся группы не уйдёт. ' : ''}${c.repeatMode !== 'ONCE' ? 'Повторы по расписанию прекратятся, пока не включите снова.' : ''}</p>`,
+        ok: 'Выключить' });
+      if (!ok) return;
+      await api(`/api/admin/campaigns/${encodeURIComponent(id)}/disable`, { method: 'POST' });
+      toast(`Заявка №${c.id} выключена`);
+    }
+    if (action === 'enable') {
+      await api(`/api/admin/campaigns/${encodeURIComponent(id)}/enable`, { method: 'POST' });
+      toast(`Расписание заявки №${c.id} включено`);
+    }
+    if (action === 'run') {
+      const ok = await ask({ title: `Разослать заявку №${c.id} сейчас?`,
+        html: `<p>Новая рассылка: ${esc(whereText(c))}. Пойдёт параллельно с другими заявками, с общими паузами и лимитами.</p>`, ok: 'Отправить' });
+      if (!ok) return;
+      await api(`/api/admin/campaigns/${encodeURIComponent(id)}/run`, { method: 'POST' });
+      toast(`Заявка №${c.id}: новая рассылка в очереди`);
+      openRun = null;
+    }
+    await refreshCampaigns();
+    refreshHealth();
+  } catch (error) {
+    handleError(error);
+  }
 }
 
 // --- отчёты ------------------------------------------------------------------
@@ -807,7 +1201,6 @@ function downloadPeriod(format, button) {
   download(`/api/admin/reports/period?from=${from}&to=${to}&format=${format}`, `wa-report-${from}_${to}.${format}`, button);
 }
 
-// Файл скачивается через fetch: ссылка не может передать токен в заголовке.
 async function download(url, fallbackName, button) {
   const label = button ? button.textContent : '';
   if (button) { button.disabled = true; button.textContent = 'Готовим…'; }
@@ -836,36 +1229,21 @@ async function download(url, fallbackName, button) {
   }
 }
 
-async function retryFailed(id) {
-  const request = requests.find((r) => r.id === id);
-  const failed = request && request.progress ? request.progress.failed : 0;
+async function retryFailed(runId) {
   const ok = await ask({
-    title: `Повторить в ${plural(failed, 'группу', 'группы', 'групп')} с ошибкой?`,
-    html: '<p>Заявка снова встанет в очередь и уйдёт только в группы, где была ошибка. Где уже отправлено, повторно не придёт.</p>',
+    title: 'Повторить в группы с ошибкой?',
+    html: '<p>Рассылка снова встанет в очередь и уйдёт только в группы, где была ошибка. Где уже отправлено, повторно не придёт.</p>',
     ok: 'Повторить',
   });
   if (!ok) return;
   try {
-    await api(`/api/admin/requests/${encodeURIComponent(id)}/retry`, { method: 'POST' });
-    toast(`Заявка №${id} снова в очереди`);
-    delete deliveries[id];
-    await refreshRequests();
+    await api(`/api/admin/requests/${encodeURIComponent(runId)}/retry`, { method: 'POST' });
+    toast('Рассылка снова в очереди');
+    delete deliveries[runId];
+    await refreshCampaigns();
     refreshHealth();
   } catch (error) {
     handleError(error);
-  }
-}
-
-async function toggleRequest(id) {
-  openRequest = openRequest === id ? null : id;
-  renderRequests();
-  if (openRequest) {
-    try {
-      await loadDeliveries(id);
-      renderRequests();
-    } catch (error) {
-      handleError(error);
-    }
   }
 }
 
@@ -928,7 +1306,6 @@ function renderGroups() {
     active: (g) => g.active,
     writable: (g) => sendable(g),
     unarchived: (g) => !g.archived,
-    noname: (g) => !g.name,
     blocked: (g) => g.community || g.tooLarge || g.rejected,
     selected: (g) => selected.has(g.jid),
   };
@@ -938,7 +1315,7 @@ function renderGroups() {
   const active = groups.filter((g) => g.active).length;
   const lastSync = groups.reduce((max, g) => Math.max(max, timeValue(g.lastSync)), 0);
   $('group-summary').textContent = groups.length
-    ? `Всего ${groups.length}, в рассылке ${active}. Обновлено ${formatTime(lastSync)}.`
+    ? `Групп номера: ${groups.length}, в рассылке ${active}. Обновлено ${formatTime(lastSync)}.`
     : 'Групп пока нет: привяжите номер и нажмите «Обновить из WhatsApp».';
 
   $('group-rows').innerHTML = shown.map((g) => `<tr>
@@ -993,7 +1370,7 @@ function renderLists() {
         <span class="muted small">${plural(list.groups.length, 'группа', 'группы', 'групп')}</span>
       </div>
       <div class="row">
-        <button class="primary small" data-send="${esc(list.id)}">Отправить заявку</button>
+        <button class="primary small" data-send="${esc(list.id)}">Заявка в этот список</button>
         <button class="secondary small" data-load="${esc(list.id)}">Показать</button>
         <button class="link small danger" data-del="${esc(list.id)}">Удалить</button>
       </div>
@@ -1078,30 +1455,145 @@ function renderConnection() {
   else box.textContent = session === 'BANNED' ? 'Номер заблокирован' : 'Ждём QR от WhatsApp…';
   $('conn-lead').textContent = `Состояние: ${SESSION_TEXT[session] || session || 'неизвестно'}.`;
   $('conn-body').innerHTML = `<ol>
-      <li>На телефоне с <b>тестовым</b> номером: WhatsApp → Настройки → Связанные устройства.</li>
+      <li>На телефоне с номером для рассылки: WhatsApp → Настройки → Связанные устройства.</li>
       <li>«Привязка устройства» → наведите камеру на QR.</li>
       <li>QR меняется примерно раз в 20 секунд, страница подхватит новый сама.</li>
     </ol>
-    <p class="muted">Перед привязкой включите «Оставлять чаты в архиве» и положите нужные группы в «Архив».</p>`;
+    <p class="muted">Перед привязкой включите «Оставлять чаты в архиве» и положите нужные группы в «Архив». После привязки другого номера в списке останутся только его группы.</p>`;
 }
 
-// --- управление --------------------------------------------------------------
+// --- настройки ---------------------------------------------------------------
 
 function stat(label, value, note) {
   return `<div class="card"><div class="stat-label">${esc(label)}</div><div class="stat-value">${esc(value)}</div>`
     + `<div class="stat-note">${esc(note)}</div></div>`;
 }
 
-function renderControl() {
+function renderStats() {
   if (!health) return;
-  const limit = health.warmupLimitToday == null ? 'без лимита' : `лимит ${health.warmupLimitToday}`;
+  const limit = health.warmupLimitToday == null ? 'без лимита' : `из ${health.warmupLimitToday}`;
   $('stats').innerHTML = [
     stat('Отправлено сегодня', health.sentToday, `${limit}, день прогрева ${health.warmupDay}`),
-    stat('В очереди', health.queueLength, 'заявок ждут или отправляются'),
+    stat('За последний час', health.sentLastHour, health.hourlyLimit ? `из ${health.hourlyLimit} в час` : 'без лимита в час'),
+    stat('Рассылок в работе', health.queueLength, 'идут или ждут'),
     stat('Групп в рассылке', health.activeGroups, 'в архиве и можно писать'),
     stat('Сигналы риска', health.riskEventsInWindow, health.stoppedByRisk ? 'рассылка остановлена' : `паузы ×${health.pauseMultiplier}`),
   ].join('');
   $('dispatch-state').textContent = `Сейчас: ${DISPATCHER_TEXT[health.dispatcher] || health.dispatcher}. Рабочее окно: ${windowText()}.`;
+}
+
+async function loadSettings() {
+  try {
+    settings = await api('/api/admin/settings');
+    fillSettings();
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+function fillSettings() {
+  const s = settings;
+  $('s-window-start').value = s.windowStart;
+  $('s-window-end').value = s.windowEnd;
+  $('s-weekends').checked = s.weekendsEnabled;
+  $('s-hourly').value = s.hourlyLimit;
+  $('s-daily').value = s.dailyLimit;
+  $('s-warmup').checked = s.warmupEnabled;
+  $('s-gpause-min').value = s.groupPauseMinSeconds;
+  $('s-gpause-max').value = s.groupPauseMaxSeconds;
+  $('s-wave').value = s.waveSize;
+  $('s-wpause-min').value = s.wavePauseMinMinutes;
+  $('s-wpause-max').value = s.wavePauseMaxMinutes;
+  $('s-gap').value = s.ownMessageGapMinutes;
+  $('r-enabled').checked = s.autoReplyEnabled;
+  $('r-calls').checked = s.autoReplyRejectCalls;
+  $('r-cooldown').value = s.autoReplyCooldownHours;
+  $('r-text').value = s.autoReplyText;
+}
+
+async function saveSettings(event, which) {
+  event.preventDefault();
+  const number = (id) => ($(id).value === '' ? null : Number($(id).value));
+  const body = which === 'window' ? {
+    windowStart: $('s-window-start').value, windowEnd: $('s-window-end').value, weekendsEnabled: $('s-weekends').checked,
+    hourlyLimit: number('s-hourly'), dailyLimit: number('s-daily'), warmupEnabled: $('s-warmup').checked,
+    groupPauseMinSeconds: number('s-gpause-min'), groupPauseMaxSeconds: number('s-gpause-max'), waveSize: number('s-wave'),
+    wavePauseMinMinutes: number('s-wpause-min'), wavePauseMaxMinutes: number('s-wpause-max'), ownMessageGapMinutes: number('s-gap'),
+  } : {
+    autoReplyEnabled: $('r-enabled').checked, autoReplyRejectCalls: $('r-calls').checked,
+    autoReplyCooldownHours: number('r-cooldown'), autoReplyText: $('r-text').value,
+  };
+  const error = $(`settings-${which}-error`);
+  const ok = $(`settings-${which}-ok`);
+  error.hidden = true;
+  ok.textContent = '';
+  try {
+    settings = await api('/api/admin/settings', { method: 'PUT', body });
+    fillSettings();
+    ok.textContent = 'Сохранено';
+    setTimeout(() => { ok.textContent = ''; }, 4000);
+    loadSchedule();
+    refreshHealth();
+  } catch (e) {
+    if (e instanceof Unauthorized) { handleError(e); return; }
+    error.textContent = e.message;
+    error.hidden = false;
+  }
+}
+
+async function refreshTelegram() {
+  try {
+    telegram = await api('/api/admin/telegram');
+    const pending = telegram.subscribers.filter((s) => s.status === 'PENDING').length;
+    $('nav-subs').textContent = pending;
+    $('nav-subs').hidden = !pending;
+    if (view === 'settings') renderTelegram();
+  } catch (error) {
+    if (error instanceof Unauthorized) handleError(error);
+  }
+}
+
+function renderTelegram() {
+  if (!telegram) return;
+  $('tg-lead').innerHTML = !telegram.botConfigured
+    ? 'Бот не настроен: нужен TELEGRAM_BOT_TOKEN в .env на сервере.'
+    : `Чтобы получать уведомления, напишите боту ${telegram.botUsername ? `<b>@${esc(telegram.botUsername)}</b>` : ''} команду <code>/start</code>, затем одобрите запрос здесь. Отписаться — <code>/stop</code>.`;
+  const status = { PENDING: ['ждёт одобрения', 'warn'], APPROVED: ['получает', 'ok'], REJECTED: ['отклонён', 'bad'] };
+  const configured = telegram.configuredChats.map((id) => `<div class="subscriber">
+      <span><b>chat ${esc(id)}</b><span class="jid">из настроек сервера (.env)</span></span>
+      <span class="pill ok">получает</span>
+    </div>`);
+  const subs = telegram.subscribers.map((s) => `<div class="subscriber">
+      <span><b>${esc(s.name || 'без имени')}</b>${s.username ? ` <span class="muted">@${esc(s.username)}</span>` : ''}
+        <span class="jid">запрос ${esc(formatTime(s.requestedAt))}</span></span>
+      <span class="row">
+        <span class="pill ${status[s.status][1]}">${status[s.status][0]}</span>
+        ${s.status !== 'APPROVED' ? `<button class="primary small" data-approve="${esc(s.chatId)}">Одобрить</button>` : ''}
+        ${s.status === 'PENDING' ? `<button class="secondary small" data-reject="${esc(s.chatId)}">Отклонить</button>` : ''}
+        <button class="link small danger" data-unsub="${esc(s.chatId)}">Удалить</button>
+      </span>
+    </div>`);
+  $('tg-subscribers').innerHTML = [...configured, ...subs].join('') || '<p class="muted small">Пока никто не подписан.</p>';
+}
+
+async function onSubscriberClick(event) {
+  const button = event.target.closest('button');
+  if (!button) return;
+  const id = button.dataset.approve || button.dataset.reject || button.dataset.unsub;
+  if (!id) return;
+  try {
+    if (button.dataset.approve) {
+      await api(`/api/admin/telegram/subscribers/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+      toast('Подписка одобрена');
+    } else if (button.dataset.reject) {
+      await api(`/api/admin/telegram/subscribers/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+    } else if (await ask({ title: 'Удалить подписчика?', html: '<p>Уведомления перестанут приходить. Он сможет снова попросить подписку через /start.</p>', ok: 'Удалить' })) {
+      await api(`/api/admin/telegram/subscribers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    }
+    await refreshTelegram();
+  } catch (error) {
+    handleError(error);
+  }
 }
 
 async function pause() {
@@ -1132,7 +1624,7 @@ async function testAlert() {
     const result = await api('/api/admin/test-alert', { method: 'POST' });
     $('alert-result').textContent = result.deliveredChats
       ? `Доставлено в ${plural(result.deliveredChats, 'чат', 'чата', 'чатов')}.`
-      : 'Не доставлено ни в один чат: проверьте TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_IDS.';
+      : 'Не доставлено ни в один чат: нет подписчиков или бот не настроен.';
   } catch (error) {
     handleError(error);
   }
@@ -1153,6 +1645,7 @@ function ask({ title, html = '', ok = 'ОК', input = null }) {
   $('ask').returnValue = '';
   $('ask').showModal();
   if (input !== null) $('ask-input').focus();
+  else $('ask-ok').focus();
   return new Promise((resolve) => { askResolve = resolve; });
 }
 
@@ -1211,7 +1704,13 @@ function toggleSelected(jid, on) {
 // --- события -----------------------------------------------------------------
 
 $('login-form').addEventListener('submit', login);
-$('logout').addEventListener('click', () => logout());
+$('login-show').addEventListener('click', () => {
+  const field = $('login-password');
+  field.type = field.type === 'password' ? 'text' : 'password';
+  $('login-show').textContent = field.type === 'password' ? 'показать' : 'скрыть';
+  field.focus();
+});
+$('logout').addEventListener('click', logout);
 $('nav').addEventListener('click', (event) => {
   const button = event.target.closest('button');
   if (button && button.dataset.view) showView(button.dataset.view);
@@ -1223,9 +1722,18 @@ document.querySelector('main').addEventListener('click', (event) => {
 });
 
 $('new-form').addEventListener('submit', submitRequest);
+$('new-form').addEventListener('keydown', onFieldKey);
 $('new-form').addEventListener('input', (event) => {
   if (event.target.name === 'target') { renderTargets(); return; }
   if (event.target.id === 'target-list') { setTargetMode('list'); renderTargets(); return; }
+  if (event.target.closest('#repeat-box')) {
+    // Поменяли время или интервал — выбираем и сам вариант.
+    const option = event.target.closest('label.option');
+    const radio = option && option.querySelector('[name=repeat]');
+    if (radio) radio.checked = true;
+    renderRepeat();
+    return;
+  }
   event.target.classList.remove('invalid');
   saveDraft();
   schedulePreview();
@@ -1275,10 +1783,8 @@ $('item-add').addEventListener('click', () => {
   saveDraft();
   item.querySelector('[data-field=route]').focus();
 });
-$('new-form').addEventListener('keydown', (event) => {
-  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) $('new-form').requestSubmit();
-});
 $('new-clear').addEventListener('click', clearForm);
+$('edit-cancel').addEventListener('click', () => { stopEditing(); showView('requests'); });
 $('target-pick-open').addEventListener('click', openPicker);
 
 $('picker-search').addEventListener('input', renderPicker);
@@ -1306,21 +1812,28 @@ $('report-cancel').addEventListener('click', () => $('report').close());
 $('request-filters').addEventListener('click', (event) => {
   const chip = event.target.closest('.chip');
   if (!chip) return;
-  requestStatus = chip.dataset.status;
-  setChip('request-filters', 'status', requestStatus);
-  renderRequests();
+  campaignFilter = chip.dataset.filter;
+  setChip('request-filters', 'filter', campaignFilter);
+  renderCampaigns();
 });
+$('request-search').addEventListener('input', renderCampaigns);
 $('request-list').addEventListener('click', (event) => {
   const report = event.target.closest('[data-report]');
   if (report) {
     download(`/api/admin/reports/requests/${encodeURIComponent(report.dataset.report)}?format=${report.dataset.format}`,
-      `wa-report-request-${report.dataset.report}.${report.dataset.format}`, report);
+      `wa-report-${report.dataset.report}.${report.dataset.format}`, report);
     return;
   }
   const retry = event.target.closest('[data-retry]');
   if (retry) { retryFailed(retry.dataset.retry); return; }
+  for (const action of ['edit', 'run', 'disable', 'enable', 'delete']) {
+    const button = event.target.closest(`[data-${action}]`);
+    if (button) { campaignAction(button.dataset[action], action); return; }
+  }
+  const run = event.target.closest('[data-open-run]');
+  if (run) { toggleRun(run.dataset.openRun); return; }
   const head = event.target.closest('.request-head');
-  if (head) toggleRequest(head.dataset.id);
+  if (head) toggleCampaign(head.dataset.id);
 });
 
 $('group-search').addEventListener('input', renderGroups);
@@ -1362,16 +1875,19 @@ $('selection-clear').addEventListener('click', () => { selected.clear(); renderG
 $('btn-pause').addEventListener('click', pause);
 $('btn-resume').addEventListener('click', resume);
 $('btn-alert').addEventListener('click', testAlert);
+$('settings-window').addEventListener('submit', (event) => saveSettings(event, 'window'));
+$('settings-reply').addEventListener('submit', (event) => saveSettings(event, 'reply'));
+$('r-default').addEventListener('click', () => { if (settings) $('r-text').value = settings.defaultAutoReplyText; });
+$('tg-subscribers').addEventListener('click', onSubscriberClick);
 
 $('ask-form').addEventListener('submit', () => finishAsk(true));
 $('ask-cancel').addEventListener('click', () => { finishAsk(false); $('ask').close(); });
 $('ask').addEventListener('close', () => finishAsk(false));
 
-if (token) {
-  // Админка показывается, только когда сервер принял сохранённый токен.
-  api('/api/admin/schedule').then(start).catch((error) => {
-    logout(error instanceof Unauthorized ? null : `Сервис недоступен: ${error.message}`);
-  });
-} else {
-  $('login').hidden = false;
-}
+// Старая версия хранила токен в браузере — больше не нужен.
+writeStore('wa-admin-token', null);
+
+fetch('/api/auth/me', { credentials: 'same-origin' })
+  .then((response) => response.json())
+  .then((me) => (me.authenticated ? start() : showLogin()))
+  .catch(() => showLogin('Сервис недоступен, обновите страницу через минуту'));
