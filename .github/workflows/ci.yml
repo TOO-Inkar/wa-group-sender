@@ -15,14 +15,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  # Общий кэш Gradle для всех org-раннеров, вне _work.
-  GRADLE_USER_HOME: /opt/gradle-cache
-
 jobs:
   build:
     name: Build & test
-    runs-on: [self-hosted, linux, x64]
+    # Раннеры GitHub: org-раннеры self-hosted жили на стенде inkbpadev и сейчас не в сети,
+    # а на боевой сервер раннер не ставим — он выполнял бы код любого PR рядом с сессией WhatsApp.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -35,7 +33,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
-          # Без cache: на self-hosted GRADLE_USER_HOME и так живёт между прогонами.
+          cache: gradle
 
       - name: Make gradlew executable
         run: chmod +x gradlew
@@ -78,6 +76,8 @@ jobs:
       group: deploy-wa-group-sender
       cancel-in-progress: false
     env:
+      # Общий кэш Gradle для всех org-раннеров, вне _work.
+      GRADLE_USER_HOME: /opt/gradle-cache
       # Секреты лежат вне рабочего каталога: checkout делает git clean -ffdx.
       # Создаёт их deploy/inkbpadev/setup-host.sh.
       ENV_FILE: /etc/wa-group-sender/.env
