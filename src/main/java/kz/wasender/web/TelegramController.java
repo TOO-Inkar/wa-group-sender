@@ -34,7 +34,8 @@ public class TelegramController {
 
     @GetMapping
     public Overview overview() {
-        return new Overview(bot.configured(), bot.username(), notifier.configuredChatIds(), subscribers.findAll());
+        var configured = notifier.configuredChatIds().stream().map(bot::chatInfo).toList();
+        return new Overview(bot.configured(), bot.username(), configured, subscribers.findAll());
     }
 
     @PostMapping("/subscribers/{chatId}/approve")
@@ -68,8 +69,8 @@ public class TelegramController {
         return ResponseEntity.noContent().build();
     }
 
-    /** botUsername — кому писать /start; configuredChats — chat_id из .env (меняются только там). */
-    public record Overview(boolean botConfigured, String botUsername, List<String> configuredChats,
+    /** botUsername — кому писать /start; configuredChats — чаты из .env (меняются только там) с именем из Telegram. */
+    public record Overview(boolean botConfigured, String botUsername, List<TelegramBot.ChatInfo> configuredChats,
                            List<TelegramSubscriberRepository.Subscriber> subscribers) {
     }
 }

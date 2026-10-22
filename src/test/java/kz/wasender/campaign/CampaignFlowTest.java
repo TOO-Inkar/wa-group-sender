@@ -167,6 +167,31 @@ class CampaignFlowTest extends IntegrationTest {
         assertThat(requests.findByCampaign(campaign.id()).getFirst().status()).isEqualTo(RequestStatus.DONE);
     }
 
+    @Autowired
+    kz.wasender.web.CampaignController controller;
+    @Autowired
+    kz.wasender.group.GroupListRepository groupLists;
+
+    @Test
+    void recipientsWithoutAStoredLabelAreShownByTheMatchingListName() {
+        useGroups(3);
+        var jids = groups().subList(0, 2);
+        groupLists.save("Тест", jids, clock.instant());
+        var campaign = campaigns.create(new CampaignService.Input(draft("Старая заявка"), "{}", jids, null, null,
+                new Schedule(RepeatMode.ONCE, null, null, null), false));
+        assertThat(campaign.targetLabel()).isNotEqualTo("Тест");
+
+        repository.update(new CampaignRecord(campaign.id(), campaign.title(), campaign.draft(), campaign.message(), true, null,
+                campaign.schedule(), campaign.enabled(), false, campaign.createdAt(), campaign.updatedAt(), campaign.nextRunAt(),
+                campaign.lastRunAt()), jids);
+
+        assertThat(controller.list()).singleElement().satisfies(view -> assertThat(view.targetLabel()).isEqualTo("Тест"));
+    }
+
+    private List<String> groups() {
+        return gateway.listGroups().stream().map(kz.wasender.whatsapp.GroupInfo::jid).sorted().toList();
+    }
+
     @Test
     void runNowIsRefusedWhileTheCampaignIsStillSending() {
         useGroups(5);

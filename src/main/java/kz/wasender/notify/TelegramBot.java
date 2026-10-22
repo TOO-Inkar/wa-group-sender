@@ -35,6 +35,7 @@ public class TelegramBot {
     private volatile Thread poller;
     private volatile boolean stopped;
     private volatile String username;
+    private final java.util.Map<String, ChatInfo> chats = new java.util.concurrent.ConcurrentHashMap<>();
 
     public TelegramBot(NotifyProperties properties, TelegramSubscriberRepository subscribers, TelegramNotifier notifier, Clock clock) {
         this.properties = properties.telegram();
@@ -64,6 +65,28 @@ public class TelegramBot {
         if (poller != null) {
             poller.interrupt();
         }
+    }
+
+    /**
+     * Кто стоит за chat_id: имя и @username (или название группы) через getChat; телефон Bot API не отдаёт.
+     * Запоминается до перезапуска, чтобы не дёргать Telegram при каждом открытии настроек.
+     */
+    public ChatInfo chatInfo(String chatId) {
+        return chats.computeIfAbsent(chatId, id -> {
+            try {
+                var chat = client.get().uri("/bot{token}/getChat?chat_id={id}", properties.botToken(), id).retrieve().body(GetChat.class);
+                if (chat == null || chat.result() == null) {
+                    return new ChatInfo(id, null, null);
+                }
+                var c = chat.result();
+                var name = c.title() != null ? c.title()
+                        : ((c.firstName() == null ? "" : c.firstName()) + " " + (c.lastName() == null ? "" : c.lastName())).strip();
+                return new ChatInfo(id, name.isEmpty() ? null : name, c.username());
+            } catch (RuntimeException e) {
+                log.warn("TELEGRAM getChat {} failed: {}", id, e.getMessage());
+                return new ChatInfo(id, null, null);
+            }
+        });
     }
 
     /** @username бота, чтобы показать в админке, кому писать /start. */
@@ -198,6 +221,16 @@ public class TelegramBot {
     }
 
     record User(@JsonProperty("first_name") String firstName, @JsonProperty("last_name") String lastName, String username) {
+    }
+
+    public record ChatInfo(String chatId, String name, String username) {
+    }
+
+    record GetChat(Boolean ok, ChatResult result) {
+    }
+
+    record ChatResult(String title, @JsonProperty("first_name") String firstName, @JsonProperty("last_name") String lastName,
+                      String username) {
     }
 
     record Me(Boolean ok, MeResult result) {
