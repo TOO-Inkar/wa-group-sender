@@ -1,8 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { AppLayout } from './AppLayout'
 import { RequireAuth } from './RequireAuth'
-import { CampaignEditorPage } from '@/pages/CampaignEditorPage'
-import { CampaignPage } from '@/pages/CampaignPage'
+import { CampaignRoute, EditCampaignRoute, NewCampaignRoute } from '@/pages/CampaignSheets'
 import { CampaignsPage } from '@/pages/CampaignsPage'
 import { ConnectionPage } from '@/pages/ConnectionPage'
 import { GroupsPage } from '@/pages/GroupsPage'
@@ -19,10 +18,15 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <Navigate to="/campaigns" replace /> },
-          { path: '/campaigns', element: <CampaignsPage /> },
-          { path: '/campaigns/new', element: <CampaignEditorPage /> },
-          { path: '/campaigns/:id', element: <CampaignPage /> },
-          { path: '/campaigns/:id/edit', element: <CampaignEditorPage /> },
+          {
+            path: '/campaigns',
+            element: <CampaignsPage />,
+            children: [
+              { path: 'new', element: <NewCampaignRoute /> },
+              { path: ':id', element: <CampaignRoute /> },
+              { path: ':id/edit', element: <EditCampaignRoute /> },
+            ],
+          },
           { path: '/groups', element: <GroupsPage /> },
           { path: '/connection', element: <ConnectionPage /> },
           { path: '/settings', element: <SettingsPage /> },

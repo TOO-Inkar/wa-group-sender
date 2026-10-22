@@ -1,11 +1,10 @@
 import { ConnectionPanel } from '@/features/connection/ConnectionPanel'
-import { PageHeader } from '@/shared/ui/misc'
 
 export function ConnectionPage() {
   return (
-    <>
-      <PageHeader title="Подключение к WhatsApp" />
+    <div className="grid gap-3">
+      <h1 className="text-xl font-semibold">Номер WhatsApp</h1>
       <ConnectionPanel />
-    </>
+    </div>
   )
 }

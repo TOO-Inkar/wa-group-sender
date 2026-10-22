@@ -3,22 +3,24 @@ import { useEffect, useState, type KeyboardEvent } from 'react'
 import { FormProvider, useForm, useWatch } from 'react-hook-form'
 import { usePreview, useSaveCampaign } from '../api'
 import { defaultValues, formSchema, previewBody, targetOf, toRequest, type FormValues } from '../form'
+import { scheduleShort } from '../model'
 import { ItemFields } from './ItemFields'
-import { ScheduleSection } from './ScheduleSection'
-import { TargetSection } from './TargetSection'
 import { TextEditor } from './TextEditor'
+import { WherePicker } from './WherePicker'
+import { WhenPicker } from './WhenPicker'
 import { useGroupLists } from '@/features/groups/api'
 import { useHealth } from '@/features/health/api'
-import { useSettings } from '@/features/settings/api'
 import type { Campaign } from '@/shared/api/types'
 import { plural } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
-import { Card } from '@/shared/ui/card'
 import { useConfirm } from '@/shared/ui/confirm'
-import { Field, Input } from '@/shared/ui/input'
+import { Input } from '@/shared/ui/input'
 import { WhatsAppBubble } from '@/shared/ui/misc'
+import { Segmented } from '@/shared/ui/segmented'
+import { Sheet } from '@/shared/ui/sheet'
 
 const DRAFT_KEY = 'wa-campaign-draft'
+const FORM_ID = 'campaign-form'
 
 function readDraft(): FormValues | null {
   try {
@@ -38,11 +40,18 @@ function useDebounced<T>(value: T, ms: number): T {
   return debounced
 }
 
+const WHEN: Record<FormValues['repeat'], (v: FormValues) => string> = {
+  now: () => 'сейчас',
+  at: (v) => `в ${v.atTime}`,
+  daily: (v) => scheduleShort({ repeatMode: 'DAILY', startTime: v.dailyTime, endTime: null, intervalMinutes: null }),
+  interval: (v) => scheduleShort({ repeatMode: 'INTERVAL', startTime: v.intervalStart, endTime: v.intervalEnd, intervalMinutes: v.intervalMinutes }),
+}
+
 /**
- * Новая заявка или правка существующей. Черновик новой хранится в браузере, пока её не отправили.
+ * Новая заявка или правка — в боковой панели поверх списка. Черновик новой хранится в браузере.
  * Enter — следующее поле, Shift+Enter — новая строка, Ctrl+Enter — отправить.
  */
-export function CampaignForm({ initial, campaign, onSaved }: { initial?: Partial<FormValues>; campaign?: Campaign; onSaved: (c: Campaign) => void }) {
+export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: Campaign; initial?: Partial<FormValues>; onClose: (saved?: Campaign) => void }) {
   const editing = !!campaign
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -52,10 +61,7 @@ export function CampaignForm({ initial, campaign, onSaved }: { initial?: Partial
   const confirm = useConfirm()
   const { data: lists = [] } = useGroupLists()
   const { data: health } = useHealth()
-  const { data: settings } = useSettings()
   const values = useWatch({ control: form.control }) as FormValues
-  const mode = values.mode
-
   const body = useDebounced(previewBody(values), 350)
   const preview = usePreview(body)
 
@@ -65,30 +71,24 @@ export function CampaignForm({ initial, campaign, onSaved }: { initial?: Partial
     return () => clearTimeout(timer)
   }, [values, editing])
 
-  const windowText = settings
-    ? `${settings.windowStart === settings.windowEnd ? 'круглосуточно' : `${settings.windowStart}–${settings.windowEnd}`} ${settings.weekendsEnabled ? 'ежедневно' : 'по будням'}`
-    : 'в рабочее окно'
+  const target = targetOf(values, lists)
+  const count = target.groups ? target.groups.length : (health?.activeGroups ?? 0)
+  const where = target.label ?? (target.groups ? plural(count, 'группа', 'группы', 'групп') : `все группы (${count})`)
+  const summary = `${where} · ${WHEN[values.repeat](values)}`
 
   const submit = form.handleSubmit(async (v) => {
-    const target = targetOf(v, lists)
-    const count = target.groups ? target.groups.length : (health?.activeGroups ?? 0)
-    const where = target.label ? `список «${target.label}»` : target.groups ? plural(count, 'выбранная группа', 'выбранные группы', 'выбранных групп') : `все активные группы (${count})`
-    const ok = await confirm({
-      title: editing ? 'Сохранить изменения?' : v.repeat === 'now' ? `Отправить в ${plural(count, 'группу', 'группы', 'групп')}?` : 'Сохранить заявку?',
-      confirm: editing ? 'Сохранить' : v.repeat === 'now' ? 'Отправить' : 'Сохранить',
-      body: (
-        <>
-          <p>Куда: {where}.</p>
-          {preview.data && <WhatsAppBubble text={preview.data} className="max-h-60 overflow-auto" />}
-          {editing && <p>Идущая рассылка досылает прежний текст; новый уйдёт со следующей.</p>}
-        </>
-      ),
-    })
-    if (!ok) return
+    if (!editing && v.repeat === 'now') {
+      const ok = await confirm({
+        title: `Отправить в ${plural(count, 'группу', 'группы', 'групп')}?`,
+        confirm: 'Отправить',
+        body: preview.data ? <WhatsAppBubble text={preview.data} className="max-h-60 overflow-auto" /> : undefined,
+      })
+      if (!ok) return
+    }
     save.mutate(toRequest(v, lists), {
       onSuccess: (saved) => {
         if (!editing) localStorage.removeItem(DRAFT_KEY)
-        onSaved(saved)
+        onClose(saved)
       },
       onError: (e) => form.setError('root', { message: e.message }),
     })
@@ -101,88 +101,81 @@ export function CampaignForm({ initial, campaign, onSaved }: { initial?: Partial
       void submit()
       return
     }
-    const target = event.target as HTMLElement
-    if (!target.hasAttribute('data-nav')) return
+    const el = event.target as HTMLElement
+    if (!el.hasAttribute('data-nav')) return
     if (event.shiftKey) {
-      if (target.tagName !== 'TEXTAREA') event.preventDefault()
+      if (el.tagName !== 'TEXTAREA') event.preventDefault()
       return
     }
     event.preventDefault()
     const order = [...event.currentTarget.querySelectorAll<HTMLElement>('[data-nav]')]
-    const next = order[order.indexOf(target) + 1]
-    if (next) next.focus()
-    else event.currentTarget.querySelector<HTMLElement>('button[type=submit]')?.focus()
+    order[order.indexOf(el) + 1]?.focus()
   }
 
   return (
-    <FormProvider {...form}>
-      <div className="grid items-start gap-4.5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <Card className="p-5">
-          <form onSubmit={submit} onKeyDown={onKeyDown} noValidate className="grid gap-4">
-            <div className="inline-flex justify-self-start rounded-xl bg-surface-2 p-0.5">
-              {(['fields', 'text'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => form.setValue('mode', m)}
-                  className={`cursor-pointer rounded-lg px-3.5 py-1.5 text-sm ${mode === m ? 'bg-surface font-semibold shadow-sm' : 'text-muted'}`}
-                >
-                  {m === 'fields' ? 'По полям' : 'Готовый текст'}
-                </button>
-              ))}
-            </div>
-
-            {mode === 'fields' ? (
-              <>
-                <ItemFields />
-                <Field label="Контакт в конце сообщения" hint="Пусто — строки с контактом не будет. В сообщении из нескольких заявок — один раз, в конце.">
-                  <Input autoComplete="off" placeholder="Имя +7 7xx xxx xx xx" data-nav="" {...form.register('contact')} />
-                </Field>
-              </>
-            ) : (
-              <TextEditor />
-            )}
-
-            <Field label="Название заявки" hint="Необязательно — для списка заявок; по умолчанию маршрут.">
-              <Input autoComplete="off" maxLength={200} data-nav="" {...form.register('title')} />
-            </Field>
-
-            <TargetSection />
-            <ScheduleSection windowText={windowText} />
-
-            {form.formState.errors.root && (
-              <p role="alert" className="text-sm text-danger">
-                {form.formState.errors.root.message}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              {!editing ? (
-                <Button variant="ghost" onClick={() => form.reset(defaultValues())}>
-                  Очистить форму
-                </Button>
-              ) : (
-                <span />
-              )}
-              <Button type="submit" variant="primary" size="lg" disabled={save.isPending}>
-                {editing ? 'Сохранить изменения' : values.repeat === 'now' ? 'Отправить' : 'Сохранить и запланировать'}
+    <Sheet
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={editing ? `№${campaign.id} · изменение` : 'Новая заявка'}
+      width="max-w-5xl"
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-sm text-muted">
+            → <b className="text-text">{summary}</b>
+          </span>
+          <span className="flex items-center gap-2">
+            {form.formState.errors.root && <span className="text-sm text-danger">{form.formState.errors.root.message}</span>}
+            {!editing && (
+              <Button variant="ghost" onClick={() => form.reset(defaultValues())}>
+                Очистить
               </Button>
-            </div>
-            <p className="text-center text-[13px] text-muted">Enter — следующее поле · Shift+Enter — новая строка · Ctrl+Enter — отправить</p>
-          </form>
-        </Card>
-
-        <div className="sticky top-4 grid gap-2.5">
-          <Card className="overflow-hidden p-0">
-            <div className="border-b border-border px-3.5 py-2.5 text-[13px] font-semibold text-muted">Предпросмотр</div>
-            {preview.data && body ? (
-              <WhatsAppBubble text={preview.data} className="min-h-44 rounded-none" />
-            ) : (
-              <div className="grid min-h-44 place-items-center bg-chat-bg p-6 text-center text-muted">Начните заполнять форму — здесь появится сообщение.</div>
             )}
-          </Card>
-          <p className="text-[13px] text-muted">Сообщения уходят не сразу, а по одному с паузами, {windowText}.</p>
+            <Button type="submit" form={FORM_ID} variant="primary" disabled={save.isPending}>
+              {editing ? 'Сохранить' : values.repeat === 'now' ? 'Отправить' : 'Запланировать'}
+            </Button>
+          </span>
         </div>
-      </div>
-    </FormProvider>
+      }
+    >
+      <FormProvider {...form}>
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <form id={FORM_ID} onSubmit={submit} onKeyDown={onKeyDown} noValidate className="grid gap-4">
+            <Segmented
+              size="sm"
+              className="justify-self-start"
+              value={values.mode}
+              onChange={(m) => form.setValue('mode', m)}
+              options={[
+                { value: 'fields', label: 'По полям' },
+                { value: 'text', label: 'Готовый текст' },
+              ]}
+            />
+            {values.mode === 'fields' ? <ItemFields /> : <TextEditor />}
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {values.mode === 'fields' && (
+                <label className="grid gap-1">
+                  <span className="text-[13px] font-medium text-muted">Контакт в конце</span>
+                  <Input autoComplete="off" className="py-1.5" placeholder="Имя +7 7xx xxx xx xx" data-nav="" {...form.register('contact')} />
+                </label>
+              )}
+              <label className="grid gap-1">
+                <span className="text-[13px] font-medium text-muted">Название в списке</span>
+                <Input autoComplete="off" className="py-1.5" maxLength={200} placeholder="по умолчанию — маршрут" data-nav="" {...form.register('title')} />
+              </label>
+            </div>
+            <WherePicker />
+            <WhenPicker />
+          </form>
+          <div className="sticky top-0 grid gap-1.5">
+            <span className="text-[13px] font-medium text-muted">Как увидят в WhatsApp</span>
+            {preview.data && body ? (
+              <WhatsAppBubble text={preview.data} className="max-h-[70vh] overflow-auto" />
+            ) : (
+              <div className="grid min-h-40 place-items-center rounded-xl bg-chat-bg p-6 text-center text-sm text-muted">Здесь появится сообщение</div>
+            )}
+          </div>
+        </div>
+      </FormProvider>
+    </Sheet>
   )
 }

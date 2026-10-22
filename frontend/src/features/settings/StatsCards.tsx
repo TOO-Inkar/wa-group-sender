@@ -3,9 +3,9 @@ import { Card } from '@/shared/ui/card'
 
 function Stat({ label, value, note }: { label: string; value: number | string; note: string }) {
   return (
-    <Card>
-      <div className="text-xs tracking-wide text-muted uppercase">{label}</div>
-      <div className="mt-0.5 text-2xl font-bold">{value}</div>
+    <Card className="px-3.5 py-3">
+      <div className="text-xs text-muted">{label}</div>
+      <div className="text-xl font-bold tabular-nums">{value}</div>
       <div className="text-[13px] text-muted">{note}</div>
     </Card>
   )
@@ -15,7 +15,7 @@ export function StatsCards() {
   const { data: h } = useHealth()
   if (!h) return null
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
       <Stat label="Отправлено сегодня" value={h.sentToday} note={h.warmupLimitToday == null ? 'без лимита' : `из ${h.warmupLimitToday}, день прогрева ${h.warmupDay}`} />
       <Stat label="За последний час" value={h.sentLastHour} note={h.hourlyLimit ? `из ${h.hourlyLimit} в час` : 'без лимита в час'} />
       <Stat label="Рассылок в работе" value={h.queueLength} note="идут или ждут" />
