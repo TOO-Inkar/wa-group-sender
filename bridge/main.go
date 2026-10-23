@@ -10,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -40,6 +41,7 @@ const (
 	nameQueryBudget = 80 * time.Second
 	// Older direct messages are a backlog replayed after a reconnect, not something to auto-reply to.
 	directMessageMaxAge = 10 * time.Minute
+	maxPictureBytes     = 1 << 20
 )
 
 type event struct {
@@ -121,6 +123,7 @@ func main() {
 	mux.HandleFunc("POST /send", b.handleSend)
 	mux.HandleFunc("POST /typing", b.handleTyping)
 	mux.HandleFunc("GET /last", b.handleLast)
+	mux.HandleFunc("GET /picture", b.handlePicture)
 	mux.HandleFunc("POST /reject-call", b.handleRejectCall)
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 
@@ -695,6 +698,46 @@ func (b *bridge) handleLast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"known": true, "fromMe": fromMe, "at": at})
+}
+
+func (b *bridge) handlePicture(w http.ResponseWriter, r *http.Request) {
+	jid, err := types.ParseJID(r.URL.Query().Get("jid"))
+	if err != nil || jid.Server != types.GroupServer {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "group jid is required"})
+		return
+	}
+	cli, err := b.client()
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
+		return
+	}
+	info, err := cli.GetProfilePictureInfo(r.Context(), jid, &whatsmeow.GetProfilePictureParams{Preview: true})
+	if isAny(err, whatsmeow.ErrProfilePictureNotSet, whatsmeow.ErrProfilePictureUnauthorized) || (err == nil && (info == nil || info.URL == "")) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, info.URL, nil)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPictureBytes))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": fmt.Sprintf("download: status %d %v", resp.StatusCode, err)})
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	_, _ = w.Write(body)
 }
 
 type rejectCallRequest struct {

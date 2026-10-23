@@ -11,5 +11,7 @@ public record WhatsAppProperties(
         URI bridgeUrl,
         Path qrPngPath,
         Duration sendTimeout,
-        Duration groupsTimeout) {
+        Duration groupsTimeout,
+        Path pictureDir,
+        Duration pictureTtl) {
 }

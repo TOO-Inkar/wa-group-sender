@@ -8,6 +8,7 @@ app:
     dir: build/test-logs
   whatsapp:
     qr-png-path: build/test-data/qr/qr.png
+    picture-dir: build/test-data/pictures
   message:
     template-path: build/test-data/templates/missing.txt
     contact: "Диспетчер (тест) +7 000 000 00 00"

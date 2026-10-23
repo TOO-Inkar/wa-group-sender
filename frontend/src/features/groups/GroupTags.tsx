@@ -1,12 +1,24 @@
+import { useState } from 'react'
 import type { Group } from '@/shared/api/types'
 import { plural } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 
 export function GroupName({ group }: { group: Group }) {
-  return group.name ? (
-    <span className="font-semibold [overflow-wrap:anywhere]">{group.name}</span>
-  ) : (
-    <span className="text-muted italic">Без названия</span>
+  return (
+    <span className="flex items-center gap-2.5">
+      <GroupAvatar group={group} />
+      {group.name ? <span className="font-semibold [overflow-wrap:anywhere]">{group.name}</span> : <span className="text-muted italic">Без названия</span>}
+    </span>
+  )
+}
+
+function GroupAvatar({ group }: { group: Group }) {
+  const [failed, setFailed] = useState(false)
+  const initial = group.name?.match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase() ?? '?'
+  return (
+    <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-border text-xs font-semibold text-muted" aria-hidden>
+      {failed ? initial : <img src={`/api/groups/${encodeURIComponent(group.jid)}/picture`} alt="" loading="lazy" className="size-full object-cover" onError={() => setFailed(true)} />}
+    </span>
   )
 }
 

@@ -102,4 +102,16 @@ class BridgeWhatsAppGatewayTest {
                 new GatewayEvent.LoggedOut());
         assertThat(gateway.sessionState()).isEqualTo(SessionState.LOGGED_OUT);
     }
+
+    @Test
+    void groupPictureDistinguishesMissingFromUnavailable() {
+        server.expect(requestTo("http://bridge/picture?jid=1%40g.us"))
+                .andRespond(withSuccess(new byte[]{1, 2}, MediaType.IMAGE_JPEG));
+        server.expect(requestTo("http://bridge/picture?jid=2%40g.us")).andRespond(withStatus(HttpStatus.NOT_FOUND));
+        server.expect(requestTo("http://bridge/picture?jid=3%40g.us")).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThat(gateway.groupPicture("1@g.us")).hasValueSatisfying(jpeg -> assertThat(jpeg).containsExactly(1, 2));
+        assertThat(gateway.groupPicture("2@g.us")).isEmpty();
+        assertThatThrownBy(() -> gateway.groupPicture("3@g.us")).isInstanceOf(IllegalStateException.class);
+    }
 }
