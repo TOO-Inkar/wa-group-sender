@@ -87,7 +87,8 @@ app:
     window-end: ${DISPATCH_WINDOW_END:20:00}
     weekends-enabled: ${DISPATCH_WEEKENDS_ENABLED:false}
     hourly-limit: ${HOURLY_SEND_LIMIT:120}
-    own-message-gap: ${OWN_MESSAGE_GAP:30m}
+    group-interval: ${GROUP_SEND_INTERVAL:60m}
+    wait-for-reply: ${WAIT_FOR_REPLY:true}
   warmup:
     enabled: ${WARMUP_ENABLED:true}
     daily-limits: ${WARMUP_DAILY_LIMITS:45,80,120,170,220}

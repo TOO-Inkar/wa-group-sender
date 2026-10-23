@@ -12,6 +12,7 @@ import kz.wasender.settings.SettingsService;
 import kz.wasender.sheets.SheetField;
 import kz.wasender.sheets.SheetUpdateBuffer;
 import kz.wasender.time.Sleeper;
+import kz.wasender.whatsapp.WhatsAppGateway.LastMessage;
 import kz.wasender.whatsapp.SendException;
 import kz.wasender.whatsapp.SessionState;
 import kz.wasender.whatsapp.WhatsAppGateway;
@@ -26,13 +27,19 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.random.RandomGenerator;
+import java.util.stream.Stream;
 
 @Service
 public class Dispatcher {
     private static final Logger log = LoggerFactory.getLogger(Dispatcher.class);
+    private static final Duration REPLY_RECHECK = Duration.ofMinutes(10);
+    private static final String WAITING_REPLY = "ждём: в группе никто не написал после нашего сообщения";
+    private static final String NO_REPLY = "пропущено: в группе никто не написал после нашего сообщения";
 
     private final RequestRepository requests;
     private final DeliveryRepository deliveries;
@@ -190,6 +197,12 @@ public class Dispatcher {
             }
             var ready = deliveries.nextReady(request.id(), now);
             if (ready.isEmpty()) {
+                if (deliveries.onlyWaitingReply(request.id())) {
+                    var skipped = deliveries.skipWaitingReply(request.id(), NO_REPLY, now);
+                    log.info("SKIP request_id={} groups={} reason=no-reply-after-our-message", request.id(), skipped);
+                    finish(request);
+                    return Duration.ZERO;
+                }
                 var postponed = deliveries.earliestPostponed(request.id());
                 if (postponed.isEmpty()) {
                     finish(request);
@@ -296,7 +309,7 @@ public class Dispatcher {
             afterDelivery(request, delivery);
             return;
         }
-        if (postponeAfterOwnMessage(request, delivery)) {
+        if (holdForGroupPace(request, delivery)) {
             return;
         }
         var wave = waveBoundary();
@@ -316,24 +329,31 @@ public class Dispatcher {
         send(request, delivery, pause);
     }
 
-    private boolean postponeAfterOwnMessage(RequestRecord request, DeliveryRecord delivery) {
-        // Два наших сообщения подряд в группе выглядят как спам и повышают риск бана.
-        var gap = settings.dispatch().ownMessageGap();
-        if (gap == null || !gap.isPositive()) {
-            return false;
-        }
-        var last = gateway.lastMessage(delivery.groupJid());
-        if (last.isEmpty() || !last.get().fromMe()) {
-            return false;
-        }
-        var notBefore = last.get().at().plus(gap);
+    // Наши сообщения подряд или чаще раза в интервал выглядят в группе как спам.
+    private boolean holdForGroupPace(RequestRecord request, DeliveryRecord delivery) {
+        var dispatch = settings.dispatch();
+        var jid = delivery.groupJid();
         var now = Instant.now(clock);
-        if (!notBefore.isAfter(now)) {
+        var last = gateway.lastMessage(jid);
+        if (dispatch.waitForReply() && last.isPresent() && last.get().fromMe()) {
+            deliveries.waitForReply(delivery.id(), now.plus(REPLY_RECHECK), WAITING_REPLY, now);
+            log.info("POSTPONE request_id={} group_jid={} position={} reason=no-reply-after-our-message", request.id(), jid, delivery.position());
+            return true;
+        }
+        var interval = dispatch.groupInterval();
+        if (interval == null || !interval.isPositive()) {
             return false;
         }
-        deliveries.postpone(delivery.id(), notBefore, "ждём: последнее сообщение в группе — наше", now);
-        log.info("POSTPONE request_id={} group_jid={} position={} until={} reason=own-last-message", request.id(), delivery.groupJid(),
-                delivery.position(), notBefore);
+        var ours = Stream.of(deliveries.lastSentTo(jid), last.filter(LastMessage::fromMe).map(LastMessage::at))
+                .flatMap(Optional::stream)
+                .max(Comparator.naturalOrder());
+        var notBefore = ours.map(at -> at.plus(interval)).filter(at -> at.isAfter(now));
+        if (notBefore.isEmpty()) {
+            return false;
+        }
+        deliveries.postpone(delivery.id(), notBefore.get(), "ждём: в эту группу писали меньше " + interval.toMinutes() + " мин назад", now);
+        log.info("POSTPONE request_id={} group_jid={} position={} until={} reason=group-interval", request.id(), jid, delivery.position(),
+                notBefore.get());
         return true;
     }
 

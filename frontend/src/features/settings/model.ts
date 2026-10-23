@@ -13,6 +13,11 @@ export function limitsText(s: Settings): string {
   return `${hourly} · ${daily}`
 }
 
+export function groupPaceText(s: Settings): string {
+  const often = s.groupIntervalMinutes ? `не чаще раза в ${s.groupIntervalMinutes} мин` : 'без ограничения по времени'
+  return s.waitForReply ? `${often}, после чужого сообщения` : often
+}
+
 export function autoReplyText(s: Settings): string {
   const parts = [s.autoReplyEnabled && 'отвечает на сообщения', s.autoReplyRejectCalls && 'отклоняет звонки'].filter(Boolean)
   return parts.length ? `${parts.join(', ')} · раз в ${s.autoReplyCooldownHours} ч на человека` : 'выключен'

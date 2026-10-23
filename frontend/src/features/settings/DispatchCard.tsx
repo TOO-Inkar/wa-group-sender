@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { useDispatchControl, useSaveSettings, useSettings } from './api'
-import { dispatchControl, limitsText, windowText, type DispatchControl } from './model'
+import { dispatchControl, groupPaceText, limitsText, windowText, type DispatchControl } from './model'
 import { useHealth } from '@/features/health/api'
 import type { Settings } from '@/shared/api/types'
 import { Badge } from '@/shared/ui/badge'
@@ -29,7 +29,8 @@ const schema = z
     waveSize: z.coerce.number().int().min(1, 'От 1'),
     wavePauseMinMinutes: n,
     wavePauseMaxMinutes: n,
-    ownMessageGapMinutes: n,
+    groupIntervalMinutes: n,
+    waitForReply: z.boolean(),
   })
   .refine((v) => v.groupPauseMinSeconds <= v.groupPauseMaxSeconds, { path: ['groupPauseMaxSeconds'], message: '«до» меньше «от»' })
   .refine((v) => v.wavePauseMinMinutes <= v.wavePauseMaxMinutes, { path: ['wavePauseMaxMinutes'], message: '«до» меньше «от»' })
@@ -70,6 +71,13 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
           </Field>
         </div>
         <Checkbox label="Прогрев нового номера" {...form.register('warmupEnabled')} />
+        <div className="grid gap-2 rounded-lg border border-border p-3">
+          <span className="text-sm font-medium">Каждая группа отдельно</span>
+          <Field label="Не чаще раза в, мин" hint="0 — без ограничения" error={e.groupIntervalMinutes?.message}>
+            <Input type="number" min={0} {...form.register('groupIntervalMinutes')} />
+          </Field>
+          <Checkbox label="Только если после нашего сообщения в группе кто-то написал" {...form.register('waitForReply')} />
+        </div>
         <details className="grid gap-3">
           <summary className="cursor-pointer text-sm text-muted">Паузы — меняйте осторожно</summary>
           <div className="mt-3 grid grid-cols-2 gap-3">
@@ -81,9 +89,6 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
             </Field>
             <Field label="Волна, групп" error={e.waveSize?.message}>
               <Input type="number" min={1} {...form.register('waveSize')} />
-            </Field>
-            <Field label="После своего сообщения, мин" hint="0 — не проверять" error={e.ownMessageGapMinutes?.message}>
-              <Input type="number" min={0} {...form.register('ownMessageGapMinutes')} />
             </Field>
             <Field label="Между волнами, от, мин" error={e.wavePauseMinMinutes?.message}>
               <Input type="number" min={0} {...form.register('wavePauseMinMinutes')} />
@@ -140,6 +145,8 @@ export function DispatchCard() {
             <dd className="text-right font-semibold">{windowText(settings)}</dd>
             <dt className="text-muted">Лимиты</dt>
             <dd className="text-right font-semibold">{limitsText(settings)}</dd>
+            <dt className="text-muted">В группу</dt>
+            <dd className="text-right font-semibold">{groupPaceText(settings)}</dd>
           </dl>
           <Button size="sm" variant="ghost" className="justify-self-start px-0 text-accent hover:enabled:text-accent-hover" onClick={() => setOpen(true)}>
             Изменить окно и лимиты

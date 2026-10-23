@@ -20,5 +20,6 @@ public record DispatchProperties(
         LocalTime windowEnd,
         boolean weekendsEnabled,
         int hourlyLimit,
-        Duration ownMessageGap) {
+        Duration groupInterval,
+        boolean waitForReply) {
 }

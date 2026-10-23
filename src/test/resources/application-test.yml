@@ -32,7 +32,8 @@ app:
     window-end: "20:00"
     weekends-enabled: true
     hourly-limit: 0
-    own-message-gap: 0s
+    group-interval: 0s
+    wait-for-reply: false
   warmup:
     enabled: false
     daily-limits: 45,80,120,170,220

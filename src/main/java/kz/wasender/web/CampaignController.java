@@ -27,8 +27,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ import java.util.Map;
 @RequestMapping("/api/admin/campaigns")
 public class CampaignController {
     private static final int RUNS_IN_LIST = 5;
+    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
 
     private final CampaignService service;
     private final CampaignRepository campaigns;
@@ -46,9 +49,10 @@ public class CampaignController {
     private final CampaignRecipients recipients;
     private final Dispatcher dispatcher;
     private final WorkWindow window;
+    private final Clock clock;
 
     public CampaignController(CampaignService service, CampaignRepository campaigns, RequestRepository requests, DeliveryRepository deliveries,
-                              JsonMapper json, CampaignRecipients recipients, Dispatcher dispatcher, WorkWindow window) {
+                              JsonMapper json, CampaignRecipients recipients, Dispatcher dispatcher, WorkWindow window, Clock clock) {
         this.service = service;
         this.campaigns = campaigns;
         this.requests = requests;
@@ -57,6 +61,7 @@ public class CampaignController {
         this.recipients = recipients;
         this.dispatcher = dispatcher;
         this.window = window;
+        this.clock = clock;
     }
 
     @GetMapping
@@ -156,10 +161,21 @@ public class CampaignController {
             case WAITING_SESSION -> "ждёт подключения WhatsApp";
             case HOURLY_LIMIT_REACHED -> "лимит в час исчерпан — продолжит в течение часа";
             case DAILY_LIMIT_REACHED -> "дневной лимит исчерпан — продолжит завтра";
-            default -> window.isOpenNow(request.windowStart(), request.windowEnd()) ? null
+            default -> window.isOpenNow(request.windowStart(), request.windowEnd()) ? waitingGroups(request)
                     : "ждёт рабочего окна с " + (request.windowStart() == null ? window.start() : request.windowStart())
                     + " — чтобы отправить сейчас, включите в заявке «слать и вне рабочего окна»";
         };
+    }
+
+    private String waitingGroups(RequestRecord request) {
+        var now = Instant.now(clock);
+        if (deliveries.nextReady(request.id(), now).isPresent()) {
+            return null;
+        }
+        return deliveries.earliestPostponed(request.id())
+                .map(at -> "ждёт до " + TIME.format(at.atZone(clock.getZone()))
+                        + ": в оставшиеся группы недавно писали или там ещё никто не ответил на наше сообщение")
+                .orElse(null);
     }
 
     public record Content(@Nullable String mode, @Nullable List<AdminController.Item> items, @Nullable String text, @Nullable String contact) {

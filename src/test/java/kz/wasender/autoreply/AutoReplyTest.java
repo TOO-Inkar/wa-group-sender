@@ -33,7 +33,7 @@ class AutoReplyTest extends IntegrationTest {
     @Test
     void callIsRejectedAndAnsweredWithTheTextFromSettings() {
         settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, null,
-                null, null, null, "Это бот, звонить не нужно.", null));
+                null, null, null, null, "Это бот, звонить не нужно.", null));
 
         gateway.simulateCall("77005556677@s.whatsapp.net", "CALL1");
 
@@ -45,7 +45,7 @@ class AutoReplyTest extends IntegrationTest {
     @Test
     void disabledAutoReplyStaysSilent() {
         settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, null,
-                false, false, null, null, null));
+                null, false, false, null, null, null));
 
         gateway.simulateDirectMessage("77001112233@s.whatsapp.net", "Иван");
         gateway.simulateCall("77005556677@s.whatsapp.net", "CALL2");
