@@ -76,6 +76,7 @@ type bridge struct {
 	names  map[string]string
 
 	last *sql.DB
+	keys *senderKeyRecipients
 }
 
 func main() {
@@ -110,8 +111,18 @@ func main() {
 		slog.Error("last messages store", "err", err)
 		os.Exit(1)
 	}
+	keyLimit, err := strconv.Atoi(env("BRIDGE_SENDER_KEY_LIMIT", "600"))
+	if err != nil {
+		slog.Error("BRIDGE_SENDER_KEY_LIMIT", "err", err)
+		os.Exit(1)
+	}
+	keys, err := openSenderKeyRecipients(env("BRIDGE_SENDER_KEYS_DB", "/data/sender-keys.db"), os.Getenv("BRIDGE_SENDER_KEY_GROUPS"), keyLimit)
+	if err != nil {
+		slog.Error("sender key recipients store", "err", err)
+		os.Exit(1)
+	}
 	b := &bridge{container: container, waLog: waLog.Stdout("WA", logLevel, false), instance: randomID(), state: "STARTING",
-		names: map[string]string{}, last: last}
+		names: map[string]string{}, last: last, keys: keys}
 	b.evCond = sync.NewCond(&b.evMu)
 
 	mux := http.NewServeMux()
@@ -169,6 +180,13 @@ func (b *bridge) connect() error {
 		return fmt.Errorf("device: %w", err)
 	}
 	cli := whatsmeow.NewClient(device, b.waLog)
+	keys := b.keys.forClient(cli)
+	cli.SenderKeyRecipients = keys
+	cli.UseRetryMessageStore = true
+	cli.PreRetryCallback = func(receipt *events.Receipt, _ types.MessageID, _ int, _ *waE2E.Message) bool {
+		keys.markRetry(receipt)
+		return true
+	}
 	cli.AddEventHandler(func(evt any) { b.onEvent(cli, evt) })
 	b.cli = cli
 	b.setState("CONNECTING", "")

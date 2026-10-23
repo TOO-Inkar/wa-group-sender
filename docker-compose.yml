@@ -7,6 +7,8 @@ services:
     environment:
       WA_DEVICE_NAME: ${WA_DEVICE_NAME:-wa-group-sender}
       BRIDGE_LOG_LEVEL: ${BRIDGE_LOG_LEVEL:-INFO}
+      BRIDGE_SENDER_KEY_GROUPS: ${BRIDGE_SENDER_KEY_GROUPS:-}
+      BRIDGE_SENDER_KEY_LIMIT: ${BRIDGE_SENDER_KEY_LIMIT:-600}
       TZ: Asia/Almaty
     volumes:
       - wa-bridge:/data
