@@ -20,7 +20,7 @@ export function AppLayout() {
   const items = [
     { to: '/campaigns', label: 'Заявки', icon: ClipboardList, extra: <Count value={health?.queueLength ?? 0} /> },
     { to: '/groups', label: 'Группы', icon: Users },
-    { to: '/connection', label: 'Номер', icon: Smartphone, extra: <Dot tone={tone} /> },
+    { to: '/connection', label: 'Подключение', icon: Smartphone, extra: <Dot tone={tone} /> },
     { to: '/settings', label: 'Настройки', icon: Settings, extra: <Count value={pending} /> },
   ]
 
