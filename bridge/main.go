@@ -124,6 +124,7 @@ func main() {
 	mux.HandleFunc("POST /typing", b.handleTyping)
 	mux.HandleFunc("GET /last", b.handleLast)
 	mux.HandleFunc("GET /picture", b.handlePicture)
+	mux.HandleFunc("GET /devices", b.handleDevices)
 	mux.HandleFunc("POST /reject-call", b.handleRejectCall)
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 
@@ -738,6 +739,34 @@ func (b *bridge) handlePicture(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "image/jpeg")
 	_, _ = w.Write(body)
+}
+
+func (b *bridge) handleDevices(w http.ResponseWriter, r *http.Request) {
+	jid, err := types.ParseJID(r.URL.Query().Get("jid"))
+	if err != nil || jid.Server != types.GroupServer {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "group jid is required"})
+		return
+	}
+	cli, err := b.client()
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
+		return
+	}
+	info, err := cli.GetGroupInfo(r.Context(), jid)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	participants := make([]types.JID, 0, len(info.Participants))
+	for _, p := range info.Participants {
+		participants = append(participants, p.JID)
+	}
+	devices, err := cli.GetUserDevices(r.Context(), participants)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"participants": len(participants), "devices": len(devices)})
 }
 
 type rejectCallRequest struct {
