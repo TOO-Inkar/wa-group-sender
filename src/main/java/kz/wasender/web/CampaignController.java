@@ -174,7 +174,7 @@ public class CampaignController {
         }
         return deliveries.earliestPostponed(request.id())
                 .map(at -> "ждёт до " + TIME.format(at.atZone(clock.getZone()))
-                        + ": в оставшиеся группы недавно писали или там ещё никто не ответил на наше сообщение")
+                        + ": оставшиеся группы отложены, причина указана у каждой группы")
                 .orElse(null);
     }
 

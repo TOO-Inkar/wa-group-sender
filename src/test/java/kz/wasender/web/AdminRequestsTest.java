@@ -1,11 +1,14 @@
 package kz.wasender.web;
 
+import kz.wasender.dispatch.DispatcherState;
+import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestStatus;
 import kz.wasender.support.IntegrationTest;
 import kz.wasender.whatsapp.GroupInfo;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -14,6 +17,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AdminRequestsTest extends IntegrationTest {
     @Autowired
     AdminController admin;
+    @Autowired
+    GroupRepository groups;
 
     @Test
     void requestsCarryDeliveryProgress() throws Exception {
@@ -165,7 +170,7 @@ class AdminRequestsTest extends IntegrationTest {
     }
 
     @Test
-    void groupRejectedByTheServerFailsAtOnceWithoutCountingAsRisk() throws Exception {
+    void groupRejectedByTheServerIsRetriedLaterWithoutCountingAsRisk() throws Exception {
         useGroups(3);
         var rejected = "12036399000002@g.us";
         gateway.rejectFor(rejected, 1);
@@ -174,8 +179,32 @@ class AdminRequestsTest extends IntegrationTest {
         runUntilBlocked(500);
 
         assertThat(sentJids()).hasSize(2).doesNotContain(rejected);
-        assertThat(admin.requests().getFirst().progress().failed()).isEqualTo(1);
+        assertThat(dispatcher.state()).isEqualTo(DispatcherState.WAITING_GROUPS);
+        clock.advance(Duration.ofMinutes(19));
+        runUntilBlocked(500);
+        assertThat(sentJids()).doesNotContain(rejected);
+
+        clock.advance(Duration.ofMinutes(11));
+        runUntilBlocked(500);
+        assertThat(sentJids()).hasSize(3).contains(rejected);
+        assertThat(admin.requests().getFirst().progress().failed()).isZero();
         assertThat(risk.eventsInWindow()).isZero();
+    }
+
+    @Test
+    void groupStillRejectedAfterRetriesFailsInThisDispatch() throws Exception {
+        useGroups(2);
+        var rejected = "12036399000001@g.us";
+        gateway.rejectFor(rejected, 3);
+
+        admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → АСТАНА", "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
+        runWithRejectionRetries();
+
+        var request = admin.requests().getFirst();
+        assertThat(request.status()).isEqualTo(RequestStatus.DONE);
+        assertThat(request.progress().failed()).isEqualTo(1);
+        assertThat(groups.findAll()).filteredOn(g -> g.jid().equals(rejected)).singleElement()
+                .satisfies(g -> assertThat(g.rejectedCount()).isEqualTo(1));
     }
 
     @Test
@@ -193,13 +222,13 @@ class AdminRequestsTest extends IntegrationTest {
     }
 
     @Test
-    void groupRejectedTwiceInARowLeavesTheDispatchUntilReset() throws Exception {
+    void groupRejectedInThreeDispatchesInARowLeavesTheDispatchUntilReset() throws Exception {
         useGroups(2);
         var stubborn = "12036399000001@g.us";
-        gateway.rejectFor(stubborn, 2);
-        for (var i = 0; i < 2; i++) {
+        gateway.rejectFor(stubborn, 9);
+        for (var i = 0; i < 3; i++) {
             admin.createRequest(new AdminController.NewRequest("АЛМАТЫ → АСТАНА " + i, "Завтра", "Тент 20 т", "Мука", "🔥", null, null));
-            runUntilBlocked(500);
+            runWithRejectionRetries();
         }
         assertThat(sentJids()).doesNotContain(stubborn);
         groupSync.sync();
@@ -236,5 +265,13 @@ class AdminRequestsTest extends IntegrationTest {
         assertThat(request.progress().failed()).isZero();
         assertThat(sentJids()).hasSize(3).doesNotHaveDuplicates();
         assertThat(admin.retryFailed("1").getStatusCode().value()).isEqualTo(409);
+    }
+
+    private void runWithRejectionRetries() throws InterruptedException {
+        for (var i = 0; i < 3; i++) {
+            runUntilBlocked(500);
+            clock.advance(Duration.ofMinutes(31));
+        }
+        runUntilBlocked(500);
     }
 }

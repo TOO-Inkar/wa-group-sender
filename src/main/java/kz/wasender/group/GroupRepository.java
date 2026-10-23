@@ -26,7 +26,7 @@ public class GroupRepository {
             rs.getInt("rejected_count"),
             rs.getBoolean("rejected"));
 
-    static final int REJECTIONS_TO_EXCLUDE = 2;
+    static final int REJECTIONS_TO_EXCLUDE = 3;
 
     private final JdbcClient jdbc;
 

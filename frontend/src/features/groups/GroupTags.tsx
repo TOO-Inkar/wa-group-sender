@@ -37,7 +37,7 @@ export function GroupTags({ group, onReset }: { group: Group; onReset?: (jid: st
       ) : null}
       {group.rejected ? (
         <>
-          <Badge tone="bad" title="WhatsApp дважды подряд отклонил отправку (ошибка 479)">
+          <Badge tone="bad" title="WhatsApp отклонил отправку в трёх рассылках подряд (ошибка 479)">
             WhatsApp отклоняет
           </Badge>
           {onReset && (
