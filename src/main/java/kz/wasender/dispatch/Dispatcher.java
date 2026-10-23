@@ -40,6 +40,10 @@ public class Dispatcher {
     private static final Duration REPLY_RECHECK = Duration.ofMinutes(10);
     private static final String WAITING_REPLY = "ждём: в группе никто не написал после нашего сообщения";
     private static final String NO_REPLY = "пропущено: в группе никто не написал после нашего сообщения";
+    private static final String REJECTED_RETRY = "ждём: WhatsApp отклонил отправку, повторим позже";
+    private static final int REJECTED_RETRIES = 2;
+    private static final Duration REJECTED_RETRY_MIN = Duration.ofMinutes(20);
+    private static final Duration REJECTED_RETRY_MAX = Duration.ofMinutes(30);
 
     private final RequestRepository requests;
     private final DeliveryRepository deliveries;
@@ -273,7 +277,6 @@ public class Dispatcher {
     }
 
     private boolean plan(RequestRecord request) {
-        // Заявка с выбранными группами никогда не превращается в рассылку по всем активным.
         var targeted = requests.isTargeted(request.id());
         var active = new ArrayList<>(targeted ? requests.targets(request.id()) : groups.activeJids());
         if (active.isEmpty() && !targeted) {
@@ -329,7 +332,6 @@ public class Dispatcher {
         send(request, delivery, pause);
     }
 
-    // Наши сообщения подряд или чаще раза в интервал выглядят в группе как спам.
     private boolean holdForGroupPace(RequestRecord request, DeliveryRecord delivery) {
         var dispatch = settings.dispatch();
         var jid = delivery.groupJid();
@@ -376,25 +378,37 @@ public class Dispatcher {
                     request.id(), jid, delivery.position(), wave, typing.toMillis(), pause.toMillis(), warmup.sentToday());
         } catch (SendException e) {
             lastSendAt = Instant.now(clock);
+            if (e.rejectedByServer() && delivery.attempts() < REJECTED_RETRIES) {
+                retryRejectedLater(request, delivery);
+                afterDelivery(request, delivery);
+                return;
+            }
             deliveries.updateStatus(delivery.id(), DeliveryStatus.FAILED, e.getMessage(), lastSendAt);
             log.warn("SEND request_id={} group_jid={} status=FAILED position={} wave={} error={}", request.id(), jid, delivery.position(), wave, e.getMessage());
             if (e.groupUnavailable()) {
                 groups.deactivate(jid, lastSendAt);
                 log.warn("GROUP deactivated group_jid={} reason=send-rejected", jid);
             }
-            // 479 — WhatsApp отказал этой группе (очень большая), а не номеру; обрыв связи — проблема сети. Оба не сигнал риска.
             if (e.connectionLost()) {
                 log.warn("SEND request_id={} group_jid={} connection lost, not a risk signal", request.id(), jid);
             } else if (e.rejectedByServer()) {
                 log.warn("SEND request_id={} group_jid={} rejected by WhatsApp for this group, not a risk signal", request.id(), jid);
                 if (groups.recordRejection(jid, lastSendAt)) {
-                    log.warn("GROUP excluded group_jid={} reason=rejected-by-whatsapp-twice", jid);
+                    log.warn("GROUP excluded group_jid={} reason=rejected-by-whatsapp-in-a-row", jid);
                 }
             } else {
                 risk.record(RiskType.SEND_FAILED, jid, request.id(), e.getMessage());
             }
         }
         afterDelivery(request, delivery);
+    }
+
+    private void retryRejectedLater(RequestRecord request, DeliveryRecord delivery) {
+        var delay = REJECTED_RETRY_MIN.plusSeconds(random.nextLong(REJECTED_RETRY_MAX.minus(REJECTED_RETRY_MIN).toSeconds() + 1));
+        var notBefore = lastSendAt.plus(delay);
+        deliveries.retryLater(delivery.id(), notBefore, REJECTED_RETRY, lastSendAt);
+        log.warn("SEND request_id={} group_jid={} status=RETRY_LATER position={} attempt={} until={} reason=rejected-by-whatsapp",
+                request.id(), delivery.groupJid(), delivery.position(), delivery.attempts() + 1, notBefore);
     }
 
     public void close(RequestRecord request, String reason) {

@@ -16,7 +16,8 @@ public class DeliveryRepository {
             rs.getString("group_jid"),
             rs.getInt("position"),
             DeliveryStatus.valueOf(rs.getString("status")),
-            rs.getString("error"));
+            rs.getString("error"),
+            rs.getInt("attempts"));
 
     private final JdbcClient jdbc;
 
@@ -53,6 +54,12 @@ public class DeliveryRepository {
 
     public void postpone(long id, Instant notBefore, String reason, Instant at) {
         postpone(id, notBefore, reason, false, at);
+    }
+
+    public void retryLater(long id, Instant notBefore, String reason, Instant at) {
+        jdbc.sql("update delivery set status = 'PENDING', attempts = attempts + 1, not_before = ?, error = ?, waiting_reply = false, updated_at = ? where id = ?")
+                .params(notBefore, truncate(reason), at, id)
+                .update();
     }
 
     public void waitForReply(long id, Instant recheckAt, String reason, Instant at) {
