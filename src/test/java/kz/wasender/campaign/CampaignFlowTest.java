@@ -98,7 +98,7 @@ class CampaignFlowTest extends IntegrationTest {
     @Test
     void severalCampaignsShareTheHourlyLimitOfTheNumber() throws Exception {
         useGroups(10);
-        settings.update(new SettingsService.View(null, null, null, 6, null, null, null, null, null, null, null, null,
+        settings.update(new SettingsService.View(null, null, null, 6, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null));
         create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
         create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
@@ -116,31 +116,53 @@ class CampaignFlowTest extends IntegrationTest {
     }
 
     @Test
-    void groupWhereOurMessageIsLastWaitsUntilTheGapPasses() throws Exception {
+    void groupGetsOurNextMessageOnlyAfterSomeoneWroteAndAnHourPassed() throws Exception {
         useGroups(2);
-        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 30,
+        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, true,
                 null, null, null, null, null));
-        var first = create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        runUntilBlocked(200);
+        var lively = sentJids().get(0);
+        var quiet = sentJids().get(1);
+
+        gateway.simulateForeignMessage(lively);
+        var second = create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
         runUntilBlocked(200);
         assertThat(gateway.sent()).hasSize(2);
+        assertThat(dispatcher.state()).isEqualTo(DispatcherState.WAITING_GROUPS);
+        assertThat(controller.get(second.id()).current().waiting()).startsWith("ждёт до ");
 
-        var groupsJids = sentJids();
-        gateway.simulateForeignMessage(groupsJids.get(0));
-        create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        clock.advance(Duration.ofMinutes(61));
         runUntilBlocked(200);
 
         assertThat(gateway.sent()).hasSize(3);
-        assertThat(gateway.sent().get(2).groupJid()).isEqualTo(groupsJids.get(0));
-        for (var i = 0; i < 5; i++) {
-            dispatcher.cycle();
-        }
-        assertThat(dispatcher.state()).isEqualTo(DispatcherState.WAITING_GROUPS);
+        assertThat(gateway.sent().get(2).groupJid()).isEqualTo(lively);
+        var run = requests.findByCampaign(second.id()).getFirst();
+        assertThat(run.status()).isEqualTo(RequestStatus.DONE);
+        assertThat(deliveries.findByRequest(run.id())).filteredOn(d -> d.groupJid().equals(quiet))
+                .singleElement().satisfies(d -> {
+                    assertThat(d.status()).isEqualTo(DeliveryStatus.SKIPPED);
+                    assertThat(d.error()).contains("никто не написал");
+                });
+    }
 
-        clock.advance(Duration.ofMinutes(31));
+    @Test
+    void quietGroupIsSentToOnceSomeoneWritesThere() throws Exception {
+        useGroups(1);
+        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, true,
+                null, null, null, null, null));
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
         runUntilBlocked(200);
-        assertThat(gateway.sent()).hasSize(4);
-        assertThat(gateway.sent().get(3).groupJid()).isEqualTo(groupsJids.get(1));
-        assertThat(requests.findByCampaign(first.id()).getFirst().status()).isEqualTo(RequestStatus.DONE);
+        clock.advance(Duration.ofHours(3));
+        create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        dispatcher.cycle();
+        assertThat(gateway.sent()).hasSize(1);
+
+        gateway.simulateForeignMessage(sentJids().getFirst());
+        clock.advance(Duration.ofMinutes(11));
+        runUntilBlocked(200);
+
+        assertThat(gateway.sent()).hasSize(2);
     }
 
     @Test

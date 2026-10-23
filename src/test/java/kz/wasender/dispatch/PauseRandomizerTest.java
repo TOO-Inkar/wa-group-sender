@@ -16,7 +16,7 @@ class PauseRandomizerTest {
             Duration.ofMinutes(10), Duration.ofMinutes(20),
             Duration.ofSeconds(20), Duration.ofSeconds(60),
             Duration.ofSeconds(2), Duration.ofSeconds(6),
-            Duration.ofSeconds(5), LocalTime.of(8, 0), LocalTime.of(21, 0), true, 0, Duration.ZERO);
+            Duration.ofSeconds(5), LocalTime.of(8, 0), LocalTime.of(21, 0), true, 0, Duration.ZERO, false);
     private final PauseRandomizer randomizer = new PauseRandomizer(properties, new Random(7));
 
     @Test

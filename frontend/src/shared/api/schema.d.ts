@@ -588,7 +588,8 @@ export interface components {
             /** Format: int32 */
             wavePauseMaxMinutes: number;
             /** Format: int32 */
-            ownMessageGapMinutes: number;
+            groupIntervalMinutes: number;
+            waitForReply: boolean;
             autoReplyEnabled: boolean;
             autoReplyRejectCalls: boolean;
             /** Format: int32 */

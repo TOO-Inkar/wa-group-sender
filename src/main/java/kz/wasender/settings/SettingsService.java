@@ -57,7 +57,8 @@ public class SettingsService {
                 time(Setting.WINDOW_END, d.windowEnd()),
                 bool(Setting.WEEKENDS_ENABLED, d.weekendsEnabled()),
                 integer(Setting.HOURLY_LIMIT, d.hourlyLimit()),
-                duration(Setting.OWN_MESSAGE_GAP, d.ownMessageGap()));
+                duration(Setting.GROUP_SEND_INTERVAL, d.groupInterval()),
+                bool(Setting.WAIT_FOR_REPLY, d.waitForReply()));
     }
 
     public WarmupProperties warmup() {
@@ -79,7 +80,7 @@ public class SettingsService {
         var a = autoReply();
         return new View(d.windowStart().toString(), d.windowEnd().toString(), d.weekendsEnabled(), d.hourlyLimit(), w.dailyCap(),
                 w.enabled(), (int) d.groupPauseMin().toSeconds(), (int) d.groupPauseMax().toSeconds(), d.waveSize(),
-                (int) d.wavePauseMin().toMinutes(), (int) d.wavePauseMax().toMinutes(), (int) d.ownMessageGap().toMinutes(),
+                (int) d.wavePauseMin().toMinutes(), (int) d.wavePauseMax().toMinutes(), (int) d.groupInterval().toMinutes(), d.waitForReply(),
                 a.enabled(), a.rejectCalls(), (int) a.cooldown().toHours(), a.text(), DEFAULT_AUTOREPLY_TEXT);
     }
 
@@ -99,7 +100,8 @@ public class SettingsService {
         }
         if (changes.wavePauseMinMinutes() != null) values.put(Setting.WAVE_PAUSE_MIN, minutes(changes.wavePauseMinMinutes(), "пауза между волнами"));
         if (changes.wavePauseMaxMinutes() != null) values.put(Setting.WAVE_PAUSE_MAX, minutes(changes.wavePauseMaxMinutes(), "пауза между волнами"));
-        if (changes.ownMessageGapMinutes() != null) values.put(Setting.OWN_MESSAGE_GAP, minutes(changes.ownMessageGapMinutes(), "ожидание после своего сообщения"));
+        if (changes.groupIntervalMinutes() != null) values.put(Setting.GROUP_SEND_INTERVAL, minutes(changes.groupIntervalMinutes(), "интервал для группы"));
+        if (changes.waitForReply() != null) values.put(Setting.WAIT_FOR_REPLY, changes.waitForReply().toString());
         if (changes.autoReplyEnabled() != null) values.put(Setting.AUTOREPLY_ENABLED, changes.autoReplyEnabled().toString());
         if (changes.autoReplyRejectCalls() != null) values.put(Setting.AUTOREPLY_REJECT_CALLS, changes.autoReplyRejectCalls().toString());
         if (changes.autoReplyCooldownHours() != null) values.put(Setting.AUTOREPLY_COOLDOWN, Duration.ofHours(Math.max(0, changes.autoReplyCooldownHours())).toString());
@@ -214,13 +216,13 @@ public class SettingsService {
 
     enum Setting {
         WINDOW_START, WINDOW_END, WEEKENDS_ENABLED, HOURLY_LIMIT, DAILY_LIMIT, WARMUP_ENABLED,
-        GROUP_PAUSE_MIN, GROUP_PAUSE_MAX, WAVE_SIZE, WAVE_PAUSE_MIN, WAVE_PAUSE_MAX, OWN_MESSAGE_GAP,
+        GROUP_PAUSE_MIN, GROUP_PAUSE_MAX, WAVE_SIZE, WAVE_PAUSE_MIN, WAVE_PAUSE_MAX, GROUP_SEND_INTERVAL, WAIT_FOR_REPLY,
         AUTOREPLY_ENABLED, AUTOREPLY_REJECT_CALLS, AUTOREPLY_COOLDOWN, AUTOREPLY_TEXT
     }
 
     public record View(String windowStart, String windowEnd, Boolean weekendsEnabled, Integer hourlyLimit, Integer dailyLimit,
                        Boolean warmupEnabled, Integer groupPauseMinSeconds, Integer groupPauseMaxSeconds, Integer waveSize,
-                       Integer wavePauseMinMinutes, Integer wavePauseMaxMinutes, Integer ownMessageGapMinutes,
+                       Integer wavePauseMinMinutes, Integer wavePauseMaxMinutes, Integer groupIntervalMinutes, Boolean waitForReply,
                        Boolean autoReplyEnabled, Boolean autoReplyRejectCalls, Integer autoReplyCooldownHours, String autoReplyText,
                        String defaultAutoReplyText) {
     }

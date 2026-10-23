@@ -1167,9 +1167,12 @@
                         "type": "integer",
                         "format": "int32"
                     },
-                    "ownMessageGapMinutes": {
+                    "groupIntervalMinutes": {
                         "type": "integer",
                         "format": "int32"
+                    },
+                    "waitForReply": {
+                        "type": "boolean"
                     },
                     "autoReplyEnabled": {
                         "type": "boolean"
@@ -1195,10 +1198,11 @@
                     "autoReplyText",
                     "dailyLimit",
                     "defaultAutoReplyText",
+                    "groupIntervalMinutes",
                     "groupPauseMaxSeconds",
                     "groupPauseMinSeconds",
                     "hourlyLimit",
-                    "ownMessageGapMinutes",
+                    "waitForReply",
                     "warmupEnabled",
                     "wavePauseMaxMinutes",
                     "wavePauseMinMinutes",

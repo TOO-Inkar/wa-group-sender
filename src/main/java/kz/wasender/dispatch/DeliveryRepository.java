@@ -52,9 +52,39 @@ public class DeliveryRepository {
     }
 
     public void postpone(long id, Instant notBefore, String reason, Instant at) {
-        jdbc.sql("update delivery set not_before = ?, error = ?, updated_at = ? where id = ?")
-                .params(notBefore, truncate(reason), at, id)
+        postpone(id, notBefore, reason, false, at);
+    }
+
+    public void waitForReply(long id, Instant recheckAt, String reason, Instant at) {
+        postpone(id, recheckAt, reason, true, at);
+    }
+
+    private void postpone(long id, Instant notBefore, String reason, boolean waitingReply, Instant at) {
+        jdbc.sql("update delivery set not_before = ?, error = ?, waiting_reply = ?, updated_at = ? where id = ?")
+                .params(notBefore, truncate(reason), waitingReply, at, id)
                 .update();
+    }
+
+    public boolean onlyWaitingReply(String requestId) {
+        return jdbc.sql("select count(*) > 0 and coalesce(sum(case when waiting_reply then 0 else 1 end), 0) = 0 "
+                        + "from delivery where request_id = ? and status = 'PENDING'")
+                .param(requestId)
+                .query(Boolean.class)
+                .single();
+    }
+
+    public int skipWaitingReply(String requestId, String reason, Instant at) {
+        return jdbc.sql("update delivery set status = 'SKIPPED', error = ?, not_before = null, waiting_reply = false, updated_at = ? "
+                        + "where request_id = ? and status = 'PENDING' and waiting_reply")
+                .params(truncate(reason), at, requestId)
+                .update();
+    }
+
+    public Optional<Instant> lastSentTo(String groupJid) {
+        return jdbc.sql("select max(updated_at) from delivery where group_jid = ? and status = 'SENT'")
+                .param(groupJid)
+                .query(Instant.class)
+                .optional();
     }
 
     public int attemptsSince(Instant since) {
@@ -65,7 +95,7 @@ public class DeliveryRepository {
     }
 
     public int skipPending(String requestId, String reason, Instant at) {
-        return jdbc.sql("update delivery set status = 'SKIPPED', error = ?, not_before = null, updated_at = ? "
+        return jdbc.sql("update delivery set status = 'SKIPPED', error = ?, not_before = null, waiting_reply = false, updated_at = ? "
                         + "where request_id = ? and status = 'PENDING'")
                 .params(truncate(reason), at, requestId)
                 .update();
@@ -87,7 +117,7 @@ public class DeliveryRepository {
     }
 
     public void updateStatus(long id, DeliveryStatus status, String error, Instant at) {
-        jdbc.sql("update delivery set status = ?, error = ?, not_before = null, updated_at = ? where id = ?")
+        jdbc.sql("update delivery set status = ?, error = ?, not_before = null, waiting_reply = false, updated_at = ? where id = ?")
                 .params(status.name(), truncate(error), at, id)
                 .update();
     }

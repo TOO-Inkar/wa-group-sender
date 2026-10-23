@@ -68,7 +68,6 @@ export function latestRun(c: Campaign): Run | null {
 }
 
 export function deliveryReason(error: string): string {
-  if (/последнее сообщение/.test(error)) return 'последнее сообщение в группе наше — отправим позже'
   if (/group inactive/.test(error)) return 'группа вышла из рассылки'
   if (/error 479/.test(error)) return 'WhatsApp отклонил отправку в эту группу'
   if (/not connected/.test(error)) return 'не было связи с WhatsApp'
