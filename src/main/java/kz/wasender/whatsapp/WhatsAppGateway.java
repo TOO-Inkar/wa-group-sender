@@ -38,7 +38,6 @@ public interface WhatsAppGateway {
     default void rejectCall(String fromJid, String callId) {
     }
 
-    // Пусто — у группы нет фото; IllegalStateException — WhatsApp сейчас не ответил.
     default Optional<byte[]> groupPicture(String groupJid) {
         return Optional.empty();
     }

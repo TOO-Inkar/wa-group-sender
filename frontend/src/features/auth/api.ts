@@ -8,7 +8,6 @@ export function useMe() {
     queryKey: authKeys.me,
     queryFn: () => unwrap(api.GET('/api/auth/me')),
     staleTime: Infinity,
-    retry: 1,
   })
 }
 

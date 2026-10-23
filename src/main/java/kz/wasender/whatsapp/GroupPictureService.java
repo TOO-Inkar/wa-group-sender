@@ -19,12 +19,12 @@ public class GroupPictureService {
     private static final Logger log = LoggerFactory.getLogger(GroupPictureService.class);
     private static final Pattern GROUP_JID = Pattern.compile("[0-9-]+@g\\.us");
     private static final byte[] NONE = new byte[0];
+    private static final int MAX_PARALLEL_FETCHES = 3;
 
     private final WhatsAppGateway gateway;
     private final WhatsAppProperties properties;
     private final Clock clock;
-    // Страница групп запрашивает десятки фото разом, а WhatsApp ограничивает частоту запросов.
-    private final Semaphore fetching = new Semaphore(3);
+    private final Semaphore fetching = new Semaphore(MAX_PARALLEL_FETCHES);
 
     public GroupPictureService(WhatsAppGateway gateway, WhatsAppProperties properties, Clock clock) {
         this.gateway = gateway;

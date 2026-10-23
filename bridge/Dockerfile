@@ -4,7 +4,6 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY main.go ./
-# Кэш компилятора переживает сборки: иначе SQLite на C компилируется заново при каждой правке main.go.
 RUN --mount=type=cache,target=/root/.cache/go-build \
     go vet ./... && go build -trimpath -ldflags="-s -w" -o /out/wa-bridge .
 

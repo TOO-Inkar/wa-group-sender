@@ -5,10 +5,12 @@ import { router } from './router'
 import { ApiError } from '@/shared/api/client'
 import { ConfirmProvider } from '@/shared/ui/confirm'
 
+const MAX_RETRIES = 5
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
+      retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < MAX_RETRIES,
       refetchOnWindowFocus: true,
     },
   },
