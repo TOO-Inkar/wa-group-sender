@@ -1,12 +1,12 @@
 FROM golang:1.26-bookworm AS build
-ARG WHATSMEOW_REF=d9538eeba3acffa047f794a99e1b42bc111e2aee
 ENV GOTOOLCHAIN=auto CGO_ENABLED=1
 WORKDIR /src
-COPY go.mod main.go ./
-RUN go get go.mau.fi/whatsmeow@${WHATSMEOW_REF} \
-    && go mod tidy \
-    && go vet ./... \
-    && go build -trimpath -ldflags="-s -w" -o /out/wa-bridge .
+COPY go.mod go.sum ./
+RUN go mod download
+COPY main.go ./
+# Кэш компилятора переживает сборки: иначе SQLite на C компилируется заново при каждой правке main.go.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go vet ./... && go build -trimpath -ldflags="-s -w" -o /out/wa-bridge .
 
 FROM debian:bookworm-slim
 RUN apt-get update \
