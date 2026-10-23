@@ -27,8 +27,9 @@ export function GroupsPage() {
   const [naming, setNaming] = useState(false)
 
   const list = lists.find((l) => String(l.id) === listId)
-  const count = (f: GroupFilter) => groups.filter((g) => matchesGroupFilter(g, f, selected)).length
-  const shown = sortGroups(groups.filter((g) => matchesGroupFilter(g, filter, selected) && (!list || list.groups.includes(g.jid)) && matches(g, query)))
+  const scope = groups.filter((g) => (!list || list.groups.includes(g.jid)) && matches(g, query))
+  const count = (f: GroupFilter) => scope.filter((g) => matchesGroupFilter(g, f, selected)).length
+  const shown = sortGroups(scope.filter((g) => matchesGroupFilter(g, filter, selected)))
   const lastSync = groups.reduce((max, g) => Math.max(max, Date.parse(g.lastSync)), 0)
 
   const toggle = (jids: string[], on: boolean) =>
@@ -56,7 +57,7 @@ export function GroupsPage() {
           value={filter}
           onChange={setFilter}
           options={[
-            { value: 'all', label: 'Все', count: groups.length },
+            { value: 'all', label: 'Все', count: scope.length },
             { value: 'active', label: 'В рассылке', count: count('active') },
             { value: 'blocked', label: 'Не в рассылке', count: count('blocked') },
             ...(selected.size ? [{ value: 'selected' as const, label: 'Отмеченные', count: selected.size }] : []),
