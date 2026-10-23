@@ -7,7 +7,7 @@ sha=$GITHUB_SHA
 deadline=$((SECONDS + 30 * 60))
 at() { TZ=Asia/Almaty date -d "$1" '+%H:%M:%S'; }
 
-echo "Сервер проверяет main раз в 3 минуты и выкатывает после зелёных проверок."
+echo "Сервер проверяет main раз в минуту и выкатывает после зелёных проверок."
 deployment=""
 until [ -n "$deployment" ]; do
   deployment=$(gh api "repos/$repo/deployments?sha=$sha&environment=production&per_page=1" --jq '.[0].id // empty')
