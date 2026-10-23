@@ -1,0 +1,124 @@
+diff --git a/client.go b/client.go
+index 54fc0a4..372abe8 100644
+--- a/client.go
++++ b/client.go
+@@ -167,6 +167,8 @@ type Client struct {
+ 	UseRetryMessageStore bool
+ 	lastRetryStoreClear  time.Time
+ 
++	SenderKeyRecipients SenderKeyRecipientStore
++
+ 	// PrePairCallback is called before pairing is completed. If it returns false, the pairing will be cancelled and
+ 	// the client will disconnect.
+ 	PrePairCallback func(jid types.JID, platform, businessName string) bool
+diff --git a/send.go b/send.go
+index 33f2174..5814d78 100644
+--- a/send.go
++++ b/send.go
+@@ -403,6 +403,10 @@ func (cli *Client) SendMessage(ctx context.Context, to types.JID, message *waE2E
+ 		}
+ 	}
+ 
++	var keyRecipients []types.JID
++	if to.Server == types.GroupServer && cli.SenderKeyRecipients != nil {
++		extraParams.keyRecipients = &keyRecipients
++	}
+ 	respChan := cli.waitResponse(req.ID)
+ 	var phash string
+ 	var data []byte
+@@ -457,6 +461,8 @@ func (cli *Client) SendMessage(ctx context.Context, to types.JID, message *waE2E
+ 	resp.Timestamp = ag.UnixTime("t")
+ 	if errorCode := ag.Int("error"); errorCode != 0 {
+ 		err = fmt.Errorf("%w %d", ErrServerReturnedError, errorCode)
++	} else if len(keyRecipients) > 0 {
++		cli.markSenderKeyRecipients(ctx, to, keyRecipients)
+ 	}
+ 	expectedPHash := ag.OptionalString("phash")
+ 	if len(expectedPHash) > 0 && phash != expectedPHash {
+@@ -756,6 +762,7 @@ type nodeExtraParams struct {
+ 	additionalNodes *[]waBinary.Node
+ 	addressingMode  types.AddressingMode
+ 	peerRecipientPN types.JID
++	keyRecipients   *[]types.JID
+ }
+ 
+ func (cli *Client) sendGroup(
+@@ -1128,7 +1135,10 @@ func (cli *Client) getMessageContent(
+ 	includeIdentity bool,
+ 	extraParams nodeExtraParams,
+ ) []waBinary.Node {
+-	content := []waBinary.Node{baseNode}
++	var content []waBinary.Node
++	if baseNode.Tag != "" {
++		content = append(content, baseNode)
++	}
+ 	if includeIdentity {
+ 		content = append(content, cli.makeDeviceIdentityNode())
+ 	}
+@@ -1216,17 +1226,29 @@ func (cli *Client) prepareMessageNode(
+ 		encAttrs["decrypt-fail"] = string(events.DecryptFailHide)
+ 	}
+ 
++	encryptFor := allDevices
++	if extraParams.keyRecipients != nil {
++		encryptFor, err = cli.missingSenderKeyRecipients(ctx, to, allDevices)
++		if err != nil {
++			return nil, nil, err
++		}
++		*extraParams.keyRecipients = encryptFor
++	}
++
+ 	start = time.Now()
+ 	participantNodes, includeIdentity, err := cli.encryptMessageForDevices(
+-		ctx, allDevices, id, plaintext, dsmPlaintext, encAttrs,
++		ctx, encryptFor, id, plaintext, dsmPlaintext, encAttrs,
+ 	)
+ 	timings.PeerEncrypt = time.Since(start)
+ 	if err != nil {
+ 		return nil, nil, err
+ 	}
+-	participantNode := waBinary.Node{
+-		Tag:     "participants",
+-		Content: participantNodes,
++	var participantNode waBinary.Node
++	if len(participantNodes) > 0 {
++		participantNode = waBinary.Node{
++			Tag:     "participants",
++			Content: participantNodes,
++		}
+ 	}
+ 	return &waBinary.Node{
+ 		Tag:   "message",
+diff --git a/senderkeyrecipients.go b/senderkeyrecipients.go
+new file mode 100644
+index 0000000..aa1d039
+--- /dev/null
++++ b/senderkeyrecipients.go
+@@ -0,0 +1,27 @@
++package whatsmeow
++
++import (
++	"context"
++	"fmt"
++
++	"go.mau.fi/whatsmeow/types"
++)
++
++type SenderKeyRecipientStore interface {
++	FilterMissing(ctx context.Context, group types.JID, devices []types.JID) ([]types.JID, error)
++	MarkDistributed(ctx context.Context, group types.JID, devices []types.JID) error
++}
++
++func (cli *Client) missingSenderKeyRecipients(ctx context.Context, group types.JID, devices []types.JID) ([]types.JID, error) {
++	missing, err := cli.SenderKeyRecipients.FilterMissing(ctx, group, devices)
++	if err != nil {
++		return nil, fmt.Errorf("failed to get sender key recipients: %w", err)
++	}
++	return missing, nil
++}
++
++func (cli *Client) markSenderKeyRecipients(ctx context.Context, group types.JID, devices []types.JID) {
++	if err := cli.SenderKeyRecipients.MarkDistributed(ctx, group, devices); err != nil {
++		cli.Log.Warnf("Failed to remember sender key recipients in %s: %v", group, err)
++	}
++}

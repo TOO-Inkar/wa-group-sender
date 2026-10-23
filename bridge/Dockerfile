@@ -3,9 +3,14 @@ ENV GOTOOLCHAIN=auto CGO_ENABLED=1
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
-COPY main.go ./
+COPY whatsmeow-sender-key-recipients.patch ./
+RUN cp -r "$(go list -m -f '{{.Dir}}' go.mau.fi/whatsmeow)" /whatsmeow \
+    && chmod -R u+w /whatsmeow \
+    && git -C /whatsmeow apply /src/whatsmeow-sender-key-recipients.patch \
+    && go mod edit -replace go.mau.fi/whatsmeow=/whatsmeow
+COPY *.go ./
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    go vet ./... && go build -trimpath -ldflags="-s -w" -o /out/wa-bridge .
+    go vet ./... && go test ./... && go build -trimpath -ldflags="-s -w" -o /out/wa-bridge .
 
 FROM debian:bookworm-slim
 RUN apt-get update \
