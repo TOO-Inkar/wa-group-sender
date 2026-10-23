@@ -34,6 +34,8 @@ app:
     qr-png-path: ${WA_QR_PNG_PATH:/data/qr/qr.png}
     send-timeout: ${WA_SEND_TIMEOUT:60s}
     groups-timeout: ${WA_GROUPS_TIMEOUT:4m}
+    picture-dir: ${WA_PICTURE_DIR:/data/pictures}
+    picture-ttl: ${WA_PICTURE_TTL:24h}
   watchdog:
     check-interval: ${WATCHDOG_CHECK_INTERVAL:15s}
     max-attempts: ${WATCHDOG_MAX_ATTEMPTS:8}

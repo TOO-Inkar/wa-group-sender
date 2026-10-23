@@ -37,6 +37,7 @@ services:
       - wa-db:/data/db
       - wa-logs:/data/logs
       - wa-qr:/data/qr
+      - wa-pictures:/data/pictures
       - ./templates:/data/templates:ro
       - ./secrets:/run/secrets:ro
     healthcheck:
@@ -56,3 +57,4 @@ volumes:
   wa-db:
   wa-logs:
   wa-qr:
+  wa-pictures:

@@ -131,6 +131,20 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     }
 
     @Override
+    public Optional<byte[]> groupPicture(String groupJid) {
+        try {
+            return Optional.ofNullable(client.get().uri("/picture?jid={jid}", groupJid).retrieve().body(byte[].class));
+        } catch (RestClientResponseException e) {
+            if (e.getStatusCode().value() == 404) {
+                return Optional.empty();
+            }
+            throw new IllegalStateException("bridge picture: " + e.getStatusCode(), e);
+        } catch (RestClientException e) {
+            throw new IllegalStateException("bridge picture: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public void rejectCall(String fromJid, String callId) {
         try {
             client.post().uri("/reject-call")
