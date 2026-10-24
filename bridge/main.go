@@ -42,6 +42,7 @@ const (
 	// Older direct messages are a backlog replayed after a reconnect, not something to auto-reply to.
 	directMessageMaxAge = 10 * time.Minute
 	maxPictureBytes     = 1 << 20
+	storeMaxOpenConns   = 4
 )
 
 type event struct {
@@ -101,7 +102,7 @@ func main() {
 	// _txlock=immediate: deferred transactions hit "database is locked" on bursts of retry receipts (busy_timeout is not honoured on upgrade).
 	dsn := "file:" + env("BRIDGE_DB", "/data/bridge.db") +
 		"?_foreign_keys=on&_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=30000&_txlock=immediate"
-	container, err := sqlstore.New(ctx, "sqlite3", dsn, waLog.Stdout("DB", "WARN", false))
+	container, err := openStore(ctx, dsn, waLog.Stdout("DB", "WARN", false))
 	if err != nil {
 		slog.Error("store", "err", err)
 		os.Exit(1)
@@ -674,6 +675,20 @@ func (b *bridge) onMessage(cli *whatsmeow.Client, e *events.Message) {
 		}
 		b.emit(event{Type: "direct_message", JID: chat.String(), Payload: e.Info.PushName, At: e.Info.Timestamp.Unix()})
 	}
+}
+
+func openStore(ctx context.Context, dsn string, log waLog.Logger) (*sqlstore.Container, error) {
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(storeMaxOpenConns)
+	container := sqlstore.NewWithDB(db, "sqlite3", log)
+	if err := container.Upgrade(ctx); err != nil {
+		_ = container.Close()
+		return nil, err
+	}
+	return container, nil
 }
 
 func openLastMessages(path string) (*sql.DB, error) {
