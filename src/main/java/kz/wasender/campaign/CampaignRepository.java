@@ -46,6 +46,15 @@ public class CampaignRepository {
         return jdbc.sql("select * from campaign where not deleted order by created_at desc, id desc").query(MAPPER).list();
     }
 
+    public List<CampaignRecord> findTargetedWithLabel(String label) {
+        return jdbc.sql("select * from campaign where targeted and not deleted and target_label = ?").param(label).query(MAPPER).list();
+    }
+
+    public void retarget(String id, String label, Collection<String> targets, Instant at) {
+        jdbc.sql("update campaign set target_label = ?, updated_at = ? where id = ?").params(label, at, id).update();
+        replaceTargets(id, targets);
+    }
+
     public List<String> findAllIds() {
         return jdbc.sql("select id from campaign").query(String.class).list();
     }

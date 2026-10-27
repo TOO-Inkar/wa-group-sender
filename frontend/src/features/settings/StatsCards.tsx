@@ -1,9 +1,9 @@
 import { useHealth } from '@/features/health/api'
 import { cn } from '@/shared/lib/cn'
 
-function Stat({ label, value, note, alert }: { label: string; value: number | string; note: string; alert?: boolean }) {
+function Stat({ label, value, note, alert, className }: { label: string; value: number | string; note: string; alert?: boolean; className?: string }) {
   return (
-    <div className="grid content-start gap-0.5 bg-surface px-4 py-3">
+    <div className={cn('grid content-start gap-0.5 bg-surface px-4 py-3', className)}>
       <dt className="text-[13px] text-muted">{label}</dt>
       <dd className={cn('text-2xl leading-tight font-semibold tabular-nums', alert && 'text-bad-text')}>{value}</dd>
       <dd className="text-[13px] text-muted">{note}</dd>
@@ -21,7 +21,7 @@ export function StatsCards() {
       <Stat label="За последний час" value={h.sentLastHour} note={h.hourlyLimit ? `из ${h.hourlyLimit} в час` : 'без лимита в час'} />
       <Stat label="Рассылок в работе" value={h.queueLength} note="идут или ждут" />
       <Stat label="Групп в рассылке" value={h.activeGroups} note="в архиве и можно писать" />
-      <Stat label="Сигналы риска" value={h.riskEventsInWindow} note={h.stoppedByRisk ? 'рассылка остановлена' : `паузы ×${h.pauseMultiplier}`} alert={h.stoppedByRisk || h.riskEventsInWindow > 0} />
+      <Stat label="Сигналы риска" value={h.riskEventsInWindow} note={h.stoppedByRisk ? 'рассылка остановлена' : `паузы ×${h.pauseMultiplier}`} alert={h.stoppedByRisk || h.riskEventsInWindow > 0} className="col-span-2 sm:col-span-1" />
     </dl>
   )
 }

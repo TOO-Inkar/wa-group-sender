@@ -1,8 +1,9 @@
-import { RefreshCw, Send, Trash2 } from 'lucide-react'
+import { Pencil, RefreshCw, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { useDeleteGroupList, useGroupLists, useGroups, useSyncGroups } from '@/features/groups/api'
+import { EditListDialog } from '@/features/groups/EditListDialog'
 import { GroupTable } from '@/features/groups/GroupTable'
 import { matches, matchesGroupFilter, sortGroups, type GroupFilter } from '@/features/groups/model'
 import { SaveListDialog } from '@/features/groups/SaveListDialog'
@@ -25,6 +26,7 @@ export function GroupsPage() {
   const [listId, setListId] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [naming, setNaming] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   const list = lists.find((l) => String(l.id) === listId)
   const scope = groups.filter((g) => (!list || list.groups.includes(g.jid)) && matches(g, query))
@@ -52,7 +54,7 @@ export function GroupsPage() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h1 className="mr-2 text-xl font-semibold">Группы</h1>
         <Segmented
-          className="order-1 w-full sm:order-none sm:w-auto"
+          className="order-1 w-full flex-nowrap overflow-x-auto sm:order-none sm:w-auto"
           size="sm"
           value={filter}
           onChange={setFilter}
@@ -76,6 +78,7 @@ export function GroupsPage() {
             <RowMenu
               label="Действия со списком"
               items={[
+                { label: 'Изменить список', icon: <Pencil size={15} />, onSelect: () => setEditing(true) },
                 { label: 'Заявка в этот список', icon: <Send size={15} />, onSelect: () => navigate('/campaigns/new', { state: { target: 'list', listId: String(list.id) } }) },
                 { label: 'Отметить его группы', onSelect: () => setSelected(new Set(list.groups)) },
                 { label: 'Удалить список', icon: <Trash2 size={15} />, danger: true, onSelect: removeList },
@@ -123,6 +126,8 @@ export function GroupsPage() {
           </div>
         </div>
       )}
+
+      {editing && list && <EditListDialog list={list} onClose={() => setEditing(false)} />}
 
       <SaveListDialog
         groups={[...selected]}

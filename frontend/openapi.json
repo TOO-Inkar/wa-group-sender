@@ -110,6 +110,76 @@
                 }
             }
         },
+        "/api/admin/group-lists/{id}": {
+            "put": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "updateGroupList",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/GroupListRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/GroupList"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "admin-controller"
+                ],
+                "operationId": "deleteGroupList",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/campaigns/{id}": {
             "get": {
                 "tags": [
@@ -792,6 +862,37 @@
                 }
             }
         },
+        "/api/groups/{jid}/picture": {
+            "get": {
+                "tags": [
+                    "group-controller"
+                ],
+                "operationId": "picture",
+                "parameters": [
+                    {
+                        "name": "jid",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "byte"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/me": {
             "get": {
                 "tags": [
@@ -1073,37 +1174,6 @@
                         "required": true,
                         "schema": {
                             "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/admin/group-lists/{id}": {
-            "delete": {
-                "tags": [
-                    "admin-controller"
-                ],
-                "operationId": "deleteGroupList",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer",
-                            "format": "int64"
                         }
                     }
                 ],

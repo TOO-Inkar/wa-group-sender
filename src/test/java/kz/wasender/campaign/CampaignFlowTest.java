@@ -224,6 +224,24 @@ class CampaignFlowTest extends IntegrationTest {
         assertThat(controller.list()).singleElement().satisfies(view -> assertThat(view.targetLabel()).isEqualTo("Тест"));
     }
 
+    @Test
+    void editingAListRetargetsItsCampaignsButNotHandPickedOnes() {
+        useGroups(4);
+        var all = groups();
+        var list = groupLists.save("Китай", all.subList(0, 2), clock.instant());
+        var byList = campaigns.create(new CampaignService.Input(draft("По списку"), "{}", all.subList(0, 2), null, "Китай",
+                new Schedule(RepeatMode.DAILY, LocalTime.of(9, 0), null, null), false));
+        var byHand = campaigns.create(new CampaignService.Input(draft("Вручную"), "{}", all.subList(0, 2), null, null,
+                new Schedule(RepeatMode.DAILY, LocalTime.of(9, 0), null, null), false));
+
+        var updated = campaigns.updateGroupList(list.id(), "Китай и КЗ", all.subList(1, 4));
+
+        assertThat(updated.groups()).containsExactlyElementsOf(all.subList(1, 4));
+        assertThat(repository.targets(byList.id())).containsExactlyElementsOf(all.subList(1, 4));
+        assertThat(repository.find(byList.id()).orElseThrow().targetLabel()).isEqualTo("Китай и КЗ");
+        assertThat(repository.targets(byHand.id())).containsExactlyElementsOf(all.subList(0, 2));
+    }
+
     private List<String> groups() {
         return gateway.listGroups().stream().map(kz.wasender.whatsapp.GroupInfo::jid).sorted().toList();
     }

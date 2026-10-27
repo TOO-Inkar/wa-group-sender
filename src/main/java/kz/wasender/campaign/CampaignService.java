@@ -2,6 +2,7 @@ package kz.wasender.campaign;
 
 import kz.wasender.dispatch.Dispatcher;
 import kz.wasender.dispatch.WorkWindow;
+import kz.wasender.group.GroupListRepository;
 import kz.wasender.request.RequestIdGenerator;
 import kz.wasender.request.RequestIntake;
 import kz.wasender.request.RequestRecord;
@@ -16,6 +17,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,19 +33,21 @@ public class CampaignService {
     private final RequestIdGenerator requestIds;
     private final RequestIntake intake;
     private final CampaignRecipients recipients;
+    private final GroupListRepository groupLists;
     private final Dispatcher dispatcher;
     private final WorkWindow window;
     private final StartJitter jitter;
     private final Clock clock;
 
     public CampaignService(CampaignRepository campaigns, RequestRepository requests, RequestIdGenerator requestIds, RequestIntake intake,
-                           CampaignRecipients recipients, Dispatcher dispatcher, WorkWindow window, StartJitter jitter,
-                           Clock clock) {
+                           CampaignRecipients recipients, GroupListRepository groupLists, Dispatcher dispatcher, WorkWindow window,
+                           StartJitter jitter, Clock clock) {
         this.campaigns = campaigns;
         this.requests = requests;
         this.requestIds = requestIds;
         this.intake = intake;
         this.recipients = recipients;
+        this.groupLists = groupLists;
         this.dispatcher = dispatcher;
         this.window = window;
         this.jitter = jitter;
@@ -90,6 +94,26 @@ public class CampaignService {
             runNow(id);
         }
         return campaigns.find(id).orElseThrow();
+    }
+
+    @Transactional
+    public synchronized GroupListRepository.GroupList updateGroupList(long id, String name, List<String> groups) {
+        var current = groupLists.find(id).orElseThrow(() -> new ListNotFoundException(id));
+        if (groupLists.nameTakenByOther(id, name)) {
+            throw new IllegalArgumentException("список «" + name + "» уже есть");
+        }
+        var updated = groupLists.update(id, name, groups);
+        var before = new HashSet<>(current.groups());
+        var now = Instant.now(clock);
+        var retargeted = campaigns.findTargetedWithLabel(current.name()).stream()
+                .filter(campaign -> new HashSet<>(campaigns.targets(campaign.id())).equals(before))
+                .toList();
+        for (var campaign : retargeted) {
+            campaigns.retarget(campaign.id(), updated.name(), updated.groups(), now);
+            requests.updateQueuedMessage(campaign.id(), campaign.message(), updated.groups());
+        }
+        log.info("GROUP_LIST updated id={} groups={} campaigns_retargeted={}", id, updated.groups().size(), retargeted.size());
+        return updated;
     }
 
     @Transactional
@@ -228,6 +252,12 @@ public class CampaignService {
     public static class NotFoundException extends RuntimeException {
         public NotFoundException(String id) {
             super("заявка " + id + " не найдена");
+        }
+    }
+
+    public static class ListNotFoundException extends RuntimeException {
+        public ListNotFoundException(long id) {
+            super("список групп " + id + " не найден");
         }
     }
 

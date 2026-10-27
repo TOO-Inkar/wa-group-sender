@@ -1,6 +1,7 @@
 package kz.wasender.web;
 
 import kz.wasender.dispatch.DispatcherState;
+import kz.wasender.group.GroupListRepository;
 import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestStatus;
 import kz.wasender.support.IntegrationTest;
@@ -116,8 +117,15 @@ class AdminRequestsTest extends IntegrationTest {
         admin.saveGroupList(new AdminController.GroupListRequest(" Тест ", List.of("3@g.us")));
         assertThat(admin.groupLists()).singleElement().satisfies(list -> assertThat(list.groups()).containsExactly("3@g.us"));
 
+        admin.saveGroupList(new AdminController.GroupListRequest("Другой", List.of("4@g.us")));
+        var renamed = admin.updateGroupList(saved.id(), new AdminController.GroupListRequest("Новый", List.of("5@g.us")));
+        assertThat(renamed.name()).isEqualTo("Новый");
+        assertThat(renamed.groups()).containsExactly("5@g.us");
+        assertThatThrownBy(() -> admin.updateGroupList(saved.id(), new AdminController.GroupListRequest("Другой", List.of("5@g.us"))))
+                .isInstanceOf(IllegalArgumentException.class);
+
         assertThat(admin.deleteGroupList(saved.id()).getStatusCode().value()).isEqualTo(204);
-        assertThat(admin.groupLists()).isEmpty();
+        assertThat(admin.groupLists()).extracting(GroupListRepository.GroupList::name).containsExactly("Другой");
         assertThatThrownBy(() -> admin.saveGroupList(new AdminController.GroupListRequest("", List.of("1@g.us"))))
                 .isInstanceOf(IllegalArgumentException.class);
     }

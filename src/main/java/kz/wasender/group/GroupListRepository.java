@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class GroupListRepository {
@@ -32,6 +33,25 @@ public class GroupListRepository {
                     jdbc.sql("insert into group_list(name, created_at) values (?, ?)").params(name, at).update();
                     return jdbc.sql("select id from group_list where name = ?").param(name).query(Long.class).single();
                 });
+        return replaceMembers(id, name, groupJids);
+    }
+
+    public Optional<GroupList> find(long id) {
+        return jdbc.sql("select name from group_list where id = ?").param(id).query(String.class).optional()
+                .map(name -> new GroupList(id, name, members(id)));
+    }
+
+    public boolean nameTakenByOther(long id, String name) {
+        return jdbc.sql("select count(*) from group_list where name = ? and id <> ?").params(name, id).query(Integer.class).single() > 0;
+    }
+
+    @Transactional
+    public GroupList update(long id, String name, Collection<String> groupJids) {
+        jdbc.sql("update group_list set name = ? where id = ?").params(name, id).update();
+        return replaceMembers(id, name, groupJids);
+    }
+
+    private GroupList replaceMembers(long id, String name, Collection<String> groupJids) {
         jdbc.sql("delete from group_list_member where list_id = ?").param(id).update();
         for (var jid : new LinkedHashSet<>(groupJids)) {
             jdbc.sql("insert into group_list_member(list_id, group_jid) values (?, ?)").params(id, jid).update();

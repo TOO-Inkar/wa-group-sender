@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pause, Play } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { useDispatchControl, useSaveSettings, useSettings } from './api'
@@ -14,6 +14,7 @@ import { Card, CardTitle } from '@/shared/ui/card'
 import { useConfirm } from '@/shared/ui/confirm-context'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Checkbox, Field, Input } from '@/shared/ui/input'
+import { TimeSelect } from '@/shared/ui/time-select'
 
 const n = z.coerce.number().int().min(0, 'Не меньше 0')
 const schema = z
@@ -55,10 +56,10 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
       <form onSubmit={submit} noValidate className="grid gap-3.5">
         <div className="grid grid-cols-2 gap-3">
           <Field label="С" error={e.windowStart?.message}>
-            <Input type="time" {...form.register('windowStart')} />
+            <Controller control={form.control} name="windowStart" render={({ field }) => <TimeSelect label="С" invalid={!!e.windowStart} value={field.value} onChange={field.onChange} />} />
           </Field>
           <Field label="До" error={e.windowEnd?.message}>
-            <Input type="time" {...form.register('windowEnd')} />
+            <Controller control={form.control} name="windowEnd" render={({ field }) => <TimeSelect label="До" invalid={!!e.windowEnd} value={field.value} onChange={field.onChange} />} />
           </Field>
         </div>
         <Checkbox label="Рассылать и в выходные" {...form.register('weekendsEnabled')} />
