@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useGroups } from './api'
 import { GroupRows, GroupSelectAll } from './GroupList'
 import { matches, sortGroups } from './model'
@@ -10,6 +10,12 @@ export function useGroupChecklist(value: string[], onChange: (jids: string[]) =>
   const [query, setQuery] = useState('')
   const [onlyActive, setOnlyActive] = useState(false)
   const selected = useMemo(() => new Set(value), [value])
+
+  useEffect(() => {
+    if (!groups.length) return
+    const known = new Set(groups.map((g) => g.jid))
+    if (value.some((jid) => !known.has(jid))) onChange(value.filter((jid) => known.has(jid)))
+  }, [groups, value, onChange])
   const shown = sortGroups(groups.filter((g) => (!onlyActive || g.active) && matches(g, query)))
 
   const toggle = (jids: string[], on: boolean) => {

@@ -117,7 +117,8 @@ for (const width of WIDTHS) {
     expect(m.y + m.height).toBeLessThanOrEqual(viewport.height)
     expect(m.x).toBeGreaterThanOrEqual(s.x)
     expect(m.x + m.width).toBeLessThanOrEqual(s.x + s.width)
-    await expect(menu.getByRole('menuitemradio', { checked: true })).toBeInViewport()
+    await expect(menu.getByRole('group', { name: 'Часы' }).getByRole('menuitemradio', { checked: true })).toBeInViewport()
+    await expect(menu.getByRole('group', { name: 'Минуты' }).getByRole('menuitemradio', { checked: true })).toBeInViewport()
     await page.screenshot({ path: `e2e-results/ui/${width}-time.png` })
 
     await page.keyboard.press('Escape')
@@ -131,7 +132,10 @@ for (const width of WIDTHS) {
     await expect(sheet).toBeVisible()
 
     await trigger.click()
-    await menu.getByRole('menuitemradio', { name: '14:35' }).click()
+    await menu.getByRole('group', { name: 'Часы' }).getByRole('menuitemradio', { name: '14' }).click()
+    await expect(menu).toBeVisible()
+    await menu.getByRole('group', { name: 'Минуты' }).getByRole('menuitemradio', { name: '35' }).click()
+    await expect(menu).toBeHidden()
     await expect(trigger).toHaveText('14:35')
     await context.close()
   })
@@ -139,7 +143,7 @@ for (const width of WIDTHS) {
   test(`табы на заявках и группах одинаковые · ${width}`, async ({ browser }) => {
     const { context, page } = await open(browser, width)
     const style = async () => {
-      const active = page.getByRole('radio', { name: /^Все/ })
+      const active = page.getByRole('radio', { name: /^Все \d/ })
       await expect(active).toHaveAttribute('aria-checked', 'true')
       return active.evaluate((el) => {
         const s = getComputedStyle(el)
@@ -193,16 +197,9 @@ for (const width of WIDTHS) {
 
     await page.goto('/groups')
     await page.locator('main input[aria-label$=" 1"]').check()
-    await page.locator('main input[aria-label$=" 2"]').check()
-    await page.getByRole('button', { name: 'Сохранить как список' }).click()
-    const save = page.getByRole('dialog', { name: 'Новый список групп' })
-    await expectDialogFits(page, save)
-    await save.getByPlaceholder('Например, Тест').fill(`Проверка ${width}`)
-    await save.getByRole('button', { name: 'Сохранить' }).click()
-    await expect(save).toBeHidden()
-    await page.getByRole('button', { name: 'Действия со списком' }).click()
-    await page.getByRole('menuitem', { name: 'Изменить список' }).click()
-    await check(page.getByRole('dialog', { name: 'Изменить список' }))
+    await page.getByRole('button', { name: 'Новый список из отмеченных' }).click()
+    await page.getByLabel('Название списка').fill(`Проверка ${width}`)
+    await page.getByRole('button', { name: 'Создать список' }).click()
     await page.getByRole('button', { name: 'Действия со списком' }).click()
     await page.getByRole('menuitem', { name: 'Удалить список' }).click()
     await check(page.getByRole('dialog', { name: /Удалить список/ }))
@@ -215,3 +212,67 @@ for (const width of WIDTHS) {
     await context.close()
   })
 }
+
+test('выход сразу возвращает на страницу входа', async ({ browser }) => {
+  test.setTimeout(150_000)
+  for (const width of [390, 1440]) {
+    const { context, page } = await open(browser, width)
+    await page.evaluate(() => Object.assign(window, { sameDocument: true }))
+    await page.getByRole('button', { name: 'Выйти' }).first().click()
+    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByRole('button', { name: 'Войти' })).toBeVisible()
+    expect(await page.evaluate(() => 'sameDocument' in window)).toBe(true)
+    await page.goto('/campaigns')
+    await expect(page).toHaveURL(/\/login$/)
+    await context.close()
+  }
+})
+
+test('удалённые группы из списка не попадают в выбор', async ({ browser }) => {
+  const { context, page } = await open(browser, 1024)
+  await page.route('**/api/admin/group-lists', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    const jids = Array.from({ length: GROUPS }, (_, i) => `${120363900000000 + i}@g.us`)
+    await route.fulfill({ json: [{ id: 77, name: 'Со старыми группами', groups: [...jids, 'left-1@g.us', 'left-2@g.us', 'left-3@g.us'] }] })
+  })
+  await page.goto('/campaigns/new')
+  await page.getByRole('radio', { name: 'Выбрать' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Выберите группы' })
+  await dialog.getByLabel('Сохранённые списки').selectOption({ label: `Со старыми группами · ${GROUPS + 3}` })
+  await expect(dialog).toContainText(`Выбрано: ${GROUPS} из ${GROUPS}`)
+  await expect(dialog.getByText(`Выбрано: ${GROUPS}`, { exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Готово' }).click()
+  await expect(page.getByRole('dialog', { name: 'Новая заявка' })).toContainText(`${GROUPS} группы`)
+  await context.close()
+})
+
+test('состав списка меняется в одном месте и обновляется одной кнопкой', async ({ browser }) => {
+  test.setTimeout(150_000)
+  for (const width of [390, 1024]) {
+    const { context, page } = await open(browser, width)
+    await page.goto('/groups')
+    await page.getByRole('button', { name: 'Новый список' }).click()
+    await page.getByLabel('Название списка').fill(`Три ${width}`)
+    for (const n of [1, 2, 3]) await page.locator(`main input[aria-label$=" ${n}"]`).check()
+    await expect(page.getByText('В списке 3 группы')).toBeVisible()
+    await page.getByRole('button', { name: 'Создать список' }).click()
+    const chip = page.getByRole('radio', { name: new RegExp(`^Три ${width}`) })
+    await expect(chip).toHaveAttribute('aria-checked', 'true')
+    await expect(chip).toContainText('3')
+
+    await page.locator('main input[aria-label$=" 2"]').check()
+    await expect(page.getByRole('button', { name: 'Сохранить как список' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Убрать из/ })).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Изменить состав' }).click()
+    await page.getByRole('radio', { name: /^В списке/ }).click()
+    await page.locator(`main input[aria-label$=" 2"]`).uncheck()
+    await expect(page.getByText('+0 −1')).toBeVisible()
+    expect(await pageOverflow(page)).toBeLessThanOrEqual(0)
+    await page.getByRole('button', { name: 'Обновить список' }).click()
+    await expect(chip).toContainText('2')
+    await expect(page.locator('main input[aria-label$=" 2"]')).toHaveCount(0)
+    await page.screenshot({ path: `e2e-results/ui/${width}-list.png` })
+    await context.close()
+  }
+})

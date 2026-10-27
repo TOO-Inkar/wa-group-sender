@@ -1,19 +1,23 @@
-import { Pencil, RefreshCw, Send, Trash2 } from 'lucide-react'
+import { Pencil, Plus, RefreshCw, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { useDeleteGroupList, useGroupLists, useGroups, useResetRejections, useSyncGroups } from '@/features/groups/api'
-import { EditListDialog } from '@/features/groups/EditListDialog'
 import { GroupRows, GroupSelectAll } from '@/features/groups/GroupList'
+import { ListComposer } from '@/features/groups/ListComposer'
 import { matches, matchesGroupFilter, sortGroups, type GroupFilter } from '@/features/groups/model'
-import { SaveListDialog } from '@/features/groups/SaveListDialog'
 import { formatTime, groupsCount } from '@/shared/lib/format'
+import { ActionBar } from '@/shared/ui/action-bar'
 import { Button } from '@/shared/ui/button'
+import { Chips } from '@/shared/ui/chips'
 import { useConfirm } from '@/shared/ui/confirm-context'
-import { Select } from '@/shared/ui/input'
 import { RowMenu } from '@/shared/ui/menu'
 import { SearchInput } from '@/shared/ui/search-input'
 import { Segmented } from '@/shared/ui/segmented'
+
+const ALL = 'all'
+
+type Composing = { listId?: number; groups: string[] }
 
 export function GroupsPage() {
   const { data: groups = [] } = useGroups()
@@ -21,22 +25,25 @@ export function GroupsPage() {
   const sync = useSyncGroups()
   const deleteList = useDeleteGroupList()
   const reset = useResetRejections()
-  const resetGroup = (jid: string) => reset.mutate(jid, { onSuccess: () => toast.success('Группа вернётся в рассылку') })
   const confirm = useConfirm()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<GroupFilter>('all')
-  const [listId, setListId] = useState('')
+  const [listKey, setListKey] = useState(ALL)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [naming, setNaming] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [editKey, setEditKey] = useState(0)
+  const [composing, setComposing] = useState<Composing | null>(null)
 
-  const list = lists.find((l) => String(l.id) === listId)
+  const list = lists.find((l) => String(l.id) === listKey)
   const scope = groups.filter((g) => (!list || list.groups.includes(g.jid)) && matches(g, query))
   const count = (f: GroupFilter) => scope.filter((g) => matchesGroupFilter(g, f, selected)).length
   const shown = sortGroups(scope.filter((g) => matchesGroupFilter(g, filter, selected)))
   const lastSync = groups.reduce((max, g) => Math.max(max, Date.parse(g.lastSync)), 0)
+  const resetGroup = (jid: string) => reset.mutate(jid, { onSuccess: () => toast.success('Группа вернётся в рассылку') })
+
+  const openList = (key: string) => {
+    setListKey(key)
+    setSelected(new Set())
+  }
 
   const toggle = (jids: string[], on: boolean) =>
     setSelected((prev) => {
@@ -45,17 +52,28 @@ export function GroupsPage() {
       return next
     })
 
-  const startEditing = () => {
-    setEditKey((k) => k + 1)
-    setEditing(true)
-  }
-
   const removeList = async () => {
     if (!list) return
     if (await confirm({ title: `Удалить список «${list.name}»?`, body: <p>Группы и заявки не изменятся.</p>, confirm: 'Удалить', danger: true })) {
       deleteList.mutate(list.id)
-      setListId('')
+      openList(ALL)
     }
+  }
+
+  if (composing) {
+    const editing = lists.find((l) => l.id === composing.listId)
+    return (
+      <ListComposer
+        key={composing.listId ?? 'new'}
+        list={editing}
+        initial={composing.groups}
+        onClose={(savedId) => {
+          setComposing(null)
+          setSelected(new Set())
+          if (savedId !== undefined) setListKey(String(savedId))
+        }}
+      />
+    )
   }
 
   return (
@@ -76,6 +94,31 @@ export function GroupsPage() {
             <RefreshCw size={14} className={sync.isPending ? 'animate-spin' : ''} /> {sync.isPending ? 'Обновляем…' : 'Обновить'}
           </Button>
         </div>
+        <Chips
+          label="Списки групп"
+          value={listKey}
+          onChange={openList}
+          options={[{ value: ALL, label: 'Все группы', count: groups.length }, ...lists.map((l) => ({ value: String(l.id), label: l.name, count: l.groups.length }))]}
+          after={
+            <Button variant="link" size="inline" className="shrink-0 px-2" onClick={() => setComposing({ groups: [] })}>
+              <Plus size={15} /> Новый список
+            </Button>
+          }
+        />
+        {list && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2">
+            <span className="mr-auto min-w-0 truncate font-semibold">
+              {list.name} <span className="font-normal text-muted">· {groupsCount(list.groups.length)}</span>
+            </span>
+            <Button variant="primary" onClick={() => navigate('/campaigns/new', { state: { target: 'list', listId: String(list.id) } })}>
+              <Send size={15} /> Заявка в список
+            </Button>
+            <Button onClick={() => setComposing({ listId: list.id, groups: list.groups })}>
+              <Pencil size={15} /> Изменить состав
+            </Button>
+            <RowMenu bordered label="Действия со списком" items={[{ label: 'Удалить список', icon: <Trash2 size={15} />, danger: true, onSelect: removeList }]} />
+          </div>
+        )}
         <div className="grid gap-2 lg:grid-cols-2">
           <Segmented
             stretch
@@ -90,28 +133,6 @@ export function GroupsPage() {
           />
           <SearchInput value={query} onChange={setQuery} placeholder="Поиск по названию группы" />
         </div>
-        <div className="flex items-center gap-2">
-          <Select block className="text-sm" value={listId} onChange={(e) => setListId(e.target.value)} aria-label="Список групп">
-            <option value="">Все списки</option>
-            {lists.map((l) => (
-              <option key={l.id} value={String(l.id)}>
-                {l.name} · {l.groups.length}
-              </option>
-            ))}
-          </Select>
-          {list && (
-            <RowMenu
-              bordered
-              label="Действия со списком"
-              items={[
-                { label: 'Изменить список', icon: <Pencil size={15} />, onSelect: startEditing },
-                { label: 'Заявка в этот список', icon: <Send size={15} />, onSelect: () => navigate('/campaigns/new', { state: { target: 'list', listId: String(list.id) } }) },
-                { label: 'Отметить его группы', onSelect: () => setSelected(new Set(list.groups)) },
-                { label: 'Удалить список', icon: <Trash2 size={15} />, danger: true, onSelect: removeList },
-              ]}
-            />
-          )}
-        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -122,34 +143,18 @@ export function GroupsPage() {
       </div>
 
       {selected.size > 0 && (
-        <div className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 z-30 flex w-[min(640px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-3.5 py-2.5 shadow-xl">
-          <span className="text-sm font-semibold">Отмечено {groupsCount(selected.size)}</span>
-          <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" variant="primary" onClick={() => navigate('/campaigns/new', { state: { target: 'pick', groups: [...selected] } })}>
-              Заявка в отмеченные
-            </Button>
-            <Button size="sm" onClick={() => setNaming(true)}>
-              Сохранить как список
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-              Сбросить
-            </Button>
-          </div>
-        </div>
+        <ActionBar title={`Отмечено ${groupsCount(selected.size)}`}>
+          <Button size="sm" variant="primary" onClick={() => navigate('/campaigns/new', { state: { target: 'pick', groups: [...selected] } })}>
+            Заявка в отмеченные
+          </Button>
+          <Button size="sm" onClick={() => setComposing({ groups: [...selected] })}>
+            Новый список из отмеченных
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+            Сбросить
+          </Button>
+        </ActionBar>
       )}
-
-      {list && <EditListDialog key={`${list.id}-${editKey}`} list={list} open={editing} onOpenChange={setEditing} />}
-
-      <SaveListDialog
-        groups={[...selected]}
-        open={naming}
-        onOpenChange={setNaming}
-        onSaved={(saved) => {
-          setNaming(false)
-          setSelected(new Set())
-          setListId(String(saved.id))
-        }}
-      />
     </>
   )
 }
