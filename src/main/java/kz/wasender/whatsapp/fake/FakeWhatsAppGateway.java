@@ -4,6 +4,7 @@ import kz.wasender.config.FakeProperties;
 import kz.wasender.whatsapp.AbstractWhatsAppGateway;
 import kz.wasender.whatsapp.GatewayEvent;
 import kz.wasender.whatsapp.GroupInfo;
+import kz.wasender.whatsapp.ProxyPolicy;
 import kz.wasender.whatsapp.SendException;
 import kz.wasender.whatsapp.SessionState;
 import org.slf4j.Logger;
@@ -37,16 +38,22 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
     private final List<SentMessage> direct = new CopyOnWriteArrayList<>();
     private final List<String> rejectedCalls = new CopyOnWriteArrayList<>();
     private final Clock clock;
+    private final ProxyPolicy proxies;
 
-    public FakeWhatsAppGateway(FakeProperties properties, RandomGenerator random, Clock clock) {
+    public FakeWhatsAppGateway(FakeProperties properties, RandomGenerator random, Clock clock, ProxyPolicy proxies) {
         this.properties = properties;
         this.random = random;
         this.clock = clock;
+        this.proxies = proxies;
         resetGroups();
     }
 
     @Override
     public void connect() {
+        if (proxies.missing()) {
+            updateState(SessionState.PROXY_REQUIRED);
+            return;
+        }
         updateState(SessionState.CONNECTING);
         publish(new GatewayEvent.Connected());
     }

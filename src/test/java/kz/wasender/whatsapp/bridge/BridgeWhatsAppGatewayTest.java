@@ -1,20 +1,25 @@
 package kz.wasender.whatsapp.bridge;
 
+import kz.wasender.engine.TenantInfo;
 import kz.wasender.whatsapp.GatewayEvent;
 import kz.wasender.whatsapp.GroupInfo;
+import kz.wasender.whatsapp.ProxyPolicy;
 import kz.wasender.whatsapp.SendException;
 import kz.wasender.whatsapp.SessionState;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -24,7 +29,42 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class BridgeWhatsAppGatewayTest {
     private final RestClient.Builder builder = RestClient.builder().baseUrl("http://bridge");
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    private final BridgeWhatsAppGateway gateway = new BridgeWhatsAppGateway(builder, builder);
+    private static final TenantInfo LEGACY = new TenantInfo(1, "t1", "Кабинет 1", true);
+    private static final TenantInfo SECOND = new TenantInfo(2, "t2", "Кабинет 2", false);
+    private static final String PROXY = "socks5://user:secret@10.0.0.1:1080";
+
+    private final BridgeWhatsAppGateway gateway = new BridgeWhatsAppGateway(builder, builder, LEGACY,
+            new ProxyPolicy(LEGACY, id -> Optional.empty(), true));
+
+    @Test
+    void tenantWithoutRequiredProxyIsNotConnected() {
+        var tenantGateway = new BridgeWhatsAppGateway(builder, builder, SECOND, new ProxyPolicy(SECOND, id -> Optional.empty(), true));
+
+        tenantGateway.connect();
+
+        assertThat(tenantGateway.sessionState()).isEqualTo(SessionState.PROXY_REQUIRED);
+        server.verify();
+    }
+
+    @Test
+    void connectSendsTenantProxy() {
+        var proxied = RestClient.builder().baseUrl("http://bridge");
+        var bridge = MockRestServiceServer.bindTo(proxied).ignoreExpectOrder(true).build();
+        bridge.expect(requestTo("http://bridge/events?after=-1&wait=0"))
+                .andRespond(withSuccess("{\"instance\":\"i\",\"next\":0,\"events\":[]}", MediaType.APPLICATION_JSON));
+        bridge.expect(requestTo("http://bridge/connect"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().json("{\"proxy\":\"" + PROXY + "\"}"))
+                .andRespond(withSuccess());
+        bridge.expect(ExpectedCount.manyTimes(), requestTo(startsWith("http://bridge/events?after=0")))
+                .andRespond(withSuccess("{\"instance\":\"i\",\"next\":0,\"events\":[]}", MediaType.APPLICATION_JSON));
+        var tenantGateway = new BridgeWhatsAppGateway(proxied, proxied, SECOND, new ProxyPolicy(SECOND, id -> Optional.of(PROXY), true));
+
+        tenantGateway.connect();
+        tenantGateway.stop();
+
+        assertThat(tenantGateway.sessionState()).isEqualTo(SessionState.CONNECTING);
+    }
 
     @Test
     void sendFailureCarriesGroupUnavailableFlag() {

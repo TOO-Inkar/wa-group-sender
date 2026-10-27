@@ -7,7 +7,7 @@
     <springProperty name="LOG_TOTAL_SIZE_CAP" source="app.logging.total-size-cap" defaultValue="2GB"/>
     <springProperty name="LOG_ZONE" source="app.zone" defaultValue="Asia/Almaty"/>
 
-    <property name="PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS,${LOG_ZONE}} %-5level [%thread] %logger{36} - %msg%n"/>
+    <property name="PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS,${LOG_ZONE}} %-5level [%thread] [%X{tenant:--}] %logger{36} - %msg%n"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

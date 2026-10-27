@@ -2,11 +2,14 @@ package kz.wasender.whatsapp.bridge;
 
 import jakarta.annotation.PreDestroy;
 import kz.wasender.config.WhatsAppProperties;
+import kz.wasender.engine.TenantInfo;
 import kz.wasender.whatsapp.AbstractWhatsAppGateway;
 import kz.wasender.whatsapp.GatewayEvent;
 import kz.wasender.whatsapp.GroupInfo;
+import kz.wasender.whatsapp.ProxyPolicy;
 import kz.wasender.whatsapp.SendException;
 import kz.wasender.whatsapp.SessionState;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,20 +38,25 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
 
     private final RestClient client;
     private final RestClient slowClient;
+    private final TenantInfo tenant;
+    private final ProxyPolicy proxies;
     private Thread poller;
     private volatile boolean stopped;
 
     @Autowired
-    public BridgeWhatsAppGateway(WhatsAppProperties properties) {
+    public BridgeWhatsAppGateway(WhatsAppProperties properties, TenantInfo tenant, ProxyPolicy proxies) {
         this(RestClient.builder().baseUrl(properties.bridgeUrl().toString())
                         .requestFactory(factory(properties.sendTimeout().plusSeconds(EVENTS_WAIT_SECONDS))),
                 RestClient.builder().baseUrl(properties.bridgeUrl().toString())
-                        .requestFactory(factory(properties.groupsTimeout())));
+                        .requestFactory(factory(properties.groupsTimeout())),
+                tenant, proxies);
     }
 
-    BridgeWhatsAppGateway(RestClient.Builder client, RestClient.Builder slowClient) {
+    BridgeWhatsAppGateway(RestClient.Builder client, RestClient.Builder slowClient, TenantInfo tenant, ProxyPolicy proxies) {
         this.client = client.build();
         this.slowClient = slowClient.build();
+        this.tenant = tenant;
+        this.proxies = proxies;
     }
 
     private static JdkClientHttpRequestFactory factory(Duration readTimeout) {
@@ -59,14 +67,26 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
 
     @Override
     public synchronized void connect() {
+        if (proxies.missing()) {
+            if (sessionState() != SessionState.PROXY_REQUIRED) {
+                log.warn("Bridge connect skipped: {}", ProxyPolicy.MISSING);
+            }
+            updateState(SessionState.PROXY_REQUIRED);
+            return;
+        }
         updateState(SessionState.CONNECTING);
         try {
             if (poller == null) {
                 // Курсор берётся до /connect, чтобы не потерять события самого подключения.
                 var start = client.get().uri("/events?after=-1&wait=0").retrieve().body(EventBatch.class);
-                poller = Thread.ofVirtual().name("wa-bridge-events").start(() -> poll(start.instance(), start.next()));
+                poller = Thread.ofVirtual().name(tenant.threadName("wa-bridge-events"))
+                        .start(tenant.withMdc(() -> poll(start.instance(), start.next())));
             }
-            client.post().uri("/connect").retrieve().toBodilessEntity();
+            client.post().uri("/connect")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new ConnectRequest(proxies.proxy().orElse(null)))
+                    .retrieve()
+                    .toBodilessEntity();
         } catch (RestClientException e) {
             log.warn("Bridge connect failed: {}", e.toString());
             publish(new GatewayEvent.Disconnected("bridge unavailable: " + e.getMessage(), false));
@@ -247,6 +267,9 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
 
     // Boxed: Jackson 3 не принимает отсутствующее поле для примитива, а мост пустые поля не шлёт.
     record Event(long seq, String type, String payload, String reason, Boolean autoReconnect, String jid) {
+    }
+
+    record ConnectRequest(@Nullable String proxy) {
     }
 
     record EventBatch(String instance, long next, List<Event> events) {

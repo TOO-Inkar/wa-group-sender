@@ -8,5 +8,6 @@ public enum SessionState {
     RECONNECTING,
     DISCONNECTED,
     LOGGED_OUT,
-    BANNED
+    BANNED,
+    PROXY_REQUIRED
 }
