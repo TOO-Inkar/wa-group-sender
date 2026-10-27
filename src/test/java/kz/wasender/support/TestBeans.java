@@ -1,6 +1,11 @@
 package kz.wasender.support;
 
+import kz.wasender.config.NotifyProperties;
+import kz.wasender.platform.TenantRepository;
+import org.flywaydb.core.Flyway;
+import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
@@ -33,5 +38,25 @@ public class TestBeans {
     @Bean
     RecordingNotifier recordingNotifier() {
         return new RecordingNotifier();
+    }
+
+    @Bean
+    TestTenantEngines testTenantEngines(ApplicationContext context, TenantRepository tenants, NotifyProperties notify) {
+        return new TestTenantEngines(context, tenants, notify);
+    }
+
+    @Bean
+    FlywayMigrationStrategy platformSchemaAlongsideTenantSchema() {
+        return flyway -> {
+            flyway.migrate();
+            Flyway.configure()
+                    .dataSource(flyway.getConfiguration().getDataSource())
+                    .locations("classpath:db/platform")
+                    .table("platform_schema_history")
+                    .baselineOnMigrate(true)
+                    .baselineVersion("0")
+                    .load()
+                    .migrate();
+        };
     }
 }

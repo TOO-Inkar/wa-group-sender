@@ -1,6 +1,10 @@
 package kz.wasender.notify;
 
+import kz.wasender.platform.InviteCodes;
+import kz.wasender.platform.Tenant;
+import kz.wasender.platform.TenantRepository;
 import kz.wasender.support.IntegrationTest;
+import kz.wasender.support.TestTenantEngines;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -13,6 +17,20 @@ class TelegramBotTest extends IntegrationTest {
     TelegramSubscriberRepository subscribers;
     @Autowired
     TelegramNotifier notifier;
+    @Autowired
+    TenantRepository tenants;
+    @Autowired
+    TestTenantEngines engines;
+
+    private Tenant secondTenant() {
+        var tenant = tenants.create("Кабинет 2", false, InviteCodes.random(), clock.instant());
+        engines.start(tenant);
+        return tenant;
+    }
+
+    private TelegramSubscriberRepository subscribersOf(Tenant tenant) {
+        return engines.get(tenant.id()).bean(TelegramSubscriberRepository.class);
+    }
 
     private static TelegramBot.Update update(long id, long chatId, String text) {
         return new TelegramBot.Update(id, new TelegramBot.Message(new TelegramBot.Chat(chatId, "private", null),
@@ -46,5 +64,46 @@ class TelegramBotTest extends IntegrationTest {
         bot.handle(update(2, 777, "/start@wa_sender_bot"));
 
         assertThat(subscribers.find("777").orElseThrow().status()).isEqualTo(TelegramSubscriberRepository.Status.PENDING);
+    }
+
+    @Test
+    void inviteCodeSubscribesToThatTenantOnly() {
+        var second = secondTenant();
+
+        bot.handle(update(1, 901, "/start " + second.inviteCode()));
+
+        assertThat(subscribersOf(second).find("901")).isPresent();
+        assertThat(subscribers.find("901")).isEmpty();
+    }
+
+    @Test
+    void startWithoutCodeIsRefusedWhenSeveralTenantsAreActive() {
+        secondTenant();
+
+        bot.handle(update(1, 902, "/start"));
+        bot.handle(update(2, 903, "/start deadbeef"));
+
+        assertThat(subscribers.find("902")).isEmpty();
+        assertThat(subscribers.find("903")).isEmpty();
+    }
+
+    @Test
+    void stopRemovesTheChatFromEveryTenant() {
+        var second = secondTenant();
+        var legacy = tenants.find(1).orElseThrow();
+        bot.handle(update(1, 904, "/start " + legacy.inviteCode()));
+        bot.handle(update(2, 904, "/start " + second.inviteCode()));
+        assertThat(subscribers.find("904")).isPresent();
+        assertThat(subscribersOf(second).find("904")).isPresent();
+
+        bot.handle(update(3, 904, "/stop"));
+
+        assertThat(subscribers.find("904")).isEmpty();
+        assertThat(subscribersOf(second).find("904")).isEmpty();
+    }
+
+    @Test
+    void inviteLinkNeedsAKnownBotUsername() {
+        assertThat(bot.inviteLink(tenants.find(1).orElseThrow())).isNull();
     }
 }
