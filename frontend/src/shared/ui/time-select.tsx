@@ -5,14 +5,36 @@ import { cn } from '@/shared/lib/cn'
 import { control } from './styles'
 
 const MINUTE_STEP = 5
-const STEPS = Array.from({ length: (24 * 60) / MINUTE_STEP }, (_, i) => {
-  const minutes = i * MINUTE_STEP
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
-})
+const pad = (n: number) => String(n).padStart(2, '0')
+const HOURS = Array.from({ length: 24 }, (_, h) => pad(h))
+const MINUTES = Array.from({ length: 60 / MINUTE_STEP }, (_, i) => pad(i * MINUTE_STEP))
 
-function centerChecked(menu: HTMLElement) {
-  const item = menu.querySelector<HTMLElement>('[data-state="checked"]')
-  if (item) menu.scrollTop = item.offsetTop - (menu.clientHeight - item.offsetHeight) / 2
+function centerChecked(column: HTMLElement) {
+  const item = column.querySelector<HTMLElement>('[data-state="checked"]')
+  if (item) column.scrollTop = item.offsetTop - (column.clientHeight - item.offsetHeight) / 2
+}
+
+function Column({ label, values, value, onPick, keepOpen }: { label: string; values: string[]; value: string; onPick: (value: string) => void; keepOpen?: boolean }) {
+  return (
+    <Dropdown.RadioGroup
+      aria-label={label}
+      value={value}
+      onValueChange={onPick}
+      data-time-column
+      className="max-h-[min(240px,calc(var(--radix-dropdown-menu-content-available-height)-16px))] overflow-y-auto overscroll-contain"
+    >
+      {values.map((v) => (
+        <Dropdown.RadioItem
+          key={v}
+          value={v}
+          onSelect={keepOpen ? (e) => e.preventDefault() : undefined}
+          className="flex min-h-9 cursor-pointer items-center justify-center rounded-lg text-sm tabular-nums outline-none select-none data-[highlighted]:bg-surface-2 data-[state=checked]:bg-accent-soft data-[state=checked]:font-semibold"
+        >
+          {v}
+        </Dropdown.RadioItem>
+      ))}
+    </Dropdown.RadioGroup>
+  )
 }
 
 export function TimeSelect({
@@ -28,13 +50,14 @@ export function TimeSelect({
   invalid?: boolean
   className?: string
 }) {
-  const times = STEPS.includes(value) ? STEPS : [...STEPS, value].sort()
+  const [hour = '08', minute = '00'] = value.split(':')
+  const minutes = MINUTES.includes(minute) ? MINUTES : [...MINUTES, minute].sort()
   const [open, setOpen] = useState(false)
   const menu = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
-    const frame = requestAnimationFrame(() => menu.current && centerChecked(menu.current))
+    const frame = requestAnimationFrame(() => menu.current?.querySelectorAll<HTMLElement>('[data-time-column]').forEach(centerChecked))
     return () => cancelAnimationFrame(frame)
   }, [open])
 
@@ -51,19 +74,10 @@ export function TimeSelect({
           sideOffset={4}
           collisionPadding={8}
           aria-label={label}
-          className="z-[60] max-h-[min(280px,var(--radix-dropdown-menu-content-available-height))] w-[var(--radix-dropdown-menu-trigger-width)] min-w-24 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-1 shadow-xl"
+          className="z-[60] grid w-40 grid-cols-2 gap-1 rounded-xl border border-border bg-surface p-1 shadow-xl"
         >
-          <Dropdown.RadioGroup value={value} onValueChange={onChange}>
-            {times.map((time) => (
-              <Dropdown.RadioItem
-                key={time}
-                value={time}
-                className="flex min-h-9 cursor-pointer items-center rounded-lg px-2.5 text-sm tabular-nums outline-none select-none data-[highlighted]:bg-surface-2 data-[state=checked]:bg-accent-soft data-[state=checked]:font-semibold"
-              >
-                {time}
-              </Dropdown.RadioItem>
-            ))}
-          </Dropdown.RadioGroup>
+          <Column label="Часы" values={HOURS} value={hour} onPick={(h) => onChange(`${h}:${minute}`)} keepOpen />
+          <Column label="Минуты" values={minutes} value={minute} onPick={(m) => onChange(`${hour}:${m}`)} />
         </Dropdown.Content>
       </Dropdown.Portal>
     </Dropdown.Root>

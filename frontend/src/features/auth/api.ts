@@ -24,8 +24,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => unwrap(api.POST('/api/auth/logout')),
     onSettled: () => {
-      client.clear()
       client.setQueryData(authKeys.me, { authenticated: false })
+      client.removeQueries({ predicate: (query) => query.queryKey[0] !== authKeys.me[0] })
     },
   })
 }
