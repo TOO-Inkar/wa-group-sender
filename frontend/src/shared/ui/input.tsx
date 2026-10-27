@@ -13,10 +13,10 @@ export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
   return <textarea className={cn(control, 'min-h-11 resize-y', className)} {...props} />
 }
 
-export function Select({ className, ...props }: ComponentProps<'select'>) {
+export function Select({ className, block, ...props }: ComponentProps<'select'> & { block?: boolean }) {
   return (
-    <span className="relative inline-flex max-w-full">
-      <select className={cn(control, 'w-auto max-w-full cursor-pointer appearance-none pr-9', className)} {...props} />
+    <span className={cn('relative max-w-full', block ? 'flex min-w-0 flex-1' : 'inline-flex')}>
+      <select className={cn(control, 'max-w-full cursor-pointer appearance-none pr-9', block ? 'w-full' : 'w-auto', className)} {...props} />
       <ChevronDown size={16} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted" />
     </span>
   )
@@ -55,8 +55,8 @@ export function Field({
 
 export function Checkbox({ label, className, ...props }: ComponentProps<'input'> & { label: ReactNode }) {
   return (
-    <label className={cn('flex cursor-pointer items-center gap-2 text-sm', className)}>
-      <input type="checkbox" className="size-4 accent-accent" {...props} />
+    <label className={cn('-mx-1.5 flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg px-1.5 text-sm hover:bg-surface-2', className)}>
+      <input type="checkbox" className="size-4 shrink-0 accent-accent" {...props} />
       <span>{label}</span>
     </label>
   )

@@ -1,14 +1,54 @@
 import { useState } from 'react'
 import type { Group } from '@/shared/api/types'
+import { cn } from '@/shared/lib/cn'
 import { plural } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 
+function GroupTitle({ group }: { group: Group }) {
+  return group.name ? (
+    <span className="line-clamp-2 min-w-0 font-semibold [overflow-wrap:anywhere]">{group.name}</span>
+  ) : (
+    <span className="text-muted italic">Без названия</span>
+  )
+}
+
 export function GroupName({ group }: { group: Group }) {
   return (
-    <span className="flex items-center gap-2.5">
+    <span className="flex min-w-0 items-center gap-2.5">
       <GroupAvatar group={group} />
-      {group.name ? <span className="font-semibold [overflow-wrap:anywhere]">{group.name}</span> : <span className="text-muted italic">Без названия</span>}
+      <GroupTitle group={group} />
     </span>
+  )
+}
+
+export function GroupRow({
+  group,
+  checked,
+  disabled,
+  onChange,
+  onReset,
+}: {
+  group: Group
+  checked: boolean
+  disabled: boolean
+  onChange: (checked: boolean) => void
+  onReset?: (jid: string) => void
+}) {
+  return (
+    <label
+      className={cn(
+        'flex min-h-14 items-center gap-3 px-3 py-2 text-sm transition-colors',
+        disabled ? 'cursor-default opacity-55' : 'cursor-pointer hover:bg-surface-2',
+        checked && 'bg-accent-soft hover:bg-accent-soft',
+      )}
+    >
+      <input type="checkbox" className="size-4 shrink-0 accent-accent" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} aria-label={group.name ?? group.jid} />
+      <GroupAvatar group={group} />
+      <span className="grid min-w-0 flex-1 gap-1">
+        <GroupTitle group={group} />
+        <GroupTags group={group} onReset={onReset} />
+      </span>
+    </label>
   )
 }
 

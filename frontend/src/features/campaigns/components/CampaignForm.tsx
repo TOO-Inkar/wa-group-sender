@@ -167,14 +167,14 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
             <WherePicker />
             <WhenPicker groups={count} />
           </form>
-          <div className="sticky top-0 grid gap-1.5">
+          <section className="sticky top-0 grid gap-2">
             <Caption>Как увидят в WhatsApp</Caption>
             {preview.data && body ? (
-              <WhatsAppBubble text={preview.data} className="max-h-[70vh] overflow-auto" />
+              <WhatsAppBubble text={preview.data} className="max-h-[70vh] overflow-auto border border-border" />
             ) : (
-              <div className="grid min-h-40 place-items-center rounded-xl bg-chat-bg p-6 text-center text-sm text-muted">Здесь появится сообщение</div>
+              <div className="grid min-h-48 place-items-center rounded-xl border border-dashed border-border bg-chat-bg p-6 text-center text-sm text-muted">Здесь появится сообщение</div>
             )}
-          </div>
+          </section>
         </div>
       </FormProvider>
     </Sheet>

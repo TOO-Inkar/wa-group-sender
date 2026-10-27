@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { download } from '@/shared/lib/download'
 import { isoDay } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
-import { Dialog, DialogActions } from '@/shared/ui/dialog'
+import { Dialog } from '@/shared/ui/dialog'
 import { Segmented } from '@/shared/ui/segmented'
 import { Field, Input } from '@/shared/ui/input'
 
@@ -41,23 +41,23 @@ export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Отчёт для заказчика" description="Рассылки за период: сколько отправлено, куда, ошибки понятными словами.">
-      <Segmented size="sm" className="justify-self-start" value={preset} options={PRESETS} onChange={choose} />
+      <Segmented stretch value={preset} options={PRESETS} onChange={choose} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="С">
-          <Input type="date" value={from} onChange={(e) => (setFrom(e.target.value), setPreset(''))} />
+        <Field label="С" className="min-w-0">
+          <Input type="date" className="min-w-0" value={from} onChange={(e) => (setFrom(e.target.value), setPreset(''))} />
         </Field>
-        <Field label="По">
-          <Input type="date" value={to} onChange={(e) => (setTo(e.target.value), setPreset(''))} />
+        <Field label="По" className="min-w-0">
+          <Input type="date" className="min-w-0" value={to} onChange={(e) => (setTo(e.target.value), setPreset(''))} />
         </Field>
       </div>
-      <DialogActions>
-        <Button disabled={busy} onClick={() => get('xlsx')}>
+      <div className="grid grid-cols-2 gap-2 pt-1 sm:flex sm:justify-end">
+        <Button className="min-h-10 justify-center" disabled={busy} onClick={() => get('xlsx')}>
           Excel
         </Button>
-        <Button variant="primary" disabled={busy} onClick={() => get('pdf')}>
+        <Button className="min-h-10 justify-center" variant="primary" disabled={busy} onClick={() => get('pdf')}>
           PDF
         </Button>
-      </DialogActions>
+      </div>
     </Dialog>
   )
 }
