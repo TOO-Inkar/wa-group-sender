@@ -56,11 +56,28 @@ function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   )
 }
 
+const CONTACT_FORM = 'contact-form'
+
 function ContactDialog({ open, onOpenChange, onInsert }: { open: boolean; onOpenChange: (open: boolean) => void; onInsert: (contact: string) => void }) {
   const [value, setValue] = useState('')
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Контакт">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Контакт"
+      footer={
+        <DialogActions>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Отмена
+          </Button>
+          <Button type="submit" form={CONTACT_FORM} variant="primary" disabled={!value.trim()}>
+            Вставить
+          </Button>
+        </DialogActions>
+      }
+    >
       <form
+        id={CONTACT_FORM}
         className="grid gap-3"
         onKeyDown={(e) => e.stopPropagation()}
         onSubmit={(e) => {
@@ -73,14 +90,6 @@ function ContactDialog({ open, onOpenChange, onInsert }: { open: boolean; onOpen
         }}
       >
         <Input autoFocus placeholder="Имя +7 7xx xxx xx xx" value={value} onChange={(e) => setValue(e.target.value)} />
-        <DialogActions>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Отмена
-          </Button>
-          <Button type="submit" variant="primary" disabled={!value.trim()}>
-            Вставить
-          </Button>
-        </DialogActions>
       </form>
     </Dialog>
   )

@@ -1,9 +1,19 @@
+import * as Dropdown from '@radix-ui/react-dropdown-menu'
+import { ChevronDown } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/shared/lib/cn'
-import { Select } from './input'
+import { control } from './styles'
 
 const MINUTE_STEP = 5
-const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
-const MINUTES = Array.from({ length: 60 / MINUTE_STEP }, (_, i) => String(i * MINUTE_STEP).padStart(2, '0'))
+const STEPS = Array.from({ length: (24 * 60) / MINUTE_STEP }, (_, i) => {
+  const minutes = i * MINUTE_STEP
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+})
+
+function centerChecked(menu: HTMLElement) {
+  const item = menu.querySelector<HTMLElement>('[data-state="checked"]')
+  if (item) menu.scrollTop = item.offsetTop - (menu.clientHeight - item.offsetHeight) / 2
+}
 
 export function TimeSelect({
   value,
@@ -18,27 +28,44 @@ export function TimeSelect({
   invalid?: boolean
   className?: string
 }) {
-  const [hour = '08', minute = '00'] = value.split(':')
-  const minutes = MINUTES.includes(minute) ? MINUTES : [...MINUTES, minute].sort()
-  const select = cn('py-1.5 pr-7 pl-2 text-sm tabular-nums', className)
+  const times = STEPS.includes(value) ? STEPS : [...STEPS, value].sort()
+  const [open, setOpen] = useState(false)
+  const menu = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const frame = requestAnimationFrame(() => menu.current && centerChecked(menu.current))
+    return () => cancelAnimationFrame(frame)
+  }, [open])
 
   return (
-    <span role="group" aria-label={label} className="inline-flex items-center gap-0.5">
-      <Select className={select} aria-label={`${label}: часы`} aria-invalid={invalid} value={hour} onChange={(e) => onChange(`${e.target.value}:${minute}`)}>
-        {HOURS.map((h) => (
-          <option key={h} value={h}>
-            {h}
-          </option>
-        ))}
-      </Select>
-      <span className="text-muted">:</span>
-      <Select className={select} aria-label={`${label}: минуты`} aria-invalid={invalid} value={minute} onChange={(e) => onChange(`${hour}:${e.target.value}`)}>
-        {minutes.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </Select>
-    </span>
+    <Dropdown.Root open={open} onOpenChange={setOpen}>
+      <Dropdown.Trigger aria-label={label} aria-invalid={invalid} className={cn(control, 'inline-flex w-24 cursor-pointer items-center justify-between gap-1 tabular-nums', className)}>
+        {value}
+        <ChevronDown size={16} className="shrink-0 text-muted" aria-hidden />
+      </Dropdown.Trigger>
+      <Dropdown.Portal>
+        <Dropdown.Content
+          ref={menu}
+          align="start"
+          sideOffset={4}
+          collisionPadding={8}
+          aria-label={label}
+          className="z-[60] max-h-[min(280px,var(--radix-dropdown-menu-content-available-height))] w-[var(--radix-dropdown-menu-trigger-width)] min-w-24 overflow-y-auto overscroll-contain rounded-xl border border-border bg-surface p-1 shadow-xl"
+        >
+          <Dropdown.RadioGroup value={value} onValueChange={onChange}>
+            {times.map((time) => (
+              <Dropdown.RadioItem
+                key={time}
+                value={time}
+                className="flex min-h-9 cursor-pointer items-center rounded-lg px-2.5 text-sm tabular-nums outline-none select-none data-[highlighted]:bg-surface-2 data-[state=checked]:bg-accent-soft data-[state=checked]:font-semibold"
+              >
+                {time}
+              </Dropdown.RadioItem>
+            ))}
+          </Dropdown.RadioGroup>
+        </Dropdown.Content>
+      </Dropdown.Portal>
+    </Dropdown.Root>
   )
 }

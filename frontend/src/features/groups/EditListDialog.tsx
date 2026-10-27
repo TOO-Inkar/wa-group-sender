@@ -1,20 +1,33 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useUpdateGroupList } from './api'
-import { GroupChecklist } from './GroupPickerDialog'
+import { useGroupChecklist } from './useGroupChecklist'
 import type { GroupList } from '@/shared/api/types'
 import { groupsCount } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
-import { Dialog } from '@/shared/ui/dialog'
+import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Field, Input } from '@/shared/ui/input'
-
-const FORM_ID = 'edit-group-list'
 
 export function EditListDialog({ list, open, onOpenChange }: { list: GroupList; open: boolean; onOpenChange: (open: boolean) => void }) {
   const update = useUpdateGroupList()
   const [name, setName] = useState(list.name)
   const [groups, setGroups] = useState(list.groups)
+  const checklist = useGroupChecklist(groups, setGroups)
   const valid = name.trim() !== '' && groups.length > 0
+
+  const save = () => {
+    if (!valid) return
+    update.mutate(
+      { id: list.id, name: name.trim(), groups },
+      {
+        onSuccess: (saved) => {
+          toast.success(`Список «${saved.name}» сохранён`)
+          onOpenChange(false)
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    )
+  }
 
   return (
     <Dialog
@@ -23,42 +36,36 @@ export function EditListDialog({ list, open, onOpenChange }: { list: GroupList; 
       title="Изменить список"
       description="Заявки в этот список будут отправляться по новому составу со следующей рассылки."
       wide
-      sheetOnPhone
+      toolbar={
+        <>
+          <Field label="Название">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  save()
+                }
+              }}
+            />
+          </Field>
+          {checklist.toolbar}
+        </>
+      }
       footer={
-        <div className="flex items-center gap-2">
+        <DialogActions>
           <span className="mr-auto text-sm text-muted">В списке {groupsCount(groups.length)}</span>
-          <Button className="min-h-10" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Отмена
           </Button>
-          <Button className="min-h-10" type="submit" form={FORM_ID} variant="primary" disabled={!valid || update.isPending}>
+          <Button variant="primary" disabled={!valid || update.isPending} onClick={save}>
             Сохранить
           </Button>
-        </div>
+        </DialogActions>
       }
     >
-      <form
-        id={FORM_ID}
-        className="grid gap-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (!valid) return
-          update.mutate(
-            { id: list.id, name: name.trim(), groups },
-            {
-              onSuccess: (saved) => {
-                toast.success(`Список «${saved.name}» сохранён`)
-                onOpenChange(false)
-              },
-              onError: (err) => toast.error(err.message),
-            },
-          )
-        }}
-      >
-        <Field label="Название">
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </Field>
-        <GroupChecklist value={groups} onChange={setGroups} />
-      </form>
+      {checklist.rows}
     </Dialog>
   )
 }

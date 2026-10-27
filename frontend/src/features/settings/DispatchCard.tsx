@@ -38,6 +38,8 @@ const schema = z
 
 type Values = z.infer<typeof schema>
 
+const WINDOW_FORM = 'window-form'
+
 function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; open: boolean; onOpenChange: (open: boolean) => void }) {
   const save = useSaveSettings()
   const form = useForm<z.input<typeof schema>, unknown, Values>({ resolver: zodResolver(schema), values: settings })
@@ -52,8 +54,22 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
     }),
   )
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Рабочее окно и лимиты">
-      <form onSubmit={submit} noValidate className="grid gap-3.5">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Рабочее окно и лимиты"
+      footer={
+        <DialogActions>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Отмена
+          </Button>
+          <Button type="submit" form={WINDOW_FORM} variant="primary" disabled={save.isPending}>
+            Сохранить
+          </Button>
+        </DialogActions>
+      }
+    >
+      <form id={WINDOW_FORM} onSubmit={submit} noValidate className="grid gap-3.5">
         <div className="grid grid-cols-2 gap-3">
           <Field label="С" error={e.windowStart?.message}>
             <Controller control={form.control} name="windowStart" render={({ field }) => <TimeSelect label="С" invalid={!!e.windowStart} value={field.value} onChange={field.onChange} />} />
@@ -100,14 +116,6 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
           </div>
         </details>
         {e.root && <p className="text-sm text-danger">{e.root.message}</p>}
-        <DialogActions>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Отмена
-          </Button>
-          <Button type="submit" variant="primary" disabled={save.isPending}>
-            Сохранить
-          </Button>
-        </DialogActions>
       </form>
     </Dialog>
   )
@@ -149,7 +157,7 @@ export function DispatchCard() {
             <dt className="text-muted">В группу</dt>
             <dd className="text-right font-semibold">{groupPaceText(settings)}</dd>
           </dl>
-          <Button size="sm" variant="ghost" className="justify-self-start px-0 text-accent hover:enabled:text-accent-hover" onClick={() => setOpen(true)}>
+          <Button variant="link" size="inline" className="justify-self-start" onClick={() => setOpen(true)}>
             Изменить окно и лимиты
           </Button>
         </div>

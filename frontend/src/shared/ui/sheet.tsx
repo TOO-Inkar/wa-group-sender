@@ -43,7 +43,7 @@ export function Sheet({
               <X size={18} />
             </RadixDialog.Close>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+          <div data-dialog-body className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
           {footer && <div className="border-t border-border bg-surface px-5 py-3">{footer}</div>}
         </RadixDialog.Content>
       </RadixDialog.Portal>

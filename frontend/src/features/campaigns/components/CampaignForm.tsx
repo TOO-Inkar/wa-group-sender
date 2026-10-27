@@ -137,7 +137,6 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
           <form id={FORM_ID} onSubmit={submit} onKeyDown={onKeyDown} noValidate className="grid gap-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Segmented
-                size="sm"
                 value={values.mode}
                 onChange={(m) => form.setValue('mode', m)}
                 options={[
@@ -146,9 +145,9 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
                 ]}
               />
               {values.mode === 'fields' && preview.data && body && (
-                <button type="button" onClick={editAsText} className="cursor-pointer text-[13px] text-accent hover:underline">
+                <Button variant="link" size="inline" onClick={editAsText}>
                   Редактировать как текст →
-                </button>
+                </Button>
               )}
             </div>
             {values.mode === 'fields' ? <ItemFields /> : <TextEditor />}
@@ -156,12 +155,12 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
               {values.mode === 'fields' && (
                 <label className="grid gap-1">
                   <Caption>Контакт в конце</Caption>
-                  <Input autoComplete="off" className="py-1.5" placeholder="Имя +7 7xx xxx xx xx" data-nav="" {...form.register('contact')} />
+                  <Input autoComplete="off" placeholder="Имя +7 7xx xxx xx xx" data-nav="" {...form.register('contact')} />
                 </label>
               )}
               <label className="grid gap-1">
                 <Caption>Название в списке</Caption>
-                <Input autoComplete="off" className="py-1.5" maxLength={200} placeholder="по умолчанию — маршрут" data-nav="" {...form.register('title')} />
+                <Input autoComplete="off" maxLength={200} placeholder="по умолчанию — маршрут" data-nav="" {...form.register('title')} />
               </label>
             </div>
             <WherePicker />

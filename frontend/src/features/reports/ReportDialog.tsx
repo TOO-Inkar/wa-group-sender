@@ -40,7 +40,22 @@ export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Отчёт для заказчика" description="Рассылки за период: сколько отправлено, куда, ошибки понятными словами.">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Отчёт для заказчика"
+      description="Рассылки за период: сколько отправлено, куда, ошибки понятными словами."
+      footer={
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+          <Button disabled={busy} onClick={() => get('xlsx')}>
+            Excel
+          </Button>
+          <Button variant="primary" disabled={busy} onClick={() => get('pdf')}>
+            PDF
+          </Button>
+        </div>
+      }
+    >
       <Segmented stretch value={preset} options={PRESETS} onChange={choose} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="С" className="min-w-0">
@@ -49,14 +64,6 @@ export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         <Field label="По" className="min-w-0">
           <Input type="date" className="min-w-0" value={to} onChange={(e) => (setTo(e.target.value), setPreset(''))} />
         </Field>
-      </div>
-      <div className="grid grid-cols-2 gap-2 pt-1 sm:flex sm:justify-end">
-        <Button className="min-h-10 justify-center" disabled={busy} onClick={() => get('xlsx')}>
-          Excel
-        </Button>
-        <Button className="min-h-10 justify-center" variant="primary" disabled={busy} onClick={() => get('pdf')}>
-          PDF
-        </Button>
       </div>
     </Dialog>
   )

@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import { useFieldArray, useFormContext } from 'react-hook-form'
 import { emptyItem, ITEM_LABELS, type FormValues, type ItemField } from '../form'
 import { cn } from '@/shared/lib/cn'
+import { Button } from '@/shared/ui/button'
 import { Caption, Input, Textarea } from '@/shared/ui/input'
 
 const LAYOUT: { name: ItemField; span?: boolean }[] = [{ name: 'route' }, { name: 'date' }, { name: 'vehicles', span: true }, { name: 'cargo' }, { name: 'conditions' }, { name: 'freight' }]
@@ -30,9 +31,9 @@ export function ItemFields() {
           {fields.length > 1 && (
             <div className="flex items-center justify-between text-[13px] font-semibold">
               Заявка {index + 1}
-              <button type="button" onClick={() => remove(index)} className="cursor-pointer rounded p-1 text-muted hover:text-danger" aria-label={`Убрать заявку ${index + 1}`}>
+              <Button variant="ghost" size="icon" onClick={() => remove(index)} aria-label={`Убрать заявку ${index + 1}`}>
                 <X size={15} />
-              </button>
+              </Button>
             </div>
           )}
           <div className="grid gap-2.5 sm:grid-cols-2">
@@ -43,16 +44,16 @@ export function ItemFields() {
               return (
                 <label key={name} className={cn('grid gap-1', span && 'sm:col-span-2')}>
                   <Label name={name} error={error} />
-                  {meta.rows ? <Textarea rows={name === 'vehicles' ? 2 : 1} className="py-1.5" {...props} /> : <Input autoComplete="off" className="py-1.5" {...props} />}
+                  {meta.rows ? <Textarea rows={name === 'vehicles' ? 2 : 1} {...props} /> : <Input autoComplete="off" {...props} />}
                 </label>
               )
             })}
           </div>
         </div>
       ))}
-      <button type="button" onClick={() => append(emptyItem(), { shouldFocus: true })} className="cursor-pointer justify-self-start text-[13px] text-accent hover:underline">
+      <Button variant="link" size="inline" className="justify-self-start" onClick={() => append(emptyItem(), { shouldFocus: true })}>
         + ещё заявка в это же сообщение
-      </button>
+      </Button>
     </div>
   )
 }

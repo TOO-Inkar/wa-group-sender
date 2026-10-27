@@ -3,21 +3,14 @@ import type { Group } from '@/shared/api/types'
 import { cn } from '@/shared/lib/cn'
 import { plural } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
+import { Button } from '@/shared/ui/button'
+import { CheckboxInput } from '@/shared/ui/input'
 
 function GroupTitle({ group }: { group: Group }) {
   return group.name ? (
     <span className="line-clamp-2 min-w-0 font-semibold [overflow-wrap:anywhere]">{group.name}</span>
   ) : (
     <span className="text-muted italic">Без названия</span>
-  )
-}
-
-export function GroupName({ group }: { group: Group }) {
-  return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      <GroupAvatar group={group} />
-      <GroupTitle group={group} />
-    </span>
   )
 }
 
@@ -42,7 +35,7 @@ export function GroupRow({
         checked && 'bg-accent-soft hover:bg-accent-soft',
       )}
     >
-      <input type="checkbox" className="size-4 shrink-0 accent-accent" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} aria-label={group.name ?? group.jid} />
+      <CheckboxInput checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} aria-label={group.name ?? group.jid} />
       <GroupAvatar group={group} />
       <span className="grid min-w-0 flex-1 gap-1">
         <GroupTitle group={group} />
@@ -81,9 +74,9 @@ export function GroupTags({ group, onReset }: { group: Group; onReset?: (jid: st
             WhatsApp отклоняет
           </Badge>
           {onReset && (
-            <button type="button" className="cursor-pointer text-[13px] text-muted underline hover:text-text" onClick={() => onReset(group.jid)}>
+            <Button variant="link" size="inline" onClick={() => onReset(group.jid)}>
               вернуть в рассылку
-            </button>
+            </Button>
           )}
         </>
       ) : (
