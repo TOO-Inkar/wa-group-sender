@@ -10,8 +10,9 @@ import { SaveListDialog } from '@/features/groups/SaveListDialog'
 import { formatTime, groupsCount } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { useConfirm } from '@/shared/ui/confirm-context'
-import { Input, Select } from '@/shared/ui/input'
+import { Select } from '@/shared/ui/input'
 import { RowMenu } from '@/shared/ui/menu'
+import { SearchInput } from '@/shared/ui/search-input'
 import { Segmented } from '@/shared/ui/segmented'
 
 export function GroupsPage() {
@@ -57,22 +58,40 @@ export function GroupsPage() {
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-xl font-semibold">Группы</h1>
-        <Segmented
-          className="order-1 w-full flex-nowrap overflow-x-auto sm:order-none sm:w-auto"
-          size="sm"
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: 'all', label: 'Все', count: scope.length },
-            { value: 'active', label: 'В рассылке', count: count('active') },
-            { value: 'blocked', label: 'Не в рассылке', count: count('blocked') },
-            ...(selected.size ? [{ value: 'selected' as const, label: 'Отмеченные', count: selected.size }] : []),
-          ]}
-        />
-        <span className="order-2 flex items-center gap-1 sm:order-none">
-          <Select className="py-1.5 text-sm" value={listId} onChange={(e) => setListId(e.target.value)} aria-label="Список групп">
+      <div className="mb-3 grid gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-xl font-semibold">Группы</h1>
+          <Button
+            className="min-h-10"
+            disabled={sync.isPending}
+            title={lastSync ? `Обновлено ${formatTime(lastSync)}` : undefined}
+            onClick={() =>
+              sync.mutate(undefined, {
+                onSuccess: (r) => (r.done ? toast.success(`Обновлено: в рассылке ${r.active} из ${r.total}`) : toast.error('WhatsApp не подключён')),
+                onError: (e) => toast.error(e.message),
+              })
+            }
+          >
+            <RefreshCw size={14} className={sync.isPending ? 'animate-spin' : ''} /> {sync.isPending ? 'Обновляем…' : 'Обновить'}
+          </Button>
+        </div>
+        <div className="grid gap-2 lg:grid-cols-2">
+          <Segmented
+            stretch
+            size="sm"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: 'Все', count: scope.length },
+              { value: 'active', label: 'В рассылке', count: count('active') },
+              { value: 'blocked', label: 'Не в рассылке', count: count('blocked') },
+              ...(selected.size ? [{ value: 'selected' as const, label: 'Отмеченные', count: selected.size }] : []),
+            ]}
+          />
+          <SearchInput value={query} onChange={setQuery} placeholder="Поиск по названию группы" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select block className="min-h-10 py-1.5 text-sm" value={listId} onChange={(e) => setListId(e.target.value)} aria-label="Список групп">
             <option value="">Все списки</option>
             {lists.map((l) => (
               <option key={l.id} value={String(l.id)}>
@@ -82,6 +101,7 @@ export function GroupsPage() {
           </Select>
           {list && (
             <RowMenu
+              bordered
               label="Действия со списком"
               items={[
                 { label: 'Изменить список', icon: <Pencil size={15} />, onSelect: startEditing },
@@ -91,22 +111,7 @@ export function GroupsPage() {
               ]}
             />
           )}
-        </span>
-        <Input type="search" placeholder="Поиск" value={query} onChange={(e) => setQuery(e.target.value)} className="order-2 min-w-0 flex-1 py-1.5 text-sm sm:order-none sm:ml-auto sm:w-56 sm:flex-none" />
-        <Button
-          size="sm"
-          className="ml-auto sm:ml-0"
-          disabled={sync.isPending}
-          title={lastSync ? `Обновлено ${formatTime(lastSync)}` : undefined}
-          onClick={() =>
-            sync.mutate(undefined, {
-              onSuccess: (r) => (r.done ? toast.success(`Обновлено: в рассылке ${r.active} из ${r.total}`) : toast.error('WhatsApp не подключён')),
-              onError: (e) => toast.error(e.message),
-            })
-          }
-        >
-          <RefreshCw size={14} className={sync.isPending ? 'animate-spin' : ''} /> {sync.isPending ? 'Обновляем…' : 'Обновить'}
-        </Button>
+        </div>
       </div>
 
       <GroupTable

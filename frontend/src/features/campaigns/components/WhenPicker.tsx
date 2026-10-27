@@ -67,19 +67,20 @@ export function WhenPicker({ groups }: { groups: number }) {
   const errors = [formState.errors.intervalEnd?.message, formState.errors.extraTimes?.message].filter(Boolean)
 
   return (
-    <div className="grid gap-1.5">
+    <section className="grid gap-2">
       <Caption>Когда</Caption>
-      <div className="flex flex-wrap items-center gap-2">
-        <Segmented
-          value={values.repeat}
-          onChange={(v) => setValue('repeat', v)}
-          options={[
-            { value: 'now', label: 'Сейчас' },
-            { value: 'at', label: 'Один раз' },
-            { value: 'daily', label: 'Ежедневно' },
-            { value: 'interval', label: 'Повтор' },
-          ]}
-        />
+      <Segmented
+        stretch
+        value={values.repeat}
+        onChange={(v) => setValue('repeat', v)}
+        options={[
+          { value: 'now', label: 'Сейчас' },
+          { value: 'at', label: 'Один раз' },
+          { value: 'daily', label: 'Ежедневно' },
+          { value: 'interval', label: 'Повтор' },
+        ]}
+      />
+      <div className="flex flex-wrap items-center gap-2 empty:hidden">
         {values.repeat === 'at' && <FormTime name="atTime" label="Время" />}
         {values.repeat === 'daily' && <FormTime name="dailyTime" label="Время" />}
         {values.repeat === 'interval' && (
@@ -111,7 +112,7 @@ export function WhenPicker({ groups }: { groups: number }) {
           ))}
         </>
       )}
-      <div className="flex flex-wrap gap-x-5 gap-y-1">
+      <div className="flex flex-wrap gap-x-5">
         {repeats(values.repeat) && <Checkbox className="text-[13px]" label="первую рассылку — сразу" {...register('sendNow')} />}
         {!roundTheClock && <Checkbox className="text-[13px]" label={`слать и вне рабочего окна (${windowText})`} {...register('anyTime')} />}
       </div>
@@ -121,6 +122,6 @@ export function WhenPicker({ groups }: { groups: number }) {
           {e}
         </span>
       ))}
-    </div>
+    </section>
   )
 }

@@ -5,13 +5,16 @@ import { cn } from '@/shared/lib/cn'
 
 type MenuItem = { label: string; icon?: ReactNode; onSelect: () => void; disabled?: boolean; danger?: boolean; hidden?: boolean }
 
-export function RowMenu({ items, label = 'Действия' }: { items: MenuItem[]; label?: string }) {
+export function RowMenu({ items, label = 'Действия', bordered }: { items: MenuItem[]; label?: string; bordered?: boolean }) {
   return (
     <Dropdown.Root modal={false}>
       <Dropdown.Trigger
         aria-label={label}
         onClick={(e) => e.stopPropagation()}
-        className="grid size-8 cursor-pointer place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-text data-[state=open]:bg-surface-2"
+        className={cn(
+          'grid shrink-0 cursor-pointer place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-text focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] focus-visible:outline-none data-[state=open]:bg-surface-2',
+          bordered ? 'size-10 border border-border bg-surface' : 'size-8',
+        )}
       >
         <MoreHorizontal size={18} />
       </Dropdown.Trigger>
