@@ -1,3 +1,4 @@
+import { PasswordCard } from '@/features/auth/PasswordCard'
 import { AutoReplyCard } from '@/features/settings/AutoReplyCard'
 import { DispatchCard } from '@/features/settings/DispatchCard'
 import { StatsCards } from '@/features/settings/StatsCards'
@@ -12,6 +13,7 @@ export function SettingsPage() {
         <DispatchCard />
         <AutoReplyCard />
         <TelegramCard />
+        <PasswordCard />
       </div>
     </div>
   )

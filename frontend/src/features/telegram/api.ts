@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/shared/api/client'
+import type { components } from '@/shared/api/schema'
+
+export type TelegramOverview = components['schemas']['Overview'] & { inviteLink?: string | null }
 
 const telegramKeys = { all: ['telegram'] as const }
 
 export function useTelegram() {
-  return useQuery({ queryKey: telegramKeys.all, queryFn: () => unwrap(api.GET('/api/admin/telegram')), refetchInterval: 60_000 })
+  return useQuery({ queryKey: telegramKeys.all, queryFn: (): Promise<TelegramOverview> => unwrap(api.GET('/api/admin/telegram')), refetchInterval: 60_000 })
 }
 
 export function useSubscriberAction() {
