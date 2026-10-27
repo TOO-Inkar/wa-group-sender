@@ -10,7 +10,7 @@ export function matches(group: Group, query: string): boolean {
 }
 
 export function sortGroups(groups: Group[]): Group[] {
-  return [...groups].sort((a, b) => Number(!a.name) - Number(!b.name) || (a.name ?? a.jid).localeCompare(b.name ?? b.jid, 'ru'))
+  return [...groups].sort((a, b) => Number(!a.name) - Number(!b.name) || (a.name ?? a.jid).localeCompare(b.name ?? b.jid, 'ru', { numeric: true }))
 }
 
 export type GroupFilter = 'all' | 'active' | 'blocked' | 'selected'

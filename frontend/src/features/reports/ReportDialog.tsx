@@ -42,7 +42,7 @@ export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Отчёт для заказчика" description="Рассылки за период: сколько отправлено, куда, ошибки понятными словами.">
       <Segmented size="sm" className="justify-self-start" value={preset} options={PRESETS} onChange={choose} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="С">
           <Input type="date" value={from} onChange={(e) => (setFrom(e.target.value), setPreset(''))} />
         </Field>

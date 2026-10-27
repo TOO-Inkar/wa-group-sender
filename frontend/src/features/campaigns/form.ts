@@ -53,8 +53,7 @@ export const formSchema = z
       if (!v.text.trim()) ctx.addIssue({ code: 'custom', path: ['text'], message: 'Вставьте текст сообщения' })
     } else {
       const filled = v.items.map((it, i) => ({ it, i })).filter(({ it }) => ITEM_FIELDS.some((f) => it[f].trim()))
-      if (!filled.length) ctx.addIssue({ code: 'custom', path: ['items', 0, 'route'], message: 'Заполните заявку' })
-      for (const { it, i } of filled) {
+      for (const { it, i } of filled.length ? filled : v.items.slice(0, 1).map((it) => ({ it, i: 0 }))) {
         for (const field of ITEM_FIELDS) {
           if (ITEM_LABELS[field].required && !it[field].trim()) {
             ctx.addIssue({ code: 'custom', path: ['items', i, field], message: 'Обязательное поле' })

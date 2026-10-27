@@ -2,6 +2,7 @@ import * as RadixDialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
+import { focusSelf } from './focus'
 
 export function Sheet({
   open,
@@ -25,6 +26,8 @@ export function Sheet({
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-black/30" />
         <RadixDialog.Content
+          tabIndex={-1}
+          onOpenAutoFocus={focusSelf}
           className={cn(
             'fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-bg shadow-2xl outline-none',
             'pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
@@ -33,7 +36,7 @@ export function Sheet({
         >
           <div className="flex items-start justify-between gap-3 border-b border-border bg-surface px-5 py-3.5">
             <div className="min-w-0">
-              <RadixDialog.Title className="truncate text-[17px] font-semibold">{title}</RadixDialog.Title>
+              <RadixDialog.Title className="line-clamp-2 text-[17px] font-semibold">{title}</RadixDialog.Title>
               {subtitle ? <RadixDialog.Description className="mt-0.5 text-[13px] text-muted">{subtitle}</RadixDialog.Description> : <RadixDialog.Description className="sr-only">{title}</RadixDialog.Description>}
             </div>
             <RadixDialog.Close className="cursor-pointer rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-text" aria-label="Закрыть">

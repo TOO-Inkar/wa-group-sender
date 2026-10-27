@@ -15,9 +15,10 @@ const MAX_EXTRA = 3
 
 function ExtraTimes() {
   const { setValue, control, formState } = useFormContext<FormValues>()
-  const extra = useWatch({ control, name: 'extraTimes' })
+  const [extra, repeat, dailyTime, intervalStart] = useWatch({ control, name: ['extraTimes', 'repeat', 'dailyTime', 'intervalStart'] })
   const set = (next: string[]) => setValue('extraTimes', next, { shouldDirty: true, shouldValidate: formState.isSubmitted })
-  const suggest = ['05:00', '06:00', '07:00', '23:30'].find((t) => !extra.includes(t)) ?? '05:00'
+  const taken = [...extra, repeat === 'daily' ? dailyTime : intervalStart]
+  const suggest = ['05:00', '06:00', '07:00', '23:30'].find((t) => !taken.includes(t)) ?? '05:00'
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
@@ -51,6 +52,7 @@ export function WhenPicker({ groups }: { groups: number }) {
   const { data: settings } = useSettings()
   const windowEnd = settings?.windowEnd ?? '23:00'
   const windowText = settings ? `${settings.windowStart}–${settings.windowEnd}` : 'рабочего окна'
+  const roundTheClock = settings?.windowStart === settings?.windowEnd
 
   const times = repeats(values.repeat)
     ? dayRuns(
@@ -111,7 +113,7 @@ export function WhenPicker({ groups }: { groups: number }) {
       )}
       <div className="flex flex-wrap gap-x-5 gap-y-1">
         {repeats(values.repeat) && <Checkbox className="text-[13px]" label="первую рассылку — сразу" {...register('sendNow')} />}
-        <Checkbox className="text-[13px]" label={`слать и вне рабочего окна (${windowText})`} {...register('anyTime')} />
+        {!roundTheClock && <Checkbox className="text-[13px]" label={`слать и вне рабочего окна (${windowText})`} {...register('anyTime')} />}
       </div>
       {lateExtra && <span className="text-[13px] text-warn-text">Время после конца окна — включите «слать и вне рабочего окна», иначе заявка не сохранится.</span>}
       {errors.map((e) => (

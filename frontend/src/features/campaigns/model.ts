@@ -79,7 +79,8 @@ export function scheduleShort(c: ScheduleLike, windowEnd = ''): string {
   if (c.repeatMode === 'DAILY') return `ежедневно ${c.startTime}${more}`
   if (c.repeatMode === 'INTERVAL') {
     const h = (c.intervalMinutes ?? 0) / 60
-    return `каждые ${String(h).replace('.', ',')} ч, ${c.startTime}–${c.endTime ?? windowEnd}${more}`
+    const every = h === 1 ? 'каждый час' : `каждые ${String(h).replace('.', ',')} ч`
+    return `${every}, ${c.startTime}–${c.endTime ?? windowEnd}${more}`
   }
   return c.startTime ? `один раз в ${c.startTime}` : 'один раз'
 }

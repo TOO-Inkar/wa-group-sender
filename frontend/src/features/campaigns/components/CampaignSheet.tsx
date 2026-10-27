@@ -30,7 +30,7 @@ export function CampaignSheet({ id, onClose }: { id: string; onClose: () => void
       title={
         <span className="flex items-center gap-2.5">
           <Badge tone={state.tone}>{state.text}</Badge>
-          <span className="truncate">
+          <span className="line-clamp-2 [overflow-wrap:anywhere]">
             №{c.id} · {c.title}
           </span>
         </span>
