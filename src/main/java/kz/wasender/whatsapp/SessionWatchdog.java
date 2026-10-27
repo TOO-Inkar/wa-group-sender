@@ -60,6 +60,10 @@ public class SessionWatchdog {
             lastState = state;
             stateSince = now;
         }
+        if (state == SessionState.PROXY_REQUIRED) {
+            gateway.connect();
+            return;
+        }
         var stuck = (state == SessionState.CONNECTING || state == SessionState.RECONNECTING)
                 && Duration.between(stateSince, now).compareTo(properties.connectTimeout()) > 0;
         if (state == SessionState.CONNECTED && !gateway.transportAlive()) {

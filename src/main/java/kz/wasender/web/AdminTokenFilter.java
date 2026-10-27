@@ -6,6 +6,9 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kz.wasender.config.SecurityProperties;
+import kz.wasender.engine.CurrentTenant;
+import kz.wasender.platform.TenantRepository;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -20,15 +23,17 @@ import java.time.Clock;
 public class AdminTokenFilter extends OncePerRequestFilter {
     private final SecurityProperties properties;
     private final SessionTokens sessions;
+    private final @Nullable TenantRepository tenants;
 
     @Autowired
-    public AdminTokenFilter(SecurityProperties properties, SessionTokens sessions) {
+    public AdminTokenFilter(SecurityProperties properties, SessionTokens sessions, @Nullable TenantRepository tenants) {
         this.properties = properties;
         this.sessions = sessions;
+        this.tenants = tenants;
     }
 
     public AdminTokenFilter(SecurityProperties properties) {
-        this(properties, new SessionTokens(properties, Clock.systemUTC()));
+        this(properties, new SessionTokens(properties, Clock.systemUTC()), null);
     }
 
     static boolean authorized(HttpServletRequest request, SecurityProperties properties, SessionTokens sessions) {
@@ -67,6 +72,9 @@ public class AdminTokenFilter extends OncePerRequestFilter {
         if (!authorized(request, properties, sessions)) {
             reject(response, HttpServletResponse.SC_UNAUTHORIZED, "invalid or missing " + properties.header());
             return;
+        }
+        if (tenants != null) {
+            tenants.findActive().stream().findFirst().ifPresent(tenant -> CurrentTenant.bind(request, tenant.id()));
         }
         chain.doFilter(request, response);
     }

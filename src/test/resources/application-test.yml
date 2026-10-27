@@ -4,6 +4,10 @@ spring:
 
 app:
   scheduling-enabled: false
+  tenancy:
+    db-url: jdbc:h2:mem:${random.uuid}-{name};DB_CLOSE_DELAY=-1
+    default-tenant: 1
+    require-proxy: false
   logging:
     dir: build/test-logs
   whatsapp:
