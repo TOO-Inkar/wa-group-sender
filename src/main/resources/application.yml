@@ -124,6 +124,11 @@ app:
     username: ${ADMIN_USERNAME:admin}
     password-hash: ${ADMIN_PASSWORD_HASH:}
     session-ttl: ${ADMIN_SESSION_TTL:30d}
+  platform:
+    host: ${PLATFORM_HOST:}
+    app-url: ${PLATFORM_APP_URL:}
+    access-team-domain: ${CF_ACCESS_TEAM_DOMAIN:}
+    access-aud: ${CF_ACCESS_AUD:}
   fake:
     groups: ${FAKE_GROUPS:30}
     unarchived-groups: ${FAKE_UNARCHIVED_GROUPS:3}

@@ -114,6 +114,16 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     }
 
     @Override
+    public Optional<String> account() {
+        try {
+            var status = client.get().uri("/status").retrieve().body(Status.class);
+            return Optional.ofNullable(status).map(Status::account).filter(account -> !account.isBlank());
+        } catch (RestClientException e) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public List<GroupInfo> listGroups() {
         return slowClient.get().uri("/groups").retrieve().body(new ParameterizedTypeReference<List<GroupInfo>>() {
         });
@@ -275,7 +285,7 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
     record EventBatch(String instance, long next, List<Event> events) {
     }
 
-    record Status(String state, Boolean connected) {
+    record Status(String state, Boolean connected, String account) {
     }
 
     record Last(Boolean known, Boolean fromMe, Long at) {

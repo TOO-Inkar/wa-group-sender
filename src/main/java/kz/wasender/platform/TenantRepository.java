@@ -1,5 +1,6 @@
 package kz.wasender.platform;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -17,7 +18,8 @@ public class TenantRepository {
             TenantStatus.valueOf(rs.getString("status")),
             rs.getBoolean("legacy"),
             rs.getString("invite_code"),
-            rs.getObject("created_at", Instant.class));
+            rs.getObject("created_at", Instant.class),
+            rs.getString("proxy_url"));
 
     private final JdbcClient jdbc;
 
@@ -46,9 +48,13 @@ public class TenantRepository {
     }
 
     public Tenant create(String name, boolean legacy, String inviteCode, Instant now) {
+        return create(name, legacy, inviteCode, now, null);
+    }
+
+    public Tenant create(String name, boolean legacy, String inviteCode, Instant now, @Nullable String proxyUrl) {
         var keys = new GeneratedKeyHolder();
-        jdbc.sql("insert into tenant (name, status, legacy, invite_code, created_at) values (?, 'ACTIVE', ?, ?, ?)")
-                .params(name, legacy, inviteCode, now)
+        jdbc.sql("insert into tenant (name, status, legacy, invite_code, created_at, proxy_url) values (?, 'ACTIVE', ?, ?, ?, ?)")
+                .params(name, legacy, inviteCode, now, proxyUrl)
                 .update(keys, "id");
         return find(keys.getKeyAs(Long.class)).orElseThrow();
     }
@@ -59,6 +65,10 @@ public class TenantRepository {
 
     public void setStatus(long id, TenantStatus status) {
         jdbc.sql("update tenant set status = ? where id = ?").params(status.name(), id).update();
+    }
+
+    public void setProxy(long id, @Nullable String proxyUrl) {
+        jdbc.sql("update tenant set proxy_url = ? where id = ?").params(proxyUrl, id).update();
     }
 
     public void delete(long id) {

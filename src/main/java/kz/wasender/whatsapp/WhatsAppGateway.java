@@ -12,6 +12,10 @@ public interface WhatsAppGateway {
 
     SessionState sessionState();
 
+    default Optional<String> account() {
+        return Optional.empty();
+    }
+
     // Состояние идёт по событиям библиотеки; сокет, закрытый без события, иначе навсегда остался бы CONNECTED.
     default boolean transportAlive() {
         return true;
