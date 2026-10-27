@@ -1,12 +1,13 @@
 import { Navigate } from 'react-router'
 import { useMe } from '@/features/auth/api'
+import { homePath } from '@/features/auth/model'
 import { LoginForm } from '@/features/auth/LoginForm'
 import { Card } from '@/shared/ui/card'
 import { Logo } from '@/shared/ui/logo'
 
 export function LoginPage() {
   const { data: me } = useMe()
-  if (me?.authenticated) return <Navigate to="/campaigns" replace />
+  if (me?.authenticated) return <Navigate to={homePath(me, window.location.hostname)} replace />
   return (
     <div className="grid min-h-full place-items-center bg-bg p-4">
       <div className="grid w-full max-w-[380px] gap-5">
