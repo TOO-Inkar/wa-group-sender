@@ -39,7 +39,7 @@ export function WherePicker() {
         ]}
       />
       {target === 'list' && (
-        <Select className="min-h-10 py-1.5 text-sm" aria-invalid={!!error} {...register('listId')}>
+        <Select className="text-sm" aria-invalid={!!error} {...register('listId')}>
           <option value="">{lists.length ? '— список —' : 'списков нет'}</option>
           {lists.map((l) => (
             <option key={l.id} value={String(l.id)}>
@@ -49,7 +49,7 @@ export function WherePicker() {
         </Select>
       )}
       {target === 'pick' && (
-        <Button className="min-h-10 justify-self-start" onClick={pick}>
+        <Button className="justify-self-start" onClick={pick}>
           {groups.length ? `${groupsCount(groups.length)} · изменить` : 'Выбрать группы…'}
         </Button>
       )}

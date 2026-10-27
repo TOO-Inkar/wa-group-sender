@@ -1,9 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
-
-const control =
-  'w-full rounded-lg border border-border bg-surface px-3 py-2 text-[15px] text-text placeholder:text-muted/70 transition-shadow focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] focus-visible:outline-none aria-invalid:border-danger'
+import { control } from './styles'
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cn(control, className)} {...props} />
@@ -53,10 +51,23 @@ export function Field({
   )
 }
 
-export function Checkbox({ label, className, ...props }: ComponentProps<'input'> & { label: ReactNode }) {
+export function CheckboxInput({ indeterminate, className, ...props }: Omit<ComponentProps<'input'>, 'type'> & { indeterminate?: boolean }) {
+  return (
+    <input
+      type="checkbox"
+      className={cn('size-4 shrink-0 cursor-pointer accent-accent disabled:cursor-default', className)}
+      ref={(el) => {
+        if (el) el.indeterminate = !!indeterminate && !props.checked
+      }}
+      {...props}
+    />
+  )
+}
+
+export function Checkbox({ label, className, ...props }: ComponentProps<'input'> & { label: ReactNode; indeterminate?: boolean }) {
   return (
     <label className={cn('-mx-1.5 flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg px-1.5 text-sm hover:bg-surface-2', className)}>
-      <input type="checkbox" className="size-4 shrink-0 accent-accent" {...props} />
+      <CheckboxInput {...props} />
       <span>{label}</span>
     </label>
   )

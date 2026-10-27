@@ -23,16 +23,23 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <ConfirmContext value={confirm}>
       {children}
-      <Dialog open={options !== null} onOpenChange={(open) => !open && finish(false)} title={options?.title ?? ''} wide>
+      <Dialog
+        open={options !== null}
+        onOpenChange={(open) => !open && finish(false)}
+        title={options?.title ?? ''}
+        wide
+        footer={
+          <DialogActions>
+            <Button variant="ghost" onClick={() => finish(false)}>
+              Отмена
+            </Button>
+            <Button variant={options?.danger ? 'danger' : 'primary'} onClick={() => finish(true)} autoFocus>
+              {options?.confirm ?? 'ОК'}
+            </Button>
+          </DialogActions>
+        }
+      >
         {options?.body && <div className="grid gap-2 text-sm text-muted">{options.body}</div>}
-        <DialogActions>
-          <Button variant="ghost" onClick={() => finish(false)}>
-            Отмена
-          </Button>
-          <Button variant={options?.danger ? 'danger' : 'primary'} onClick={() => finish(true)} autoFocus>
-            {options?.confirm ?? 'ОК'}
-          </Button>
-        </DialogActions>
       </Dialog>
     </ConfirmContext>
   )

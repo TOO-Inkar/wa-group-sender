@@ -8,6 +8,7 @@ import { sessionTone } from '@/features/health/texts'
 import { useTelegram } from '@/features/telegram/api'
 import { cn } from '@/shared/lib/cn'
 import { Count, Dot } from '@/shared/ui/badge'
+import { Button } from '@/shared/ui/button'
 import { Logo } from '@/shared/ui/logo'
 
 export function AppLayout() {
@@ -33,9 +34,9 @@ export function AppLayout() {
           <div className="text-sm leading-tight font-semibold">wa-group-sender</div>
           <StatusChip />
         </div>
-        <button type="button" onClick={() => logout.mutate()} aria-label="Выйти" className="-mr-2 grid size-10 cursor-pointer place-items-center rounded-lg text-muted hover:text-text">
+        <Button variant="ghost" size="icon" className="-mr-2" onClick={() => logout.mutate()} aria-label="Выйти">
           <LogOut size={18} />
-        </button>
+        </Button>
       </header>
 
       <aside className="sticky top-0 hidden h-dvh flex-col gap-4 border-r border-border bg-surface px-3 py-4 md:flex">

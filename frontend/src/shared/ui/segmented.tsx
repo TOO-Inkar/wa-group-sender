@@ -1,29 +1,21 @@
 import { cn } from '@/shared/lib/cn'
+import { FOCUS_RING } from './styles'
 
 export function Segmented<T extends string>({
   value,
   options,
   onChange,
   className,
-  size = 'md',
   stretch,
 }: {
   value: T
   options: { value: T; label: string; count?: number }[]
   onChange: (value: T) => void
   className?: string
-  size?: 'sm' | 'md'
   stretch?: boolean
 }) {
   return (
-    <div
-      role="radiogroup"
-      className={cn(
-        'max-w-full gap-0.5 rounded-xl bg-surface-2 p-0.5',
-        stretch ? (options.length > 3 ? 'grid w-full grid-cols-2 sm:flex' : 'flex w-full flex-wrap') : 'inline-flex flex-wrap',
-        className,
-      )}
-    >
+    <div role="radiogroup" className={cn('max-w-full flex-wrap gap-0.5 rounded-xl bg-surface-2 p-0.5', stretch ? 'flex w-full' : 'inline-flex', className)}>
       {options.map((option) => {
         const active = option.value === value
         return (
@@ -34,9 +26,9 @@ export function Segmented<T extends string>({
             aria-checked={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg whitespace-nowrap transition-colors focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] focus-visible:outline-none',
-              size === 'sm' ? 'px-2.5 py-1 text-[13px]' : 'px-3 py-1.5 text-sm',
-              stretch && 'min-h-10 flex-auto',
+              'inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-sm whitespace-nowrap transition-colors',
+              FOCUS_RING,
+              stretch && 'flex-auto',
               active ? 'bg-surface font-semibold text-text shadow-sm ring-1 ring-border' : 'text-muted hover:text-text',
             )}
           >

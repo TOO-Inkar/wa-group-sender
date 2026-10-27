@@ -11,7 +11,9 @@ import { Badge, type Tone } from '@/shared/ui/badge'
 import { toneSurface } from '@/shared/ui/tone'
 import { Button } from '@/shared/ui/button'
 import { useConfirm } from '@/shared/ui/confirm-context'
-import { Input, Select } from '@/shared/ui/input'
+import { Select } from '@/shared/ui/input'
+import { EmptyState } from '@/shared/ui/empty-state'
+import { SearchInput } from '@/shared/ui/search-input'
 
 type Filter = 'all' | 'sent' | 'waiting' | 'failed' | 'skipped'
 
@@ -61,7 +63,7 @@ export function RunPanel({ runs }: { runs: Run[] }) {
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         {runs.length > 1 ? (
-          <Select value={run.id} onChange={(e) => setRunId(e.target.value)} className="py-1.5 text-sm" aria-label="Рассылка">
+          <Select value={run.id} onChange={(e) => setRunId(e.target.value)} className="text-sm" aria-label="Рассылка">
             {runs.map((r) => (
               <option key={r.id} value={r.id}>
                 {formatTime(r.queuedAt)} — {RUN_STATE[r.status].text}
@@ -108,12 +110,12 @@ export function RunPanel({ runs }: { runs: Run[] }) {
         ))}
       </div>
 
-      <Input type="search" placeholder="Найти группу" value={query} onChange={(e) => setQuery(e.target.value)} className="py-1.5 text-sm" />
+      <SearchInput value={query} onChange={setQuery} placeholder="Найти группу" />
 
       <div className="max-h-[52vh] overflow-auto rounded-xl border border-border bg-surface">
         {isPending && <p className="p-3 text-sm text-muted">Загрузка…</p>}
         {!isPending && !deliveries.length && <p className="p-3 text-sm text-muted">{run.waiting ? 'Рассылка ещё не начиналась — причина выше.' : 'Рассылка ещё не начиналась.'}</p>}
-        {!isPending && deliveries.length > 0 && !shown.length && <p className="p-3 text-sm text-muted">Ничего не найдено.</p>}
+        {!isPending && deliveries.length > 0 && !shown.length && <EmptyState inset>Ничего не найдено</EmptyState>}
         {shown.map((d) => {
           const waiting = d.status === 'PENDING' && d.error
           const state = waiting ? { text: 'пауза', tone: 'warn' as Tone } : GROUP_STATE[d.status]

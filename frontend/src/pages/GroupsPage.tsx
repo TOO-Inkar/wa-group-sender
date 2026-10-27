@@ -2,9 +2,9 @@ import { Pencil, RefreshCw, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { useDeleteGroupList, useGroupLists, useGroups, useSyncGroups } from '@/features/groups/api'
+import { useDeleteGroupList, useGroupLists, useGroups, useResetRejections, useSyncGroups } from '@/features/groups/api'
 import { EditListDialog } from '@/features/groups/EditListDialog'
-import { GroupTable } from '@/features/groups/GroupTable'
+import { GroupRows, GroupSelectAll } from '@/features/groups/GroupList'
 import { matches, matchesGroupFilter, sortGroups, type GroupFilter } from '@/features/groups/model'
 import { SaveListDialog } from '@/features/groups/SaveListDialog'
 import { formatTime, groupsCount } from '@/shared/lib/format'
@@ -20,6 +20,8 @@ export function GroupsPage() {
   const { data: lists = [] } = useGroupLists()
   const sync = useSyncGroups()
   const deleteList = useDeleteGroupList()
+  const reset = useResetRejections()
+  const resetGroup = (jid: string) => reset.mutate(jid, { onSuccess: () => toast.success('Группа вернётся в рассылку') })
   const confirm = useConfirm()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
@@ -62,7 +64,6 @@ export function GroupsPage() {
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-xl font-semibold">Группы</h1>
           <Button
-            className="min-h-10"
             disabled={sync.isPending}
             title={lastSync ? `Обновлено ${formatTime(lastSync)}` : undefined}
             onClick={() =>
@@ -78,7 +79,6 @@ export function GroupsPage() {
         <div className="grid gap-2 lg:grid-cols-2">
           <Segmented
             stretch
-            size="sm"
             value={filter}
             onChange={setFilter}
             options={[
@@ -91,7 +91,7 @@ export function GroupsPage() {
           <SearchInput value={query} onChange={setQuery} placeholder="Поиск по названию группы" />
         </div>
         <div className="flex items-center gap-2">
-          <Select block className="min-h-10 py-1.5 text-sm" value={listId} onChange={(e) => setListId(e.target.value)} aria-label="Список групп">
+          <Select block className="text-sm" value={listId} onChange={(e) => setListId(e.target.value)} aria-label="Список групп">
             <option value="">Все списки</option>
             {lists.map((l) => (
               <option key={l.id} value={String(l.id)}>
@@ -114,12 +114,12 @@ export function GroupsPage() {
         </div>
       </div>
 
-      <GroupTable
-        groups={shown}
-        selected={selected}
-        onToggle={toggle}
-        empty={groups.length ? 'Ничего не найдено' : 'Групп пока нет — подключите номер и нажмите «Обновить».'}
-      />
+      <div className="overflow-hidden rounded-xl border border-border bg-surface">
+        <div className="border-b border-border">
+          <GroupSelectAll groups={shown} selected={selected} onToggle={toggle} />
+        </div>
+        <GroupRows groups={shown} selected={selected} onToggle={toggle} onReset={resetGroup} empty={groups.length ? 'Ничего не найдено' : 'Групп пока нет — подключите номер и нажмите «Обновить».'} />
+      </div>
 
       {selected.size > 0 && (
         <div className="fixed bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 z-30 flex w-[min(640px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface px-3.5 py-2.5 shadow-xl">

@@ -5,6 +5,7 @@ import { dayRuns, loadWarnings, runsText } from '../model'
 import { useSettings } from '@/features/settings/api'
 import { cn } from '@/shared/lib/cn'
 import { intervalText } from '@/shared/lib/format'
+import { Button } from '@/shared/ui/button'
 import { Caption, Checkbox, Select } from '@/shared/ui/input'
 import { Segmented } from '@/shared/ui/segmented'
 import { TimeSelect } from '@/shared/ui/time-select'
@@ -24,18 +25,18 @@ function ExtraTimes() {
     <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
       ещё в
       {extra.map((value, i) => (
-        <span key={i} className="inline-flex items-center rounded-lg border border-border bg-surface-2 pr-1">
-          <TimeSelect className="border-0 bg-transparent" label={`Доп. время ${i + 1}`} value={value} onChange={(next) => set(extra.with(i, next))} />
-          <button type="button" aria-label="Убрать время" className="cursor-pointer rounded p-0.5 hover:text-danger" onClick={() => set(extra.filter((_, j) => j !== i))}>
-            <X className="size-3.5" />
-          </button>
+        <span key={i} className="inline-flex items-center">
+          <TimeSelect label={`Доп. время ${i + 1}`} value={value} onChange={(next) => set(extra.with(i, next))} />
+          <Button variant="ghost" size="icon" aria-label="Убрать время" onClick={() => set(extra.filter((_, j) => j !== i))}>
+            <X size={15} />
+          </Button>
         </span>
       ))}
       {extra.length < MAX_EXTRA && (
-        <button type="button" onClick={() => set([...extra, suggest])} className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-dashed border-border px-2 py-1 text-[13px] text-accent hover:bg-surface-2">
-          <Plus className="size-3.5" />
+        <Button variant="link" size="inline" onClick={() => set([...extra, suggest])}>
+          <Plus size={15} />
           {extra.length ? 'время' : `${suggest}, например`}
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -85,7 +86,7 @@ export function WhenPicker({ groups }: { groups: number }) {
         {values.repeat === 'daily' && <FormTime name="dailyTime" label="Время" />}
         {values.repeat === 'interval' && (
           <span className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
-            <Select className="py-1.5 text-sm" aria-label="Как часто" {...register('intervalMinutes', { valueAsNumber: true })}>
+            <Select className="text-sm" aria-label="Как часто" {...register('intervalMinutes', { valueAsNumber: true })}>
               {[...new Set([...INTERVALS, values.intervalMinutes])].sort((a, b) => a - b).map((m) => (
                 <option key={m} value={m}>
                   {intervalText(m)}
