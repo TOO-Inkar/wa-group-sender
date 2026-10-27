@@ -336,7 +336,8 @@ public class Dispatcher {
         var dispatch = settings.dispatch();
         var jid = delivery.groupJid();
         var now = Instant.now(clock);
-        var last = gateway.lastMessage(jid);
+        var sameText = deliveries.lastSentMessageTo(jid).map(request.message()::equals).orElse(true);
+        var last = gateway.lastMessage(jid).filter(message -> !message.fromMe() || sameText);
         if (dispatch.waitForReply() && last.isPresent() && last.get().fromMe()) {
             deliveries.waitForReply(delivery.id(), now.plus(REPLY_RECHECK), WAITING_REPLY, now);
             log.info("POSTPONE request_id={} group_jid={} position={} reason=no-reply-after-our-message", request.id(), jid, delivery.position());
@@ -346,7 +347,7 @@ public class Dispatcher {
         if (interval == null || !interval.isPositive()) {
             return false;
         }
-        var ours = Stream.of(deliveries.lastSentTo(jid), last.filter(LastMessage::fromMe).map(LastMessage::at))
+        var ours = Stream.of(deliveries.lastSentTo(jid, request.message()), last.filter(LastMessage::fromMe).map(LastMessage::at))
                 .flatMap(Optional::stream)
                 .max(Comparator.naturalOrder());
         var notBefore = ours.map(at -> at.plus(interval)).filter(at -> at.isAfter(now));
