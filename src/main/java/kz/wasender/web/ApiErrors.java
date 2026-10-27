@@ -1,6 +1,8 @@
 package kz.wasender.web;
 
 import kz.wasender.campaign.CampaignService;
+import kz.wasender.engine.EngineUnavailableException;
+import kz.wasender.platform.PlatformService;
 import kz.wasender.request.RequestIntake;
 import kz.wasender.settings.SettingsService;
 import kz.wasender.whatsapp.GroupPictureService;
@@ -19,17 +21,17 @@ public class ApiErrors {
         return body(HttpStatus.BAD_REQUEST, e);
     }
 
-    @ExceptionHandler({CampaignService.NotFoundException.class, CampaignService.ListNotFoundException.class})
+    @ExceptionHandler({CampaignService.NotFoundException.class, CampaignService.ListNotFoundException.class, PlatformService.NotFoundException.class})
     ResponseEntity<Map<String, String>> notFound(RuntimeException e) {
         return body(HttpStatus.NOT_FOUND, e);
     }
 
-    @ExceptionHandler(CampaignService.ConflictException.class)
+    @ExceptionHandler({CampaignService.ConflictException.class, PlatformService.ConflictException.class})
     ResponseEntity<Map<String, String>> conflict(RuntimeException e) {
         return body(HttpStatus.CONFLICT, e);
     }
 
-    @ExceptionHandler(GroupPictureService.UnavailableException.class)
+    @ExceptionHandler({GroupPictureService.UnavailableException.class, EngineUnavailableException.class})
     ResponseEntity<Map<String, String>> unavailable(RuntimeException e) {
         return body(HttpStatus.SERVICE_UNAVAILABLE, e);
     }

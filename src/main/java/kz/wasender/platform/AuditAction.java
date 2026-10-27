@@ -1,0 +1,17 @@
+package kz.wasender.platform;
+
+public enum AuditAction {
+    LOGIN,
+    LOGIN_FAILED,
+    ENTER,
+    TENANT_CREATED,
+    TENANT_RENAMED,
+    TENANT_BLOCKED,
+    TENANT_UNBLOCKED,
+    TENANT_DELETED,
+    PROXY_CHANGED,
+    USER_CREATED,
+    USER_UPDATED,
+    USER_DELETED,
+    PASSWORD_CHANGED
+}

@@ -1,4 +1,6 @@
 app:
+  tenancy:
+    require-proxy: false
   groups:
     initial-sync-delay: 2s
   sheets:

@@ -3,6 +3,11 @@ package kz.wasender.notify;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.annotation.PreDestroy;
 import kz.wasender.config.NotifyProperties;
+import kz.wasender.engine.Engine;
+import kz.wasender.engine.TenantEngines;
+import kz.wasender.platform.Tenant;
+import kz.wasender.platform.TenantRepository;
+import kz.wasender.platform.TenantStatus;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,16 +21,21 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class TelegramBot {
     private static final Logger log = LoggerFactory.getLogger(TelegramBot.class);
     private static final int POLL_SECONDS = 25;
     private static final Duration RETRY_DELAY = Duration.ofSeconds(15);
+    private static final String INVITE_URL = "https://t.me/%s?start=%s";
+    private static final String OPEN_CABINET_LINK = "Откройте ссылку на бота из кабинета wa-group-sender: Настройки → Уведомления.";
+    private static final String INVALID_LINK = "Ссылка недействительна. " + OPEN_CABINET_LINK;
 
     private final NotifyProperties.Telegram properties;
-    private final TelegramSubscriberRepository subscribers;
-    private final TelegramNotifier notifier;
+    private final TenantRepository tenants;
+    private final TenantEngines engines;
+    private final TelegramNotifier replies;
     private final Clock clock;
     private final RestClient client;
     private volatile Thread poller;
@@ -33,10 +43,11 @@ public class TelegramBot {
     private volatile String username;
     private final java.util.Map<String, ChatInfo> chats = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public TelegramBot(NotifyProperties properties, TelegramSubscriberRepository subscribers, TelegramNotifier notifier, Clock clock) {
+    public TelegramBot(NotifyProperties properties, TenantRepository tenants, TenantEngines engines, Clock clock) {
         this.properties = properties.telegram();
-        this.subscribers = subscribers;
-        this.notifier = notifier;
+        this.tenants = tenants;
+        this.engines = engines;
+        this.replies = new TelegramNotifier(properties);
         this.clock = clock;
         var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build());
         factory.setReadTimeout(Duration.ofSeconds(POLL_SECONDS + 15));
@@ -95,6 +106,11 @@ public class TelegramBot {
         return username;
     }
 
+    public @Nullable String inviteLink(Tenant tenant) {
+        var bot = username();
+        return bot == null ? null : INVITE_URL.formatted(bot, tenant.inviteCode());
+    }
+
     private void loop() {
         long offset = 0;
         while (!stopped) {
@@ -140,44 +156,72 @@ public class TelegramBot {
             return;
         }
         var chatId = Long.toString(message.chat().id());
-        var command = message.text().strip().split("[\\s@]", 2)[0].toLowerCase();
+        var parts = message.text().strip().split("\\s+", 2);
+        var command = parts[0].split("@", 2)[0].toLowerCase();
         switch (command) {
-            case "/start" -> start(chatId, message);
-            case "/stop" -> {
-                var removed = subscribers.delete(chatId);
-                notifier.sendTo(chatId, removed ? "Вы отписались от уведомлений wa-group-sender." : "Вы и так не подписаны.");
-                if (removed) {
-                    log.info("TELEGRAM unsubscribed chat_id={}", chatId);
-                }
-            }
-            default -> notifier.sendTo(chatId, "Этот бот присылает уведомления о рассылке wa-group-sender.\n"
-                    + "/start — попросить подписку, /stop — отписаться.");
+            case "/start" -> start(chatId, message, parts.length > 1 ? parts[1].strip() : "");
+            case "/stop" -> stop(chatId);
+            default -> replies.sendTo(chatId, "Этот бот присылает уведомления о рассылке wa-group-sender.\n"
+                    + "/start — попросить подписку (по ссылке из кабинета), /stop — отписаться.");
         }
     }
 
-    private void start(String chatId, Message message) {
-        if (notifier.configuredChatIds().contains(chatId)) {
-            notifier.sendTo(chatId, "Этот чат уже получает уведомления (задан в настройках сервера).");
+    private void stop(String chatId) {
+        var removed = false;
+        for (var engine : engines.running()) {
+            removed |= engine.bean(TelegramSubscriberRepository.class).delete(chatId);
+        }
+        replies.sendTo(chatId, removed ? "Вы отписались от уведомлений wa-group-sender." : "Вы и так не подписаны.");
+        if (removed) {
+            log.info("TELEGRAM unsubscribed chat_id={}", chatId);
+        }
+    }
+
+    private void start(String chatId, Message message, String inviteCode) {
+        if (replies.configuredChatIds().contains(chatId)) {
+            replies.sendTo(chatId, "Этот чат уже получает уведомления (задан в настройках сервера).");
             return;
         }
+        var tenant = inviteCode.isEmpty() ? singleActiveTenant() : tenants.findByInviteCode(inviteCode).filter(TelegramBot::active);
+        var engine = tenant.flatMap(t -> engines.find(t.id()));
+        if (engine.isEmpty()) {
+            replies.sendTo(chatId, inviteCode.isEmpty() ? OPEN_CABINET_LINK : INVALID_LINK);
+            return;
+        }
+        request(chatId, message, tenant.get(), engine.get());
+    }
+
+    private void request(String chatId, Message message, Tenant tenant, Engine engine) {
+        var subscribers = engine.bean(TelegramSubscriberRepository.class);
+        var notifier = engine.bean(TelegramNotifier.class);
         var name = message.chat().title() != null ? message.chat().title() : fullName(message.from());
         var username = message.from() == null ? null : message.from().username();
         var before = subscribers.find(chatId);
         var subscriber = subscribers.request(chatId, name, username, Instant.now(clock));
         switch (subscriber.status()) {
-            case APPROVED -> notifier.sendTo(chatId, "Вы уже подписаны на уведомления.");
+            case APPROVED -> replies.sendTo(chatId, "Вы уже подписаны на уведомления.");
             case PENDING -> {
-                notifier.sendTo(chatId, "Запрос на подписку отправлен. Уведомления начнут приходить, когда администратор одобрит его.");
+                replies.sendTo(chatId, "Запрос на подписку отправлен. Уведомления начнут приходить, когда администратор одобрит его.");
                 if (before.isEmpty() || before.get().status() != TelegramSubscriberRepository.Status.PENDING) {
-                    log.info("TELEGRAM subscription requested chat_id={} name=\"{}\" username={}", chatId, name, username);
+                    log.info("TELEGRAM subscription requested tenant={} chat_id={} name=\"{}\" username={}", tenant.key(), chatId, name, username);
                     var who = name + (username == null ? "" : " (@" + username + ")");
                     for (var admin : notifier.chatIds()) {
-                        notifier.sendTo(admin, "[wa-group-sender] " + who + " просит подписку на уведомления. Одобрите в админке: Настройки → Уведомления.");
+                        replies.sendTo(admin, "[wa-group-sender · " + tenant.name() + "] " + who
+                                + " просит подписку на уведомления. Одобрите в админке: Настройки → Уведомления.");
                     }
                 }
             }
-            case REJECTED -> notifier.sendTo(chatId, "Запрос на подписку отклонён.");
+            case REJECTED -> replies.sendTo(chatId, "Запрос на подписку отклонён.");
         }
+    }
+
+    private Optional<Tenant> singleActiveTenant() {
+        var active = tenants.findActive();
+        return active.size() == 1 ? Optional.of(active.getFirst()) : Optional.empty();
+    }
+
+    private static boolean active(Tenant tenant) {
+        return tenant.status() == TenantStatus.ACTIVE;
     }
 
     private static String fullName(User user) {

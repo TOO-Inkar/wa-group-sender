@@ -11,7 +11,7 @@ import kz.wasender.sheets.SheetField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -37,11 +37,12 @@ public class CampaignService {
     private final Dispatcher dispatcher;
     private final WorkWindow window;
     private final StartJitter jitter;
+    private final TransactionTemplate transactions;
     private final Clock clock;
 
     public CampaignService(CampaignRepository campaigns, RequestRepository requests, RequestIdGenerator requestIds, RequestIntake intake,
                            CampaignRecipients recipients, GroupListRepository groupLists, Dispatcher dispatcher, WorkWindow window,
-                           StartJitter jitter, Clock clock) {
+                           StartJitter jitter, TransactionTemplate transactions, Clock clock) {
         this.campaigns = campaigns;
         this.requests = requests;
         this.requestIds = requestIds;
@@ -51,114 +52,122 @@ public class CampaignService {
         this.dispatcher = dispatcher;
         this.window = window;
         this.jitter = jitter;
+        this.transactions = transactions;
         this.clock = clock;
     }
 
-    @Transactional
     public synchronized CampaignRecord create(Input input) {
-        input.schedule().requireExtraTimesBefore(window.end());
-        var targets = targets(input);
-        var message = intake.compose(input.draft(), targets);
-        var now = Instant.now(clock);
-        var first = input.sendNow() ? now : jitter.startAt(input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
-        var label = recipients.labelToStore(input.targetLabel(), targets);
-        var campaign = new CampaignRecord(nextId(), title(input, message), input.form(), message, !targets.isEmpty(), label,
-                input.schedule(), true, false, now, now, first, null);
-        campaigns.insert(campaign, targets);
-        log.info("CAMPAIGN created id={} title=\"{}\" repeat={} start={} end={} interval={} extra={} any_time={} targets={} first_run={}",
-                campaign.id(), campaign.title(), campaign.schedule().mode(), campaign.schedule().start(), campaign.schedule().end(),
-                campaign.schedule().intervalMinutes(), campaign.schedule().extraTimes(), campaign.schedule().anyTime(),
-                targets.isEmpty() ? "all-active" : targets.size(), campaign.nextRunAt());
-        runDue(campaign.id());
-        return campaigns.find(campaign.id()).orElseThrow();
+        return transactions.execute(status -> {
+            input.schedule().requireExtraTimesBefore(window.end());
+            var targets = targets(input);
+            var message = intake.compose(input.draft(), targets);
+            var now = Instant.now(clock);
+            var first = input.sendNow() ? now : jitter.startAt(input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
+            var label = recipients.labelToStore(input.targetLabel(), targets);
+            var campaign = new CampaignRecord(nextId(), title(input, message), input.form(), message, !targets.isEmpty(), label,
+                    input.schedule(), true, false, now, now, first, null);
+            campaigns.insert(campaign, targets);
+            log.info("CAMPAIGN created id={} title=\"{}\" repeat={} start={} end={} interval={} extra={} any_time={} targets={} first_run={}",
+                    campaign.id(), campaign.title(), campaign.schedule().mode(), campaign.schedule().start(), campaign.schedule().end(),
+                    campaign.schedule().intervalMinutes(), campaign.schedule().extraTimes(), campaign.schedule().anyTime(),
+                    targets.isEmpty() ? "all-active" : targets.size(), campaign.nextRunAt());
+            runDue(campaign.id());
+            return campaigns.find(campaign.id()).orElseThrow();
+        });
     }
 
-    @Transactional
     public synchronized CampaignRecord update(String id, Input input) {
-        var current = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
-        input.schedule().requireExtraTimesBefore(window.end());
-        var targets = targets(input);
-        var message = intake.compose(input.draft(), targets);
-        var now = Instant.now(clock);
-        var next = current.nextRunAt();
-        if (current.enabled() && !current.schedule().equals(input.schedule())) {
-            next = jitter.startAt(input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
-        }
-        var label = recipients.labelToStore(input.targetLabel(), targets);
-        var updated = new CampaignRecord(id, title(input, message), input.form(), message, !targets.isEmpty(), label,
-                input.schedule(), current.enabled(), false, current.createdAt(), now, next, current.lastRunAt());
-        campaigns.update(updated, targets);
-        var queued = requests.updateQueuedMessage(id, message, targets);
-        log.info("CAMPAIGN updated id={} repeat={} queued_runs_updated={} next_run={}", id, input.schedule().mode(), queued, next);
-        if (input.sendNow()) {
-            runNow(id);
-        }
-        return campaigns.find(id).orElseThrow();
-    }
-
-    @Transactional
-    public synchronized GroupListRepository.GroupList updateGroupList(long id, String name, List<String> groups) {
-        var current = groupLists.find(id).orElseThrow(() -> new ListNotFoundException(id));
-        if (groupLists.nameTakenByOther(id, name)) {
-            throw new IllegalArgumentException("список «" + name + "» уже есть");
-        }
-        var updated = groupLists.update(id, name, groups);
-        var before = new HashSet<>(current.groups());
-        var now = Instant.now(clock);
-        var retargeted = campaigns.findTargetedWithLabel(current.name()).stream()
-                .filter(campaign -> new HashSet<>(campaigns.targets(campaign.id())).equals(before))
-                .toList();
-        for (var campaign : retargeted) {
-            campaigns.retarget(campaign.id(), updated.name(), updated.groups(), now);
-            requests.updateQueuedMessage(campaign.id(), campaign.message(), updated.groups());
-        }
-        log.info("GROUP_LIST updated id={} groups={} campaigns_retargeted={}", id, updated.groups().size(), retargeted.size());
-        return updated;
-    }
-
-    @Transactional
-    public synchronized void delete(String id) {
-        campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
-        closeActive(id, "заявка удалена");
-        campaigns.markDeleted(id, Instant.now(clock));
-        log.info("CAMPAIGN deleted id={}", id);
-    }
-
-    @Transactional
-    public synchronized CampaignRecord setEnabled(String id, boolean enabled) {
-        var campaign = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
-        var now = Instant.now(clock);
-        if (!enabled) {
-            closeActive(id, "заявка остановлена");
-            campaigns.setEnabled(id, false, null, now);
-            log.info("CAMPAIGN disabled id={}", id);
-        } else {
-            var first = jitter.startAt(campaign.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
-            campaigns.setEnabled(id, true, first, now);
-            log.info("CAMPAIGN enabled id={} next_run={}", id, first);
-            runDue(id);
-        }
-        return campaigns.find(id).orElseThrow();
-    }
-
-    @Transactional
-    public synchronized RequestRecord runNow(String id) {
-        var campaign = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
-        if (!activeRuns(id).isEmpty()) {
-            throw new ConflictException("эта заявка ещё рассылается — дождитесь окончания или остановите её");
-        }
-        return spawn(campaign, Instant.now(clock)).orElseThrow();
-    }
-
-    @Transactional
-    public synchronized int tick() {
-        var started = 0;
-        for (var campaign : campaigns.due(Instant.now(clock))) {
-            if (process(campaign)) {
-                started++;
+        return transactions.execute(status -> {
+            var current = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
+            input.schedule().requireExtraTimesBefore(window.end());
+            var targets = targets(input);
+            var message = intake.compose(input.draft(), targets);
+            var now = Instant.now(clock);
+            var next = current.nextRunAt();
+            if (current.enabled() && !current.schedule().equals(input.schedule())) {
+                next = jitter.startAt(input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
             }
-        }
-        return started;
+            var label = recipients.labelToStore(input.targetLabel(), targets);
+            var updated = new CampaignRecord(id, title(input, message), input.form(), message, !targets.isEmpty(), label,
+                    input.schedule(), current.enabled(), false, current.createdAt(), now, next, current.lastRunAt());
+            campaigns.update(updated, targets);
+            var queued = requests.updateQueuedMessage(id, message, targets);
+            log.info("CAMPAIGN updated id={} repeat={} queued_runs_updated={} next_run={}", id, input.schedule().mode(), queued, next);
+            if (input.sendNow()) {
+                runNow(id);
+            }
+            return campaigns.find(id).orElseThrow();
+        });
+    }
+
+    public synchronized GroupListRepository.GroupList updateGroupList(long id, String name, List<String> groups) {
+        return transactions.execute(status -> {
+            var current = groupLists.find(id).orElseThrow(() -> new ListNotFoundException(id));
+            if (groupLists.nameTakenByOther(id, name)) {
+                throw new IllegalArgumentException("список «" + name + "» уже есть");
+            }
+            var updated = groupLists.update(id, name, groups);
+            var before = new HashSet<>(current.groups());
+            var now = Instant.now(clock);
+            var retargeted = campaigns.findTargetedWithLabel(current.name()).stream()
+                    .filter(campaign -> new HashSet<>(campaigns.targets(campaign.id())).equals(before))
+                    .toList();
+            for (var campaign : retargeted) {
+                campaigns.retarget(campaign.id(), updated.name(), updated.groups(), now);
+                requests.updateQueuedMessage(campaign.id(), campaign.message(), updated.groups());
+            }
+            log.info("GROUP_LIST updated id={} groups={} campaigns_retargeted={}", id, updated.groups().size(), retargeted.size());
+            return updated;
+        });
+    }
+
+    public synchronized void delete(String id) {
+        transactions.executeWithoutResult(status -> {
+            campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
+            closeActive(id, "заявка удалена");
+            campaigns.markDeleted(id, Instant.now(clock));
+            log.info("CAMPAIGN deleted id={}", id);
+        });
+    }
+
+    public synchronized CampaignRecord setEnabled(String id, boolean enabled) {
+        return transactions.execute(status -> {
+            var campaign = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
+            var now = Instant.now(clock);
+            if (!enabled) {
+                closeActive(id, "заявка остановлена");
+                campaigns.setEnabled(id, false, null, now);
+                log.info("CAMPAIGN disabled id={}", id);
+            } else {
+                var first = jitter.startAt(campaign.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
+                campaigns.setEnabled(id, true, first, now);
+                log.info("CAMPAIGN enabled id={} next_run={}", id, first);
+                runDue(id);
+            }
+            return campaigns.find(id).orElseThrow();
+        });
+    }
+
+    public synchronized RequestRecord runNow(String id) {
+        return transactions.execute(status -> {
+            var campaign = campaigns.find(id).orElseThrow(() -> new NotFoundException(id));
+            if (!activeRuns(id).isEmpty()) {
+                throw new ConflictException("эта заявка ещё рассылается — дождитесь окончания или остановите её");
+            }
+            return spawn(campaign, Instant.now(clock)).orElseThrow();
+        });
+    }
+
+    public synchronized int tick() {
+        return transactions.execute(status -> {
+            var started = 0;
+            for (var campaign : campaigns.due(Instant.now(clock))) {
+                if (process(campaign)) {
+                    started++;
+                }
+            }
+            return started;
+        });
     }
 
     public void tickQuietly() {

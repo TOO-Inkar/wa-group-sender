@@ -4,11 +4,12 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:prod}
   datasource:
-    url: ${DB_URL:jdbc:h2:file:${DB_PATH:/data/db/wasender}}
+    url: ${PLATFORM_DB_URL:jdbc:h2:file:${DB_DIR:/data/db}/platform}
     username: ${DB_USER:sa}
     password: ${DB_PASSWORD:}
   flyway:
     enabled: true
+    locations: classpath:db/platform
   jackson:
     time-zone: ${APP_ZONE:Asia/Almaty}
 
@@ -24,6 +25,9 @@ server:
 app:
   zone: ${APP_ZONE:Asia/Almaty}
   scheduling-enabled: ${APP_SCHEDULING_ENABLED:true}
+  tenancy:
+    db-url: ${APP_TENANCY_DB_URL:jdbc:h2:file:${DB_DIR:/data/db}/{name}}
+    require-proxy: ${APP_TENANCY_REQUIRE_PROXY:true}
   logging:
     dir: ${LOG_DIR:/data/logs}
     max-file-size: ${LOG_MAX_FILE_SIZE:20MB}
@@ -120,6 +124,11 @@ app:
     username: ${ADMIN_USERNAME:admin}
     password-hash: ${ADMIN_PASSWORD_HASH:}
     session-ttl: ${ADMIN_SESSION_TTL:30d}
+  platform:
+    host: ${PLATFORM_HOST:}
+    app-url: ${PLATFORM_APP_URL:}
+    access-team-domain: ${CF_ACCESS_TEAM_DOMAIN:}
+    access-aud: ${CF_ACCESS_AUD:}
   fake:
     groups: ${FAKE_GROUPS:30}
     unarchived-groups: ${FAKE_UNARCHIVED_GROUPS:3}

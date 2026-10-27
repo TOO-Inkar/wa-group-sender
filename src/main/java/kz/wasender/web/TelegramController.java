@@ -3,12 +3,14 @@ package kz.wasender.web;
 import kz.wasender.notify.TelegramBot;
 import kz.wasender.notify.TelegramNotifier;
 import kz.wasender.notify.TelegramSubscriberRepository;
+import kz.wasender.platform.Actor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -32,9 +34,10 @@ public class TelegramController {
     }
 
     @GetMapping
-    public Overview overview() {
+    public Overview overview(@RequestAttribute(Actor.ATTRIBUTE) Actor actor) {
         var configured = notifier.configuredChatIds().stream().map(bot::chatInfo).toList();
-        return new Overview(bot.configured(), bot.username(), configured, subscribers.findAll());
+        var inviteLink = actor.tenant() == null ? null : bot.inviteLink(actor.tenant());
+        return new Overview(bot.configured(), bot.username(), inviteLink, configured, subscribers.findAll());
     }
 
     @PostMapping("/subscribers/{chatId}/approve")
@@ -67,7 +70,8 @@ public class TelegramController {
         return ResponseEntity.noContent().build();
     }
 
-    public record Overview(boolean botConfigured, @Nullable String botUsername, List<TelegramBot.ChatInfo> configuredChats,
+    public record Overview(boolean botConfigured, @Nullable String botUsername, @Nullable String inviteLink,
+                           List<TelegramBot.ChatInfo> configuredChats,
                            List<TelegramSubscriberRepository.Subscriber> subscribers) {
     }
 }

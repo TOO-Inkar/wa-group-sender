@@ -2,6 +2,7 @@ package kz.wasender.dispatch;
 
 import jakarta.annotation.PreDestroy;
 import kz.wasender.config.SheetsProperties;
+import kz.wasender.engine.TenantInfo;
 import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestRecord;
 import kz.wasender.request.RequestRepository;
@@ -59,6 +60,7 @@ public class Dispatcher {
     private final RandomGenerator random;
     private final SettingsService settings;
     private final DateTimeFormatter completedFormat;
+    private final TenantInfo tenant;
 
     private volatile DispatcherState state = DispatcherState.STARTING;
     private volatile boolean paused;
@@ -70,7 +72,8 @@ public class Dispatcher {
 
     public Dispatcher(RequestRepository requests, DeliveryRepository deliveries, GroupRepository groups, WhatsAppGateway gateway,
                       WarmupService warmup, WorkWindow window, PauseRandomizer pauses, RiskMonitor risk, SheetUpdateBuffer sheet,
-                      Sleeper sleeper, Clock clock, RandomGenerator random, SettingsService settings, SheetsProperties sheetsProperties) {
+                      Sleeper sleeper, Clock clock, RandomGenerator random, SettingsService settings, SheetsProperties sheetsProperties,
+                      TenantInfo tenant) {
         this.requests = requests;
         this.deliveries = deliveries;
         this.groups = groups;
@@ -85,6 +88,7 @@ public class Dispatcher {
         this.random = random;
         this.settings = settings;
         this.completedFormat = DateTimeFormatter.ofPattern(sheetsProperties.completedFormat());
+        this.tenant = tenant;
     }
 
     public synchronized void start() {
@@ -93,7 +97,7 @@ public class Dispatcher {
         }
         recoverInterrupted();
         running = true;
-        worker = Thread.ofPlatform().name("dispatcher").start(this::loop);
+        worker = Thread.ofPlatform().name(tenant.threadName("dispatcher")).start(tenant.withMdc(this::loop));
         log.info("DISPATCHER started");
     }
 

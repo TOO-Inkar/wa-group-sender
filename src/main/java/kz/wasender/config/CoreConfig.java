@@ -4,7 +4,6 @@ import kz.wasender.time.Sleeper;
 import kz.wasender.time.ThreadSleeper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -25,14 +24,5 @@ public class CoreConfig {
     @Bean
     Sleeper sleeper() {
         return new ThreadSleeper();
-    }
-
-    @Bean
-    ThreadPoolTaskScheduler appTaskScheduler() {
-        var scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(4);
-        scheduler.setThreadNamePrefix("sched-");
-        scheduler.setWaitForTasksToCompleteOnShutdown(false);
-        return scheduler;
     }
 }

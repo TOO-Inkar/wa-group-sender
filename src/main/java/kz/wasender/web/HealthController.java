@@ -2,6 +2,9 @@ package kz.wasender.web;
 
 import kz.wasender.dispatch.Dispatcher;
 import kz.wasender.dispatch.WarmupService;
+import kz.wasender.engine.CurrentTenant;
+import kz.wasender.engine.EngineUnavailableException;
+import kz.wasender.engine.TenantEngines;
 import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestRepository;
 import kz.wasender.risk.RiskMonitor;
@@ -22,9 +25,10 @@ public class HealthController {
     private final Dispatcher dispatcher;
     private final RiskMonitor risk;
     private final Clock clock;
+    private final TenantEngines engines;
 
     public HealthController(WhatsAppGateway gateway, RequestRepository requests, GroupRepository groups, WarmupService warmup,
-                            Dispatcher dispatcher, RiskMonitor risk, Clock clock) {
+                            Dispatcher dispatcher, RiskMonitor risk, Clock clock, TenantEngines engines) {
         this.gateway = gateway;
         this.requests = requests;
         this.groups = groups;
@@ -32,10 +36,19 @@ public class HealthController {
         this.dispatcher = dispatcher;
         this.risk = risk;
         this.clock = clock;
+        this.engines = engines;
     }
 
     @GetMapping({"/api/health", "/api/admin/health"})
     public Health health() {
+        var running = engines.running();
+        var tenant = CurrentTenant.get().orElseGet(() -> running.stream().findFirst()
+                .map(engine -> engine.info().id())
+                .orElseThrow(() -> new EngineUnavailableException("Нет запущенных кабинетов")));
+        return CurrentTenant.callAs(tenant, () -> snapshot(running.size()));
+    }
+
+    private Health snapshot(int tenants) {
         var today = warmup.today();
         return new Health(
                 "UP",
@@ -51,7 +64,8 @@ public class HealthController {
                 groups.activeCount(),
                 dispatcher.sentLastHour(),
                 dispatcher.hourlyLimit(),
-                OffsetDateTime.now(clock).toString());
+                OffsetDateTime.now(clock).toString(),
+                tenants);
     }
 
     public record Health(
@@ -68,6 +82,7 @@ public class HealthController {
             long activeGroups,
             int sentLastHour,
             int hourlyLimit,
-            String time) {
+            String time,
+            int tenants) {
     }
 }

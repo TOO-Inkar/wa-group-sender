@@ -269,6 +269,225 @@
                 }
             }
         },
+        "/api/platform/tenants": {
+            "get": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "tenants",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/TenantOverview"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "create",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewTenant"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TenantOverview"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/platform/tenants/{id}/users": {
+            "get": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "users",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PlatformUser"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "createUser",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewUser"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PlatformUser"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/platform/tenants/{id}/enter": {
+            "post": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "enter",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EnterLink"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/platform/tenants/{id}/delete": {
+            "post": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "delete_1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DeleteTenant"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/auth/password": {
+            "post": {
+                "tags": [
+                    "auth-controller"
+                ],
+                "operationId": "password",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordChange"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/logout": {
             "post": {
                 "tags": [
@@ -693,7 +912,7 @@
                 "tags": [
                     "campaign-controller"
                 ],
-                "operationId": "create",
+                "operationId": "create_1",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -808,6 +1027,110 @@
                 }
             }
         },
+        "/api/platform/users/{id}": {
+            "delete": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "deleteUser",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "updateUser",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserPatch"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PlatformUser"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/platform/tenants/{id}": {
+            "patch": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "update_2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TenantPatch"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TenantOverview"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/qr": {
             "get": {
                 "tags": [
@@ -821,6 +1144,49 @@
                             "application/json": {
                                 "schema": {
                                     "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/platform/audit": {
+            "get": {
+                "tags": [
+                    "platform-controller"
+                ],
+                "operationId": "audit",
+                "parameters": [
+                    {
+                        "name": "tenantId",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AuditEntry"
+                                    }
                                 }
                             }
                         }
@@ -906,6 +1272,36 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Me"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/enter": {
+            "get": {
+                "tags": [
+                    "auth-controller"
+                ],
+                "operationId": "enter_1",
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
                                 }
                             }
                         }
@@ -1780,6 +2176,229 @@
                     "name"
                 ]
             },
+            "NewTenant": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "login": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "password": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "proxy": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "login",
+                    "name",
+                    "password",
+                    "proxy"
+                ]
+            },
+            "TenantOverview": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "ACTIVE",
+                            "BLOCKED"
+                        ]
+                    },
+                    "legacy": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "users": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "session": {
+                        "type": "string"
+                    },
+                    "account": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "dispatcher": {
+                        "type": "string"
+                    },
+                    "activeGroups": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "sentToday": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "sentLastHour": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "queueLength": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "stoppedByRisk": {
+                        "type": "boolean"
+                    },
+                    "proxy": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "proxyRequired": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "account",
+                    "activeGroups",
+                    "createdAt",
+                    "dispatcher",
+                    "id",
+                    "legacy",
+                    "name",
+                    "proxy",
+                    "proxyRequired",
+                    "queueLength",
+                    "sentLastHour",
+                    "sentToday",
+                    "session",
+                    "status",
+                    "stoppedByRisk",
+                    "users"
+                ]
+            },
+            "NewUser": {
+                "type": "object",
+                "properties": {
+                    "login": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "password": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "login",
+                    "password"
+                ]
+            },
+            "PlatformUser": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "login": {
+                        "type": "string"
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "lastLoginAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "createdAt",
+                    "enabled",
+                    "id",
+                    "lastLoginAt",
+                    "login"
+                ]
+            },
+            "EnterLink": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "url"
+                ]
+            },
+            "DeleteTenant": {
+                "type": "object",
+                "properties": {
+                    "confirmName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "confirmName"
+                ]
+            },
+            "PasswordChange": {
+                "type": "object",
+                "properties": {
+                    "current": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "next": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "current",
+                    "next"
+                ]
+            },
             "Login": {
                 "type": "object",
                 "properties": {
@@ -1934,6 +2553,108 @@
                     "total"
                 ]
             },
+            "UserPatch": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "password": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "enabled",
+                    "password"
+                ]
+            },
+            "TenantPatch": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "proxy": {
+                        "type": "string"
+                    }
+                }
+            },
+            "AuditEntry": {
+                "type": "object",
+                "properties": {
+                    "at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "actor": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "tenantId": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int64"
+                    },
+                    "tenantName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "LOGIN",
+                            "LOGIN_FAILED",
+                            "ENTER",
+                            "TENANT_CREATED",
+                            "TENANT_RENAMED",
+                            "TENANT_BLOCKED",
+                            "TENANT_UNBLOCKED",
+                            "TENANT_DELETED",
+                            "PROXY_CHANGED",
+                            "USER_CREATED",
+                            "USER_UPDATED",
+                            "USER_DELETED",
+                            "PASSWORD_CHANGED"
+                        ]
+                    },
+                    "detail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "ip": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "action",
+                    "actor",
+                    "at",
+                    "detail",
+                    "ip",
+                    "tenantId",
+                    "tenantName"
+                ]
+            },
             "GroupRecord": {
                 "type": "object",
                 "properties": {
@@ -2012,8 +2733,34 @@
                     },
                     "username": {
                         "type": "string"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "SUPERADMIN",
+                            "MEMBER"
+                        ]
+                    },
+                    "tenant": {
+                        "$ref": "#/components/schemas/TenantRef"
                     }
                 }
+            },
+            "TenantRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ]
             },
             "ChatInfo": {
                 "type": "object",
@@ -2052,6 +2799,12 @@
                             "null"
                         ]
                     },
+                    "inviteLink": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "configuredChats": {
                         "type": "array",
                         "items": {
@@ -2069,6 +2822,7 @@
                     "botConfigured",
                     "botUsername",
                     "configuredChats",
+                    "inviteLink",
                     "subscribers"
                 ]
             },
@@ -2296,6 +3050,10 @@
                     },
                     "time": {
                         "type": "string"
+                    },
+                    "tenants": {
+                        "type": "integer",
+                        "format": "int32"
                     }
                 },
                 "required": [
@@ -2310,6 +3068,7 @@
                     "session",
                     "status",
                     "stoppedByRisk",
+                    "tenants",
                     "time",
                     "warmupDay",
                     "warmupLimitToday"

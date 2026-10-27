@@ -9,6 +9,7 @@ export const SESSION_TEXT: Record<string, string> = {
   DISCONNECTED: 'нет связи',
   LOGGED_OUT: 'номер не привязан',
   BANNED: 'номер заблокирован',
+  STOPPED: 'остановлен',
 }
 
 type DispatcherInfo = { text: string; short: string; tone: Tone; hint?: string }

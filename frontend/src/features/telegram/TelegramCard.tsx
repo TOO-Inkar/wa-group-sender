@@ -5,6 +5,7 @@ import { Badge, type Tone } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardTitle } from '@/shared/ui/card'
 import { useConfirm } from '@/shared/ui/confirm-context'
+import { CopyButton } from '@/shared/ui/copy-button'
 
 const STATUS: Record<string, { text: string; tone: Tone }> = {
   PENDING: { text: 'ждёт одобрения', tone: 'warn' },
@@ -34,7 +35,9 @@ export function TelegramCard() {
     <Card className="grid content-start gap-3">
       <CardTitle className="mb-0">Уведомления в Telegram</CardTitle>
       <p className="text-[13px] text-muted">
-        {data.botConfigured ? (
+        {data.botConfigured && data.inviteLink ? (
+          <>Чтобы получать уведомления этого кабинета, откройте ссылку в Telegram, нажмите «Старт» и одобрите запрос здесь. Отписаться — <code>/stop</code>.</>
+        ) : data.botConfigured ? (
           <>
             Чтобы получать уведомления, напишите боту {data.botUsername && <b>@{data.botUsername}</b>} <code>/start</code> и одобрите запрос здесь. Отписаться — <code>/stop</code>.
           </>
@@ -42,6 +45,14 @@ export function TelegramCard() {
           'Бот не настроен: нужен TELEGRAM_BOT_TOKEN в .env на сервере.'
         )}
       </p>
+      {data.inviteLink && (
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-2 py-1 pr-1 pl-3">
+          <a href={data.inviteLink} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-sm text-accent hover:underline" aria-label="Ссылка-приглашение в Telegram">
+            {data.inviteLink}
+          </a>
+          <CopyButton value={data.inviteLink} label="Скопировать ссылку" />
+        </div>
+      )}
       <div>
         {data.configuredChats.map((c) => (
           <div key={c.chatId} className={row}>
