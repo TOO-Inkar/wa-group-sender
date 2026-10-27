@@ -87,10 +87,19 @@ public class DeliveryRepository {
                 .update();
     }
 
-    public Optional<Instant> lastSentTo(String groupJid) {
-        return jdbc.sql("select max(updated_at) from delivery where group_jid = ? and status = 'SENT'")
-                .param(groupJid)
+    public Optional<Instant> lastSentTo(String groupJid, String message) {
+        return jdbc.sql("select max(d.updated_at) from delivery d join request r on r.id = d.request_id "
+                        + "where d.group_jid = ? and d.status = 'SENT' and r.message = ?")
+                .params(groupJid, message)
                 .query(Instant.class)
+                .optional();
+    }
+
+    public Optional<String> lastSentMessageTo(String groupJid) {
+        return jdbc.sql("select r.message from delivery d join request r on r.id = d.request_id "
+                        + "where d.group_jid = ? and d.status = 'SENT' order by d.updated_at desc limit 1")
+                .param(groupJid)
+                .query(String.class)
                 .optional();
     }
 

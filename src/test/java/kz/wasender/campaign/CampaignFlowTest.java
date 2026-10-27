@@ -116,7 +116,7 @@ class CampaignFlowTest extends IntegrationTest {
     }
 
     @Test
-    void groupGetsOurNextMessageOnlyAfterSomeoneWroteAndAnHourPassed() throws Exception {
+    void groupGetsTheSameMessageAgainOnlyAfterSomeoneWroteAndAnHourPassed() throws Exception {
         useGroups(2);
         settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, true,
                 null, null, null, null, null));
@@ -126,7 +126,7 @@ class CampaignFlowTest extends IntegrationTest {
         var quiet = sentJids().get(1);
 
         gateway.simulateForeignMessage(lively);
-        var second = create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        var second = create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
         runUntilBlocked(200);
         assertThat(gateway.sent()).hasSize(2);
         assertThat(dispatcher.state()).isEqualTo(DispatcherState.WAITING_GROUPS);
@@ -154,7 +154,7 @@ class CampaignFlowTest extends IntegrationTest {
         create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
         runUntilBlocked(200);
         clock.advance(Duration.ofHours(3));
-        create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
         dispatcher.cycle();
         assertThat(gateway.sent()).hasSize(1);
 
@@ -163,6 +163,23 @@ class CampaignFlowTest extends IntegrationTest {
         runUntilBlocked(200);
 
         assertThat(gateway.sent()).hasSize(2);
+    }
+
+    @Test
+    void differentMessageGoesToTheGroupWithoutWaitingForPace() throws Exception {
+        useGroups(2);
+        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, true,
+                null, null, null, null, null));
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        runUntilBlocked(200);
+
+        var second = create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        runUntilBlocked(200);
+
+        assertThat(gateway.sent()).hasSize(4);
+        var run = requests.findByCampaign(second.id()).getFirst();
+        assertThat(run.status()).isEqualTo(RequestStatus.DONE);
+        assertThat(deliveries.findByRequest(run.id())).allMatch(d -> d.status() == DeliveryStatus.SENT);
     }
 
     @Test
