@@ -38,6 +38,14 @@ export function useSaveGroupList() {
   })
 }
 
+export function useUpdateGroupList() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number; name: string; groups: string[] }) => unwrap(api.PUT('/api/admin/group-lists/{id}', { params: { path: { id } }, body })),
+    onSuccess: () => Promise.all([client.invalidateQueries({ queryKey: groupKeys.lists }), client.invalidateQueries({ queryKey: ['campaigns'] })]),
+  })
+}
+
 export function useDeleteGroupList() {
   const client = useQueryClient()
   return useMutation({

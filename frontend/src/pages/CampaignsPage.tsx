@@ -25,7 +25,7 @@ export function CampaignsPage() {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h1 className="mr-2 text-xl font-semibold">Заявки</h1>
         <Segmented
-          className="order-1 w-full sm:order-none sm:w-auto"
+          className="order-1 w-full flex-nowrap overflow-x-auto sm:order-none sm:w-auto"
           size="sm"
           value={filter}
           onChange={setFilter}

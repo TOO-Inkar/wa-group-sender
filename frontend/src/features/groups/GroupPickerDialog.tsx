@@ -7,17 +7,7 @@ import { Button } from '@/shared/ui/button'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Checkbox, Input } from '@/shared/ui/input'
 
-export function GroupPickerDialog({
-  open,
-  onOpenChange,
-  value,
-  onChange,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  value: string[]
-  onChange: (jids: string[]) => void
-}) {
+export function GroupChecklist({ value, onChange }: { value: string[]; onChange: (jids: string[]) => void }) {
   const { data: groups = [] } = useGroups()
   const [query, setQuery] = useState('')
   const [onlyActive, setOnlyActive] = useState(false)
@@ -32,7 +22,7 @@ export function GroupPickerDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Выберите группы" wide>
+    <>
       <Input type="search" placeholder="Поиск по названию группы" value={query} onChange={(e) => setQuery(e.target.value)} />
       <Checkbox label="только группы из рассылки (в архиве)" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
       <div className="max-h-[min(48vh,420px)] overflow-auto rounded-xl border border-border">
@@ -46,7 +36,7 @@ export function GroupPickerDialog({
               type="checkbox"
               className="size-4 accent-accent"
               checked={selected.has(g.jid)}
-              disabled={!sendable(g)}
+              disabled={!sendable(g) && !selected.has(g.jid)}
               onChange={(e) => toggle(g.jid, e.target.checked)}
             />
             <span className="min-w-0 flex-1">
@@ -56,8 +46,26 @@ export function GroupPickerDialog({
           </label>
         ))}
       </div>
+    </>
+  )
+}
+
+export function GroupPickerDialog({
+  open,
+  onOpenChange,
+  value,
+  onChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  value: string[]
+  onChange: (jids: string[]) => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title="Выберите группы" wide>
+      <GroupChecklist value={value} onChange={onChange} />
       <DialogActions>
-        <span className="mr-auto text-sm text-muted">Выбрано: {selected.size}</span>
+        <span className="mr-auto text-sm text-muted">Выбрано: {value.length}</span>
         <Button variant="ghost" onClick={() => onChange([])}>
           Сбросить
         </Button>

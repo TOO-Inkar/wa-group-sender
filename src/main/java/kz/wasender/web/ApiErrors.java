@@ -19,7 +19,7 @@ public class ApiErrors {
         return body(HttpStatus.BAD_REQUEST, e);
     }
 
-    @ExceptionHandler(CampaignService.NotFoundException.class)
+    @ExceptionHandler({CampaignService.NotFoundException.class, CampaignService.ListNotFoundException.class})
     ResponseEntity<Map<String, String>> notFound(RuntimeException e) {
         return body(HttpStatus.NOT_FOUND, e);
     }

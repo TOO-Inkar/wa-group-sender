@@ -23,7 +23,7 @@ export function ConnectionPanel() {
 
   return (
     <Card className="grid items-start gap-6 p-5 md:grid-cols-[auto_minmax(0,1fr)]">
-      <div className={`grid size-[300px] max-w-full place-items-center rounded-xl border border-border p-3.5 text-center ${connected ? 'bg-ok-bg font-semibold text-ok-text' : 'bg-white text-[#64707f]'}`}>
+      <div className={`grid max-w-full place-items-center rounded-xl border border-border p-3.5 text-center ${connected ? 'w-full bg-ok-bg py-6 font-semibold text-ok-text md:size-[300px]' : 'size-[300px] bg-white text-[#64707f]'}`}>
         {connected ? 'Номер привязан' : qr.data ? <img alt="QR для привязки" src={qr.data} className="size-full [image-rendering:pixelated]" /> : health?.session === 'BANNED' ? 'Номер заблокирован' : 'Ждём QR от WhatsApp…'}
       </div>
       <div className="grid gap-3 text-sm">
