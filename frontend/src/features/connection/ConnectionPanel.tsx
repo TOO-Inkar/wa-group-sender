@@ -14,7 +14,7 @@ export function ConnectionPanel() {
       const response = await fetch('/api/qr', { credentials: 'same-origin' })
       return response.ok ? URL.createObjectURL(await response.blob()) : null
     },
-    enabled: !connected,
+    enabled: !!health && !connected,
     refetchInterval: 3000,
   })
   useEffect(() => () => {

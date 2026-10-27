@@ -61,7 +61,7 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
 
   const target = targetOf(values, lists)
   const count = target.groups ? target.groups.length : (health?.activeGroups ?? 0)
-  const where = target.label ?? (target.groups ? groupsCount(count) : `все группы (${count})`)
+  const where = values.target === 'list' && !values.listId ? 'список не выбран' : (target.label ?? (target.groups ? groupsCount(count) : `все группы (${count})`))
   const summary = `${where} · ${WHEN[values.repeat](values)}${values.anyTime ? ' · и вне окна' : ''}`
 
   const submit = form.handleSubmit(async (v) => {

@@ -84,7 +84,7 @@ describe('запуски за день', () => {
   })
 
   it('доп. время видно в расписании', () => {
-    expect(scheduleShort(hourly)).toBe('каждые 1 ч, 08:00–23:00 + 05:00')
+    expect(scheduleShort(hourly)).toBe('каждый час, 08:00–23:00 + 05:00')
     expect(scheduleText({ ...hourly, anyTime: true })).toBe('каждый час с 08:00 до 23:00 и в 05:00, в том числе вне рабочего окна')
   })
 
