@@ -36,11 +36,12 @@ public class CampaignService {
     private final GroupListRepository groupLists;
     private final Dispatcher dispatcher;
     private final WorkWindow window;
+    private final StartJitter jitter;
     private final Clock clock;
 
     public CampaignService(CampaignRepository campaigns, RequestRepository requests, RequestIdGenerator requestIds, RequestIntake intake,
                            CampaignRecipients recipients, GroupListRepository groupLists, Dispatcher dispatcher, WorkWindow window,
-                           Clock clock) {
+                           StartJitter jitter, Clock clock) {
         this.campaigns = campaigns;
         this.requests = requests;
         this.requestIds = requestIds;
@@ -49,6 +50,7 @@ public class CampaignService {
         this.groupLists = groupLists;
         this.dispatcher = dispatcher;
         this.window = window;
+        this.jitter = jitter;
         this.clock = clock;
     }
 
@@ -58,10 +60,10 @@ public class CampaignService {
         var targets = targets(input);
         var message = intake.compose(input.draft(), targets);
         var now = Instant.now(clock);
-        var first = input.sendNow() ? ZonedDateTime.now(clock) : input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled());
+        var first = input.sendNow() ? now : jitter.startAt(input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
         var label = recipients.labelToStore(input.targetLabel(), targets);
         var campaign = new CampaignRecord(nextId(), title(input, message), input.form(), message, !targets.isEmpty(), label,
-                input.schedule(), true, false, now, now, first == null ? null : first.toInstant(), null);
+                input.schedule(), true, false, now, now, first, null);
         campaigns.insert(campaign, targets);
         log.info("CAMPAIGN created id={} title=\"{}\" repeat={} start={} end={} interval={} extra={} any_time={} targets={} first_run={}",
                 campaign.id(), campaign.title(), campaign.schedule().mode(), campaign.schedule().start(), campaign.schedule().end(),
@@ -80,8 +82,7 @@ public class CampaignService {
         var now = Instant.now(clock);
         var next = current.nextRunAt();
         if (current.enabled() && !current.schedule().equals(input.schedule())) {
-            var first = input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled());
-            next = first == null ? null : first.toInstant();
+            next = jitter.startAt(input.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
         }
         var label = recipients.labelToStore(input.targetLabel(), targets);
         var updated = new CampaignRecord(id, title(input, message), input.form(), message, !targets.isEmpty(), label,
@@ -132,8 +133,8 @@ public class CampaignService {
             campaigns.setEnabled(id, false, null, now);
             log.info("CAMPAIGN disabled id={}", id);
         } else {
-            var first = campaign.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled());
-            campaigns.setEnabled(id, true, first == null ? null : first.toInstant(), now);
+            var first = jitter.startAt(campaign.schedule().first(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
+            campaigns.setEnabled(id, true, first, now);
             log.info("CAMPAIGN enabled id={} next_run={}", id, first);
             runDue(id);
         }
@@ -182,8 +183,8 @@ public class CampaignService {
     private boolean process(CampaignRecord campaign) {
         var now = Instant.now(clock);
         var spawned = spawn(campaign, now);
-        var next = campaign.schedule().nextAfter(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled());
-        campaigns.scheduled(campaign.id(), spawned.isPresent() ? now : null, next == null ? null : next.toInstant(), next != null);
+        var next = jitter.startAt(campaign.schedule().nextAfter(ZonedDateTime.now(clock), window.end(), window.weekendsEnabled()));
+        campaigns.scheduled(campaign.id(), spawned.isPresent() ? now : null, next, next != null);
         log.info("CAMPAIGN tick id={} started={} next_run={}", campaign.id(), spawned.map(RequestRecord::id).orElse("-"), next);
         return spawned.isPresent();
     }

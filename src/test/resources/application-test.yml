@@ -19,6 +19,9 @@ app:
     retry:
       initial-backoff: 1ms
       max-backoff: 2ms
+  campaign:
+    start-jitter-min: 0s
+    start-jitter-max: 0s
   dispatch:
     autostart: false
     wave-size: 10
