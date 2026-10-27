@@ -8,14 +8,14 @@ import { Button } from '@/shared/ui/button'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Field, Input } from '@/shared/ui/input'
 
-export function EditListDialog({ list, onClose }: { list: GroupList; onClose: () => void }) {
+export function EditListDialog({ list, open, onOpenChange }: { list: GroupList; open: boolean; onOpenChange: (open: boolean) => void }) {
   const update = useUpdateGroupList()
   const [name, setName] = useState(list.name)
   const [groups, setGroups] = useState(list.groups)
   const valid = name.trim() !== '' && groups.length > 0
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()} title="Изменить список" description="Заявки в этот список будут отправляться по новому составу со следующей рассылки." wide>
+    <Dialog open={open} onOpenChange={onOpenChange} title="Изменить список" description="Заявки в этот список будут отправляться по новому составу со следующей рассылки." wide>
       <form
         className="grid gap-3"
         onSubmit={(e) => {
@@ -26,7 +26,7 @@ export function EditListDialog({ list, onClose }: { list: GroupList; onClose: ()
             {
               onSuccess: (saved) => {
                 toast.success(`Список «${saved.name}» сохранён`)
-                onClose()
+                onOpenChange(false)
               },
               onError: (err) => toast.error(err.message),
             },
@@ -39,7 +39,7 @@ export function EditListDialog({ list, onClose }: { list: GroupList; onClose: ()
         <GroupChecklist value={groups} onChange={setGroups} />
         <DialogActions>
           <span className="mr-auto text-sm text-muted">В списке {groupsCount(groups.length)}</span>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Отмена
           </Button>
           <Button type="submit" variant="primary" disabled={!valid || update.isPending}>

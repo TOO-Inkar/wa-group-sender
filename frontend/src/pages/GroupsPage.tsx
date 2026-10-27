@@ -27,6 +27,7 @@ export function GroupsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [naming, setNaming] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [editKey, setEditKey] = useState(0)
 
   const list = lists.find((l) => String(l.id) === listId)
   const scope = groups.filter((g) => (!list || list.groups.includes(g.jid)) && matches(g, query))
@@ -40,6 +41,11 @@ export function GroupsPage() {
       jids.forEach((j) => (on ? next.add(j) : next.delete(j)))
       return next
     })
+
+  const startEditing = () => {
+    setEditKey((k) => k + 1)
+    setEditing(true)
+  }
 
   const removeList = async () => {
     if (!list) return
@@ -78,7 +84,7 @@ export function GroupsPage() {
             <RowMenu
               label="Действия со списком"
               items={[
-                { label: 'Изменить список', icon: <Pencil size={15} />, onSelect: () => setEditing(true) },
+                { label: 'Изменить список', icon: <Pencil size={15} />, onSelect: startEditing },
                 { label: 'Заявка в этот список', icon: <Send size={15} />, onSelect: () => navigate('/campaigns/new', { state: { target: 'list', listId: String(list.id) } }) },
                 { label: 'Отметить его группы', onSelect: () => setSelected(new Set(list.groups)) },
                 { label: 'Удалить список', icon: <Trash2 size={15} />, danger: true, onSelect: removeList },
@@ -127,7 +133,7 @@ export function GroupsPage() {
         </div>
       )}
 
-      {editing && list && <EditListDialog list={list} onClose={() => setEditing(false)} />}
+      {list && <EditListDialog key={`${list.id}-${editKey}`} list={list} open={editing} onOpenChange={setEditing} />}
 
       <SaveListDialog
         groups={[...selected]}
