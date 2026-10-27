@@ -45,7 +45,7 @@ class CloudflareAccessTest {
         key = generator.generateKeyPair();
         other = generator.generateKeyPair();
         jwks = jwks("k1", key);
-        access = new CloudflareAccess(new PlatformProperties("admin.example.kz", "", TEAM, AUD), JsonMapper.builder().build(), clock, uri -> {
+        access = new CloudflareAccess(new PlatformProperties("admin.example.kz", "", TEAM, AUD, "", ""), JsonMapper.builder().build(), clock, uri -> {
             fetches.add(uri);
             return jwks;
         });
@@ -121,7 +121,7 @@ class CloudflareAccessTest {
     @Test
     void platformApiAndPlatformLoginRequireTheAssertion() throws Exception {
         var security = new SecurityProperties("secret", "X-Admin-Token", "admin", null, Duration.ofDays(30));
-        var platform = new PlatformProperties("admin.example.kz", "", TEAM, AUD);
+        var platform = new PlatformProperties("admin.example.kz", "", TEAM, AUD, "", "");
         var filter = new AdminTokenFilter(security, platform, new Authenticator(security, new SessionTokens(security, clock), null), access);
 
         var denied = new MockHttpServletRequest("GET", "/api/platform/tenants");

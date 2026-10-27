@@ -3,13 +3,18 @@ package kz.wasender.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("app.platform")
-public record PlatformProperties(String host, String appUrl, String accessTeamDomain, String accessAud) {
+public record PlatformProperties(String host, String appUrl, String accessTeamDomain, String accessAud, String adminUsername,
+                                 String adminPasswordHash) {
     public boolean hostRestricted() {
         return host != null && !host.isBlank();
     }
 
     public boolean platformHost(String serverName) {
         return hostRestricted() && host.strip().equalsIgnoreCase(serverName);
+    }
+
+    public boolean separateAdmin() {
+        return adminUsername != null && !adminUsername.isBlank() && adminPasswordHash != null && !adminPasswordHash.isBlank();
     }
 
     public boolean accessRequired() {

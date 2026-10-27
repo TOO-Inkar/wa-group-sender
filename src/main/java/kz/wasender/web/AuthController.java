@@ -43,6 +43,8 @@ public class AuthController {
     private static final String HOME = "/";
     private static final String THROTTLED = "Слишком много попыток. Подождите 10 минут.";
     private static final String BAD_CREDENTIALS = "Неверный логин или пароль";
+    private static final String ADMIN_ELSEWHERE = "Учётная запись администратора входит только в админку: https://%s";
+    private static final String MEMBER_ELSEWHERE = "Это вход в админку. Учётные записи кабинетов входят на основном сайте";
     private static final String ACCESS_CLOSED = "Доступ закрыт: учётная запись отключена или кабинет заблокирован";
 
     private final Authenticator authenticator;
@@ -103,12 +105,28 @@ public class AuthController {
             audit.record(user.id(), user.login(), ip, AuditAction.LOGIN_FAILED, user.tenantId(), "доступ закрыт");
             return message(HttpStatus.UNAUTHORIZED, ACCESS_CLOSED);
         }
+        var wrongHost = wrongHost(user, request);
+        if (wrongHost.isPresent()) {
+            log.warn("LOGIN refused ip={} username=\"{}\": wrong host {}", ip, username, request.getServerName());
+            return message(HttpStatus.FORBIDDEN, wrongHost.get());
+        }
         ipFailures.reset(ip);
         loginFailures.reset(loginKey);
         users.touchLogin(user.id(), Instant.now(clock));
         audit.record(actor.get(), AuditAction.LOGIN, tenantId(actor.get()), null);
         log.info("LOGIN ok ip={} username=\"{}\"", ip, user.login());
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie(user, actor.get()).toString()).body(Me.of(actor.get()));
+    }
+
+    private Optional<String> wrongHost(AppUser user, HttpServletRequest request) {
+        if (!platform.separateAdmin() || !platform.hostRestricted()) {
+            return Optional.empty();
+        }
+        var onPlatform = platform.platformHost(request.getServerName());
+        if (user.superadmin() && !onPlatform) {
+            return Optional.of(ADMIN_ELSEWHERE.formatted(platform.host().strip()));
+        }
+        return !user.superadmin() && onPlatform ? Optional.of(MEMBER_ELSEWHERE) : Optional.empty();
     }
 
     @PostMapping("/logout")
