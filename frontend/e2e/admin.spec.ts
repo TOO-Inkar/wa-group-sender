@@ -11,7 +11,8 @@ async function login(page: Page) {
   await expect(page).toHaveURL(/\/campaigns$/)
 }
 
-const nav = (page: Page, name: string) => page.getByRole('navigation').getByRole('link', { name, exact: true })
+const nav = (page: Page, name: string) =>
+  page.getByRole('navigation').getByRole('link', { name: new RegExp(`^${name}( \\d+)?$`) })
 
 test('неверный пароль — понятная ошибка, верный — вход', async ({ page }) => {
   await page.goto('/login')

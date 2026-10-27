@@ -2,7 +2,7 @@ package kz.wasender.group;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -13,9 +13,11 @@ import java.util.Optional;
 @Repository
 public class GroupListRepository {
     private final JdbcClient jdbc;
+    private final TransactionTemplate transactions;
 
-    public GroupListRepository(JdbcClient jdbc) {
+    public GroupListRepository(JdbcClient jdbc, TransactionTemplate transactions) {
         this.jdbc = jdbc;
+        this.transactions = transactions;
     }
 
     public List<GroupList> findAll() {
@@ -26,14 +28,15 @@ public class GroupListRepository {
                 .toList();
     }
 
-    @Transactional
     public GroupList save(String name, Collection<String> groupJids, Instant at) {
-        var id = jdbc.sql("select id from group_list where name = ?").param(name).query(Long.class).optional()
-                .orElseGet(() -> {
-                    jdbc.sql("insert into group_list(name, created_at) values (?, ?)").params(name, at).update();
-                    return jdbc.sql("select id from group_list where name = ?").param(name).query(Long.class).single();
-                });
-        return replaceMembers(id, name, groupJids);
+        return transactions.execute(status -> {
+            var id = jdbc.sql("select id from group_list where name = ?").param(name).query(Long.class).optional()
+                    .orElseGet(() -> {
+                        jdbc.sql("insert into group_list(name, created_at) values (?, ?)").params(name, at).update();
+                        return jdbc.sql("select id from group_list where name = ?").param(name).query(Long.class).single();
+                    });
+            return replaceMembers(id, name, groupJids);
+        });
     }
 
     public Optional<GroupList> find(long id) {
@@ -45,10 +48,11 @@ public class GroupListRepository {
         return jdbc.sql("select count(*) from group_list where name = ? and id <> ?").params(name, id).query(Integer.class).single() > 0;
     }
 
-    @Transactional
     public GroupList update(long id, String name, Collection<String> groupJids) {
-        jdbc.sql("update group_list set name = ? where id = ?").params(name, id).update();
-        return replaceMembers(id, name, groupJids);
+        return transactions.execute(status -> {
+            jdbc.sql("update group_list set name = ? where id = ?").params(name, id).update();
+            return replaceMembers(id, name, groupJids);
+        });
     }
 
     private GroupList replaceMembers(long id, String name, Collection<String> groupJids) {

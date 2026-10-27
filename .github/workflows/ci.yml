@@ -118,7 +118,7 @@ jobs:
           docker run -d --name wa-e2e -p 127.0.0.1:18080:8080 \
             -e SPRING_PROFILES_ACTIVE=fake -e SHEETS_ENABLED=false -e SERVER_PORT=8080 \
             -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD_HASH="$hash" -e ADMIN_TOKEN=e2e \
-            -e SPRING_DATASOURCE_URL=jdbc:h2:mem:e2e \
+            -e SPRING_DATASOURCE_URL="jdbc:h2:mem:e2e;DB_CLOSE_DELAY=-1" -e APP_TENANCY_DB_URL="jdbc:h2:mem:e2e-{name};DB_CLOSE_DELAY=-1" \
             wa-group-sender:e2e
           for _ in $(seq 90); do
             curl -fs -o /dev/null http://127.0.0.1:18080/login && exit 0

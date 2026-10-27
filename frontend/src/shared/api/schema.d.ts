@@ -68,6 +68,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["tenants"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["users"];
+        put?: never;
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}/enter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/logout": {
         parameters: {
             query?: never;
@@ -301,7 +381,7 @@ export interface paths {
         };
         get: operations["list"];
         put?: never;
-        post: operations["create"];
+        post: operations["create_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -356,6 +436,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteUser"];
+        options?: never;
+        head?: never;
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/platform/tenants/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update_2"];
+        trace?: never;
+    };
     "/api/qr": {
         parameters: {
             query?: never;
@@ -364,6 +476,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["qr"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["audit"];
         put?: never;
         post?: never;
         delete?: never;
@@ -412,6 +540,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/enter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["enter_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -715,6 +859,62 @@ export interface components {
             jid: string;
             name: string;
         };
+        NewTenant: {
+            name: string | null;
+            login: string | null;
+            password: string | null;
+            proxy: string | null;
+        };
+        TenantOverview: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "BLOCKED";
+            legacy: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int32 */
+            users: number;
+            session: string;
+            account: string | null;
+            dispatcher: string;
+            /** Format: int64 */
+            activeGroups: number;
+            /** Format: int32 */
+            sentToday: number;
+            /** Format: int32 */
+            sentLastHour: number;
+            /** Format: int32 */
+            queueLength: number;
+            stoppedByRisk: boolean;
+            proxy: string | null;
+            proxyRequired: boolean;
+        };
+        NewUser: {
+            login: string | null;
+            password: string | null;
+        };
+        PlatformUser: {
+            /** Format: int64 */
+            id: number;
+            login: string;
+            enabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastLoginAt: string | null;
+        };
+        EnterLink: {
+            url: string;
+        };
+        DeleteTenant: {
+            confirmName: string | null;
+        };
+        PasswordChange: {
+            current: string | null;
+            next: string | null;
+        };
         Login: {
             username: string | null;
             password: string | null;
@@ -746,6 +946,27 @@ export interface components {
             /** Format: int32 */
             active: number;
         };
+        UserPatch: {
+            enabled: boolean | null;
+            password: string | null;
+        };
+        TenantPatch: {
+            name?: string;
+            status?: string;
+            proxy?: string;
+        };
+        AuditEntry: {
+            /** Format: date-time */
+            at: string;
+            actor: string | null;
+            /** Format: int64 */
+            tenantId: number | null;
+            tenantName: string | null;
+            /** @enum {string} */
+            action: "LOGIN" | "LOGIN_FAILED" | "ENTER" | "TENANT_CREATED" | "TENANT_RENAMED" | "TENANT_BLOCKED" | "TENANT_UNBLOCKED" | "TENANT_DELETED" | "PROXY_CHANGED" | "USER_CREATED" | "USER_UPDATED" | "USER_DELETED" | "PASSWORD_CHANGED";
+            detail: string | null;
+            ip: string | null;
+        };
         GroupRecord: {
             jid: string;
             name: string | null;
@@ -766,6 +987,14 @@ export interface components {
         Me: {
             authenticated?: boolean;
             username?: string;
+            /** @enum {string} */
+            role?: "SUPERADMIN" | "MEMBER";
+            tenant?: components["schemas"]["TenantRef"];
+        };
+        TenantRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
         };
         ChatInfo: {
             chatId: string;
@@ -775,6 +1004,7 @@ export interface components {
         Overview: {
             botConfigured: boolean;
             botUsername: string | null;
+            inviteLink: string | null;
             configuredChats: components["schemas"]["ChatInfo"][];
             subscribers: components["schemas"]["Subscriber"][];
         };
@@ -841,6 +1071,8 @@ export interface components {
             /** Format: int32 */
             hourlyLimit: number;
             time: string;
+            /** Format: int32 */
+            tenants: number;
         };
         SheetRow: {
             /** Format: int32 */
@@ -1064,6 +1296,168 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    tenants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOverview"][];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTenant"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOverview"];
+                };
+            };
+        };
+    };
+    users: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUser"][];
+                };
+            };
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewUser"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUser"];
+                };
+            };
+        };
+    };
+    enter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnterLink"];
+                };
+            };
+        };
+    };
+    delete_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteTenant"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
             };
         };
     };
@@ -1425,7 +1819,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1515,6 +1909,78 @@ export interface operations {
             };
         };
     };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformUser"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOverview"];
+                };
+            };
+        };
+    };
     qr: {
         parameters: {
             query?: never;
@@ -1531,6 +1997,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    audit: {
+        parameters: {
+            query?: {
+                tenantId?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEntry"][];
                 };
             };
         };
@@ -1595,6 +2084,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    enter_1: {
+        parameters: {
+            query?: {
+                code?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };
