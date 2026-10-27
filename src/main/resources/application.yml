@@ -91,6 +91,9 @@ app:
     hourly-limit: ${HOURLY_SEND_LIMIT:120}
     group-interval: ${GROUP_SEND_INTERVAL:60m}
     wait-for-reply: ${WAIT_FOR_REPLY:true}
+  campaign:
+    start-jitter-min: ${CAMPAIGN_START_JITTER_MIN:1m}
+    start-jitter-max: ${CAMPAIGN_START_JITTER_MAX:5m}
   warmup:
     enabled: ${WARMUP_ENABLED:true}
     daily-limits: ${WARMUP_DAILY_LIMITS:45,80,120,170,220}
