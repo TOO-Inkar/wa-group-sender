@@ -190,10 +190,26 @@ public class AdminController {
 
     @PutMapping("/group-lists")
     public GroupListRepository.GroupList saveGroupList(@RequestBody GroupListRequest request) {
-        if (request.name() == null || request.name().isBlank() || request.groups() == null || request.groups().isEmpty()) {
-            throw new IllegalArgumentException("нужны название и хотя бы одна группа");
+        return groupLists.save(requireListName(request), requireListGroups(request), Instant.now());
+    }
+
+    private static String requireListName(GroupListRequest request) {
+        if (request.name() == null || request.name().isBlank()) {
+            throw new IllegalArgumentException("нужно название списка");
         }
-        return groupLists.save(request.name().strip(), request.groups(), Instant.now());
+        return request.name().strip();
+    }
+
+    private static List<String> requireListGroups(GroupListRequest request) {
+        if (request.groups() == null || request.groups().isEmpty()) {
+            throw new IllegalArgumentException("в списке должна быть хотя бы одна группа");
+        }
+        return request.groups();
+    }
+
+    @PutMapping("/group-lists/{id}")
+    public GroupListRepository.GroupList updateGroupList(@PathVariable long id, @RequestBody GroupListRequest request) {
+        return campaigns.updateGroupList(id, requireListName(request), requireListGroups(request));
     }
 
     @DeleteMapping("/group-lists/{id}")

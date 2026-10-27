@@ -1,17 +1,17 @@
 import { Plus, X } from 'lucide-react'
-import { useFormContext, useWatch } from 'react-hook-form'
+import { Controller, useFormContext, useWatch, type FieldPath } from 'react-hook-form'
 import { repeats, type FormValues } from '../form'
 import { dayRuns, loadWarnings, runsText } from '../model'
 import { useSettings } from '@/features/settings/api'
 import { cn } from '@/shared/lib/cn'
 import { intervalText } from '@/shared/lib/format'
-import { Caption, Checkbox, Input, Select } from '@/shared/ui/input'
+import { Caption, Checkbox, Select } from '@/shared/ui/input'
 import { Segmented } from '@/shared/ui/segmented'
+import { TimeSelect } from '@/shared/ui/time-select'
 import { toneSurface } from '@/shared/ui/tone'
 
 const INTERVALS = [60, 90, 120, 180, 240]
 const MAX_EXTRA = 3
-const time = 'w-auto px-2 py-1.5 text-sm'
 
 function ExtraTimes() {
   const { setValue, control, formState } = useFormContext<FormValues>()
@@ -24,13 +24,7 @@ function ExtraTimes() {
       ещё в
       {extra.map((value, i) => (
         <span key={i} className="inline-flex items-center rounded-lg border border-border bg-surface-2 pr-1">
-          <Input
-            type="time"
-            className="w-auto border-0 bg-transparent px-2 py-1 text-sm"
-            aria-label={`Доп. время ${i + 1}`}
-            value={value}
-            onChange={(e) => set(extra.with(i, e.target.value))}
-          />
+          <TimeSelect className="border-0 bg-transparent" label={`Доп. время ${i + 1}`} value={value} onChange={(next) => set(extra.with(i, next))} />
           <button type="button" aria-label="Убрать время" className="cursor-pointer rounded p-0.5 hover:text-danger" onClick={() => set(extra.filter((_, j) => j !== i))}>
             <X className="size-3.5" />
           </button>
@@ -44,6 +38,11 @@ function ExtraTimes() {
       )}
     </div>
   )
+}
+
+function FormTime({ name, label, invalid }: { name: FieldPath<FormValues>; label: string; invalid?: boolean }) {
+  const { control } = useFormContext<FormValues>()
+  return <Controller control={control} name={name} render={({ field }) => <TimeSelect label={label} invalid={invalid} value={String(field.value)} onChange={field.onChange} />} />
 }
 
 export function WhenPicker({ groups }: { groups: number }) {
@@ -74,13 +73,13 @@ export function WhenPicker({ groups }: { groups: number }) {
           onChange={(v) => setValue('repeat', v)}
           options={[
             { value: 'now', label: 'Сейчас' },
-            { value: 'at', label: 'В время' },
+            { value: 'at', label: 'Один раз' },
             { value: 'daily', label: 'Ежедневно' },
             { value: 'interval', label: 'Повтор' },
           ]}
         />
-        {values.repeat === 'at' && <Input type="time" className={time} aria-label="Время" {...register('atTime')} />}
-        {values.repeat === 'daily' && <Input type="time" className={time} aria-label="Время" {...register('dailyTime')} />}
+        {values.repeat === 'at' && <FormTime name="atTime" label="Время" />}
+        {values.repeat === 'daily' && <FormTime name="dailyTime" label="Время" />}
         {values.repeat === 'interval' && (
           <span className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
             <Select className="py-1.5 text-sm" aria-label="Как часто" {...register('intervalMinutes', { valueAsNumber: true })}>
@@ -90,8 +89,12 @@ export function WhenPicker({ groups }: { groups: number }) {
                 </option>
               ))}
             </Select>
-            с <Input type="time" className={time} aria-label="С" {...register('intervalStart')} />
-            до <Input type="time" className={time} aria-label="До" aria-invalid={!!formState.errors.intervalEnd} {...register('intervalEnd')} />
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              с <FormTime name="intervalStart" label="С" />
+            </span>
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              до <FormTime name="intervalEnd" label="До" invalid={!!formState.errors.intervalEnd} />
+            </span>
           </span>
         )}
       </div>
