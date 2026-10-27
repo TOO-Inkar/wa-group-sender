@@ -21,7 +21,7 @@ class AdminTokenFilterTest {
     private static MockHttpServletResponse call(String token, String path, String header, String platformHost, String host) throws Exception {
         var security = new SecurityProperties(token, "X-Admin-Token", "admin", null, Duration.ofDays(30));
         var authenticator = new Authenticator(security, new SessionTokens(security, Clock.systemUTC()), null);
-        var platform = new PlatformProperties(platformHost, "", "", "");
+        var platform = new PlatformProperties(platformHost, "", "", "", "", "");
         var filter = new AdminTokenFilter(security, platform, authenticator,
                 new CloudflareAccess(platform, JsonMapper.builder().build(), Clock.systemUTC(), uri -> "{\"keys\":[]}"));
         var request = new MockHttpServletRequest("GET", path);

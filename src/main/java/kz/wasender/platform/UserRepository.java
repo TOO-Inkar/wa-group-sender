@@ -80,6 +80,11 @@ public class UserRepository {
         jdbc.sql("update app_user set password_hash = ?, session_version = session_version + 1 where id = ?").params(passwordHash, id).update();
     }
 
+    public void assign(long id, @Nullable Long tenantId, Role role) {
+        jdbc.sql("update app_user set tenant_id = ?, role = ?, session_version = session_version + 1 where id = ?")
+                .params(tenantId, role.name(), id).update();
+    }
+
     public void touchLogin(long id, Instant at) {
         jdbc.sql("update app_user set last_login_at = ? where id = ?").params(at, id).update();
     }
