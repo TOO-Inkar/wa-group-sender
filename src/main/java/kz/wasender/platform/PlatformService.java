@@ -131,6 +131,14 @@ public class PlatformService {
         return overview(id);
     }
 
+    public ProxyCheck checkProxy(long id) {
+        var proxy = tenant(id).proxyUrl();
+        if (proxy == null) {
+            throw new IllegalArgumentException("Прокси не задан");
+        }
+        return bridge.checkProxy(proxy);
+    }
+
     public void delete(Actor actor, long id, @Nullable String confirmName) {
         var tenant = tenant(id);
         if (tenant.legacy()) {

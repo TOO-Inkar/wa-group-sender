@@ -46,7 +46,7 @@ export type AuditEntry = { at: string; actor: string | null; tenantId: number | 
 
 export type NewTenant = { name: string; login: string; password: string; proxy?: string }
 export type TenantPatch = { name?: string; status?: TenantStatus; proxy?: string | null }
-export type ProxyCheck = { ok: boolean; ip?: string; error?: string }
+export type ProxyCheck = { ok: boolean; ip?: string | null; country?: string | null; city?: string | null; org?: string | null; whatsapp?: boolean; error?: string | null }
 export type UserPatch = { enabled?: boolean; password?: string }
 
 const TENANTS = '/api/platform/tenants'

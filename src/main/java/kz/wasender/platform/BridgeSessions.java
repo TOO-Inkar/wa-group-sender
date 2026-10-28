@@ -4,4 +4,6 @@ public interface BridgeSessions {
     void disconnect(String key);
 
     void delete(String key);
+
+    ProxyCheck checkProxy(String proxyUrl);
 }

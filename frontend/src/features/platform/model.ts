@@ -1,4 +1,4 @@
-import type { AuditAction, TenantOverview } from './api'
+import type { AuditAction, ProxyCheck, TenantOverview } from './api'
 import { MIN_PASSWORD } from '@/features/auth/model'
 import { plural } from '@/shared/lib/format'
 
@@ -25,6 +25,18 @@ export type ProxyState = { text: string; tone: 'warn' | 'neutral' } | null
 export function proxyState(t: Pick<TenantOverview, 'proxy' | 'proxyRequired' | 'legacy'>): ProxyState {
   if (t.proxy) return null
   return t.proxyRequired && !t.legacy ? { text: 'Без прокси', tone: 'warn' } : { text: 'Прямое подключение', tone: 'neutral' }
+}
+
+const HOME_COUNTRY = 'KZ'
+
+export type ProxyVerdict = { ok: boolean; text: string }
+
+export function proxyVerdict(r: ProxyCheck): ProxyVerdict {
+  if (!r.ok) return { ok: false, text: `Не работает: ${r.error ?? 'нет ответа'}` }
+  const place = [r.country, r.city].filter(Boolean).join(', ')
+  const details = [r.ip && `IP ${r.ip}`, place, r.org].filter(Boolean).join(' · ')
+  if (r.country && r.country !== HOME_COUNTRY) return { ok: false, text: `Работает, но адрес не казахстанский: ${details}` }
+  return { ok: true, text: `Прокси работает, WhatsApp доступен${details ? `: ${details}` : ''}` }
 }
 
 export type Account = { name: string; login: string; password: string; proxy: string }

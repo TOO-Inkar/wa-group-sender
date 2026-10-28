@@ -99,6 +99,7 @@ func (m *manager) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", m.handleStatus)
 	mux.HandleFunc("GET /sessions", m.handleSessions)
+	mux.HandleFunc("POST /proxy-check", handleProxyCheck)
 	mux.HandleFunc("DELETE /s/{session}", m.handleDelete)
 	for _, route := range sessionRoutes {
 		mux.HandleFunc(route.method+" /s/{session}"+route.path, m.withSession(route.handler))

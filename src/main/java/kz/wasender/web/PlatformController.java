@@ -4,6 +4,7 @@ import kz.wasender.platform.Actor;
 import kz.wasender.platform.AuditEntry;
 import kz.wasender.platform.PlatformService;
 import kz.wasender.platform.PlatformUser;
+import kz.wasender.platform.ProxyCheck;
 import kz.wasender.platform.TenantOverview;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
@@ -49,6 +50,11 @@ public class PlatformController {
     public ResponseEntity<Void> delete(@RequestAttribute(Actor.ATTRIBUTE) Actor actor, @PathVariable long id, @RequestBody DeleteTenant body) {
         platform.delete(actor, id, body.confirmName());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/tenants/{id}/proxy-check")
+    public ProxyCheck checkProxy(@PathVariable long id) {
+        return platform.checkProxy(id);
     }
 
     @GetMapping("/tenants/{id}/users")

@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { useProxyCheck, useUpdateTenant, type ProxyCheck, type TenantOverview } from '../api'
 import { useTenantCommands } from '../commands'
-import { isBlocked, proxyError, PROXY_PLACEHOLDER } from '../model'
+import { isBlocked, proxyError, PROXY_PLACEHOLDER, proxyVerdict } from '../model'
 import { DeleteTenantDialog } from './DeleteTenantDialog'
 import { DispatcherText, SessionBadge, TenantBadges } from './TenantState'
 import { UserList } from './UserList'
@@ -84,6 +84,7 @@ function ProxyForm({ tenant }: { tenant: TenantOverview }) {
       save(null, 'Прокси убран')
   }
 
+  const verdict = result && proxyVerdict(result)
   const runCheck = () => check.mutate(tenant.id, { onSuccess: setResult, onError: (e) => setResult({ ok: false, error: e.message }) })
 
   return (
@@ -108,9 +109,9 @@ function ProxyForm({ tenant }: { tenant: TenantOverview }) {
           </span>
         )}
       </div>
-      {result && (
-        <p role="status" className={result.ok ? 'text-[13px] text-ok-text' : 'text-[13px] text-bad-text'}>
-          {result.ok ? `Прокси работает${result.ip ? `, внешний IP ${result.ip}` : ''}` : `Не работает: ${result.error ?? 'нет ответа'}`}
+      {verdict && (
+        <p role="status" className={verdict.ok ? 'text-[13px] text-ok-text' : 'text-[13px] text-bad-text'}>
+          {verdict.text}
         </p>
       )}
       <div className="flex items-start gap-2">

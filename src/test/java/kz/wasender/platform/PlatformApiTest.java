@@ -227,6 +227,24 @@ class PlatformApiTest extends ApiTest {
     }
 
     @Test
+    void proxyCheckRunsForATenantWithAProxyAndExplainsWhenThereIsNone() throws Exception {
+        var admin = admin();
+        var id = createdId(admin, "Кабинет 2", "manager2");
+
+        var checked = perform(post("/api/platform/tenants/" + id + "/proxy-check"), admin);
+        assertThat(status(checked)).isEqualTo(200);
+        assertThat(json(checked, "$.ok")).isEqualTo(true);
+        assertThat(json(checked, "$.whatsapp")).isEqualTo(true);
+        assertThat(json(checked, "$.country")).isEqualTo("KZ");
+        assertThat(body(checked)).doesNotContain("proxysecret");
+
+        var legacy = perform(post("/api/platform/tenants/" + LEGACY_TENANT + "/proxy-check"), admin);
+        assertThat(status(legacy)).isEqualTo(400);
+        assertThat(json(legacy, "$.message")).isEqualTo("Прокси не задан");
+        assertThat(status(perform(post("/api/platform/tenants/77/proxy-check"), admin))).isEqualTo(404);
+    }
+
+    @Test
     void deleteRequiresTheExactNameAndNeverTouchesTheLegacyTenant() throws Exception {
         var admin = admin();
         var id = createdId(admin, "Кабинет 2", "manager2");
