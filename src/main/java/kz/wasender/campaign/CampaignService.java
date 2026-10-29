@@ -3,6 +3,7 @@ package kz.wasender.campaign;
 import kz.wasender.dispatch.Dispatcher;
 import kz.wasender.dispatch.WorkWindow;
 import kz.wasender.group.GroupListRepository;
+import kz.wasender.group.GroupRepository;
 import kz.wasender.request.RequestIdGenerator;
 import kz.wasender.request.RequestIntake;
 import kz.wasender.request.RequestRecord;
@@ -18,7 +19,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +34,7 @@ public class CampaignService {
     private final RequestIntake intake;
     private final CampaignRecipients recipients;
     private final GroupListRepository groupLists;
+    private final GroupRepository groups;
     private final Dispatcher dispatcher;
     private final WorkWindow window;
     private final StartJitter jitter;
@@ -41,7 +42,7 @@ public class CampaignService {
     private final Clock clock;
 
     public CampaignService(CampaignRepository campaigns, RequestRepository requests, RequestIdGenerator requestIds, RequestIntake intake,
-                           CampaignRecipients recipients, GroupListRepository groupLists, Dispatcher dispatcher, WorkWindow window,
+                           CampaignRecipients recipients, GroupListRepository groupLists, GroupRepository groups, Dispatcher dispatcher, WorkWindow window,
                            StartJitter jitter, TransactionTemplate transactions, Clock clock) {
         this.campaigns = campaigns;
         this.requests = requests;
@@ -49,6 +50,7 @@ public class CampaignService {
         this.intake = intake;
         this.recipients = recipients;
         this.groupLists = groupLists;
+        this.groups = groups;
         this.dispatcher = dispatcher;
         this.window = window;
         this.jitter = jitter;
@@ -226,7 +228,14 @@ public class CampaignService {
     }
 
     private List<String> targets(Input input) {
-        return input.groups() == null ? List.of() : List.copyOf(new LinkedHashSet<>(input.groups()));
+        if (input.groups() == null || input.groups().isEmpty()) {
+            return List.of();
+        }
+        var present = groups.keepPresent(input.groups());
+        if (present.isEmpty()) {
+            throw new RequestIntake.RejectedException("номер больше не состоит ни в одной из выбранных групп");
+        }
+        return present;
     }
 
     private String nextId() {

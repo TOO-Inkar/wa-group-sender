@@ -242,6 +242,29 @@ class CampaignFlowTest extends IntegrationTest {
         assertThat(repository.targets(byHand.id())).containsExactlyElementsOf(all.subList(0, 2));
     }
 
+    @Test
+    void groupTheNumberLeftDisappearsFromListsAndCampaignsAndDoesNotBlockEditing() {
+        useGroups(3);
+        var all = groups();
+        var list = groupLists.save("Все три", all, clock.instant());
+        var campaign = campaigns.create(new CampaignService.Input(draft("По списку"), "{}", all, null, "Все три",
+                new Schedule(RepeatMode.DAILY, LocalTime.of(9, 0), null, null), false));
+
+        gateway.replaceGroups(gateway.listGroups().stream().filter(g -> !g.jid().equals(all.getFirst())).toList());
+        groupSync.sync();
+        var left = all.subList(1, 3);
+
+        assertThat(groupLists.find(list.id()).orElseThrow().groups()).containsExactlyElementsOf(left);
+        assertThat(controller.get(campaign.id()).targets()).extracting(kz.wasender.web.CampaignController.Target::jid).containsExactlyElementsOf(left);
+
+        var edited = campaigns.update(campaign.id(), new CampaignService.Input(draft("По списку"), "{}", all, null, "Все три",
+                new Schedule(RepeatMode.DAILY, LocalTime.of(10, 0), null, null), false));
+        assertThat(repository.targets(edited.id())).containsExactlyElementsOf(left);
+        assertThatThrownBy(() -> campaigns.create(new CampaignService.Input(draft("Только ушедшая"), "{}", List.of(all.getFirst()), null, null,
+                new Schedule(RepeatMode.ONCE, null, null, null), false)))
+                .isInstanceOf(RequestIntake.RejectedException.class);
+    }
+
     private List<String> groups() {
         return gateway.listGroups().stream().map(kz.wasender.whatsapp.GroupInfo::jid).sorted().toList();
     }

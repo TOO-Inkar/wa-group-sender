@@ -30,7 +30,9 @@ public class RequestIntake {
         var rows = validate(draft);
         var unavailable = targetGroups.stream().distinct().filter(jid -> !groups.isSendable(jid)).toList();
         if (!unavailable.isEmpty()) {
-            throw new RejectedException("в эти группы писать нельзя (номер не участник или пишут только админы): " + String.join(", ", unavailable));
+            var names = groups.namesByJid();
+            throw new RejectedException("в эти группы писать нельзя (пишут только админы или группа исключена из рассылки): "
+                    + String.join(", ", unavailable.stream().map(jid -> names.getOrDefault(jid, jid)).toList()));
         }
         return message(draft, rows);
     }

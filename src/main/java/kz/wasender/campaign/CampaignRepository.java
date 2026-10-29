@@ -105,7 +105,7 @@ public class CampaignRepository {
     }
 
     public List<String> targets(String id) {
-        return jdbc.sql("select group_jid from campaign_target where campaign_id = ? order by group_jid").param(id).query(String.class).list();
+        return jdbc.sql("select t.group_jid from campaign_target t join wa_group g on g.jid = t.group_jid where t.campaign_id = ? and g.present order by t.group_jid").param(id).query(String.class).list();
     }
 
     private static List<LocalTime> parseTimes(String value) {
