@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -47,6 +49,11 @@ public class GroupRepository {
 
     public List<GroupRecord> findPresent() {
         return jdbc.sql("select * from wa_group where present order by active desc, name, jid").query(MAPPER).list();
+    }
+
+    public List<String> keepPresent(Collection<String> jids) {
+        var present = new HashSet<>(jdbc.sql("select jid from wa_group where present").query(String.class).list());
+        return jids.stream().filter(present::contains).distinct().toList();
     }
 
     public int markAbsent(String jid, Instant at) {

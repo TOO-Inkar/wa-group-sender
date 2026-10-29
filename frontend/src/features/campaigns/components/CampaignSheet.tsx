@@ -61,9 +61,9 @@ export function CampaignSheet({ id, onClose }: { id: string; onClose: () => void
         </div>
 
         <div className="grid items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="grid gap-3">
+          <div className="grid min-w-0 gap-3">
             <WhatsAppBubble text={c.message} className="max-h-[46vh] overflow-auto" />
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
               <dt className="text-muted">Кому</dt>
               <dd>
                 {c.targeted ? (

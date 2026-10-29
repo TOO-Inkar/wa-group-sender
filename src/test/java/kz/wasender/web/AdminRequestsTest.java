@@ -104,29 +104,31 @@ class AdminRequestsTest extends IntegrationTest {
                 "АЛМАТЫ → АСТАНА", "Завтра", "Тент 20 т", "Мука", "🔥", null, List.of("120363000000001@g.us", "unknown@g.us")));
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
-        assertThat(response.getBody().toString()).contains("120363000000001@g.us").contains("unknown@g.us");
+        assertThat(response.getBody().toString()).contains("Только админы").doesNotContain("120363000000001@g.us");
         assertThat(requests.findAll()).isEmpty();
     }
 
     @Test
     void groupListsAreSavedReplacedByNameAndDeleted() {
+        useGroups(5);
+        var jids = gateway.listGroups().stream().map(kz.wasender.whatsapp.GroupInfo::jid).sorted().toList();
         var saved = admin.saveGroupList(
-                new AdminController.GroupListRequest("Тест", List.of("2@g.us", "1@g.us", "1@g.us")));
-        assertThat(saved.groups()).containsExactly("1@g.us", "2@g.us");
+                new AdminController.GroupListRequest("Тест", List.of(jids.get(1), jids.get(0), jids.get(0))));
+        assertThat(saved.groups()).containsExactly(jids.get(0), jids.get(1));
 
-        admin.saveGroupList(new AdminController.GroupListRequest(" Тест ", List.of("3@g.us")));
-        assertThat(admin.groupLists()).singleElement().satisfies(list -> assertThat(list.groups()).containsExactly("3@g.us"));
+        admin.saveGroupList(new AdminController.GroupListRequest(" Тест ", List.of(jids.get(2))));
+        assertThat(admin.groupLists()).singleElement().satisfies(list -> assertThat(list.groups()).containsExactly(jids.get(2)));
 
-        admin.saveGroupList(new AdminController.GroupListRequest("Другой", List.of("4@g.us")));
-        var renamed = admin.updateGroupList(saved.id(), new AdminController.GroupListRequest("Новый", List.of("5@g.us")));
+        admin.saveGroupList(new AdminController.GroupListRequest("Другой", List.of(jids.get(3))));
+        var renamed = admin.updateGroupList(saved.id(), new AdminController.GroupListRequest("Новый", List.of(jids.get(4))));
         assertThat(renamed.name()).isEqualTo("Новый");
-        assertThat(renamed.groups()).containsExactly("5@g.us");
-        assertThatThrownBy(() -> admin.updateGroupList(saved.id(), new AdminController.GroupListRequest("Другой", List.of("5@g.us"))))
+        assertThat(renamed.groups()).containsExactly(jids.get(4));
+        assertThatThrownBy(() -> admin.updateGroupList(saved.id(), new AdminController.GroupListRequest("Другой", List.of(jids.get(4)))))
                 .isInstanceOf(IllegalArgumentException.class);
 
         assertThat(admin.deleteGroupList(saved.id()).getStatusCode().value()).isEqualTo(204);
         assertThat(admin.groupLists()).extracting(GroupListRepository.GroupList::name).containsExactly("Другой");
-        assertThatThrownBy(() -> admin.saveGroupList(new AdminController.GroupListRequest("", List.of("1@g.us"))))
+        assertThatThrownBy(() -> admin.saveGroupList(new AdminController.GroupListRequest("", List.of(jids.get(0)))))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

@@ -68,7 +68,7 @@ public class GroupListRepository {
     }
 
     private List<String> members(long id) {
-        return jdbc.sql("select group_jid from group_list_member where list_id = ? order by group_jid").param(id).query(String.class).list();
+        return jdbc.sql("select m.group_jid from group_list_member m join wa_group g on g.jid = m.group_jid where m.list_id = ? and g.present order by m.group_jid").param(id).query(String.class).list();
     }
 
     public record GroupList(long id, String name, List<String> groups) {

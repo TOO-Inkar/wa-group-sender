@@ -14,10 +14,10 @@ async function open(browser: Browser, width: number, height = 800) {
   const page = await context.newPage()
   await page.route('**/api/groups', async (route) => {
     const response = await route.fetch()
-    const [sample] = (await response.json()) as Record<string, unknown>[]
+    const real = (await response.json()) as Record<string, unknown>[]
     const groups = Array.from({ length: GROUPS }, (_, i) => ({
-      ...sample,
-      jid: `${120363900000000 + i}@g.us`,
+      ...real[0],
+      jid: real[i]?.jid ?? `${120363900000000 + i}@g.us`,
       name: `${NAMES[i % NAMES.length]} ${i + 1}`,
       active: true,
       archived: true,
@@ -230,9 +230,9 @@ test('выход сразу возвращает на страницу вход�
 
 test('удалённые группы из списка не попадают в выбор', async ({ browser }) => {
   const { context, page } = await open(browser, 1024)
+  const jids = await page.evaluate(async () => ((await (await fetch('/api/groups')).json()) as { jid: string }[]).map((g) => g.jid))
   await page.route('**/api/admin/group-lists', async (route) => {
     if (route.request().method() !== 'GET') return route.fallback()
-    const jids = Array.from({ length: GROUPS }, (_, i) => `${120363900000000 + i}@g.us`)
     await route.fulfill({ json: [{ id: 77, name: 'Со старыми группами', groups: [...jids, 'left-1@g.us', 'left-2@g.us', 'left-3@g.us'] }] })
   })
   await page.goto('/campaigns/new')
@@ -276,3 +276,33 @@ test('состав списка меняется в одном месте и о�
     await context.close()
   }
 })
+
+for (const width of [390, 1440]) {
+  test(`открытый список «Кому» не сдвигает превью · ${width}`, async ({ browser }) => {
+    const { context, page } = await open(browser, width)
+    const created = await page.evaluate(async () => {
+      const groups = ((await (await fetch('/api/groups?activeOnly=true')).json()) as { jid: string }[]).slice(0, 2).map((g) => g.jid)
+      const body = { content: { mode: 'text', text: 'Проверка превью' }, groups, repeat: { mode: 'ONCE' }, sendNow: false }
+      const response = await fetch('/api/admin/campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      return { status: response.status, json: await response.json() }
+    })
+    expect(created.status).toBe(201)
+    await page.route(`**/api/admin/campaigns/${created.json.id}`, async (route) => {
+      const response = await route.fetch()
+      const campaign = await response.json()
+      const targets = Array.from({ length: 12 }, (_, i) => ({ jid: `${120363900000000 + i}@g.us`, name: `${NAMES[i % NAMES.length]} ${NAMES[(i + 1) % NAMES.length]}` }))
+      await route.fulfill({ response, json: { ...campaign, targets } })
+    })
+    await page.goto(`/campaigns/${created.json.id}`)
+    const sheet = page.getByRole('dialog')
+    const bubble = sheet.getByText('Проверка превью', { exact: true })
+    const before = await box(bubble)
+    await sheet.locator('summary').click()
+    await expect(sheet.locator('details li').first()).toBeVisible()
+    const after = await box(bubble)
+    expect(after.x).toBeCloseTo(before.x, 0)
+    expect(after.width).toBeCloseTo(before.width, 0)
+    expect(await pageOverflow(page)).toBeLessThanOrEqual(0)
+    await context.close()
+  })
+}
