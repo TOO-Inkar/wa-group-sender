@@ -16,7 +16,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +26,7 @@ import java.util.Optional;
 public class CampaignService {
     private static final Logger log = LoggerFactory.getLogger(CampaignService.class);
     private static final int MAX_TITLE = 200;
+    private static final String ROLLED_OVER = "перенесено в следующий запуск";
 
     private final CampaignRepository campaigns;
     private final RequestRepository requests;
@@ -200,16 +200,10 @@ public class CampaignService {
         return spawned.isPresent();
     }
 
-    // Прошлая рассылка с сегодня ещё идёт — повтор пропускаем; со вчера — устарела, закрываем.
     private Optional<RequestRecord> spawn(CampaignRecord campaign, Instant now) {
-        var today = LocalDate.now(clock);
         for (var previous : activeRuns(campaign.id())) {
-            if (LocalDate.ofInstant(previous.queuedAt(), clock.getZone()).isBefore(today)) {
-                dispatcher.close(previous, "устарела: заявка разослана заново");
-            } else {
-                log.warn("CAMPAIGN occurrence skipped id={} reason=previous-run-still-sending run_id={}", campaign.id(), previous.id());
-                return Optional.empty();
-            }
+            log.info("CAMPAIGN rollover id={} closed_run_id={}", campaign.id(), previous.id());
+            dispatcher.close(previous, ROLLED_OVER);
         }
         var schedule = campaign.schedule();
         var id = requestIds.next(List.of());

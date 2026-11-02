@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DELIVERIES, MESSAGE, openCard, TARGETS, type CardState } from './support/campaign-card'
+import { DELIVERIES, MESSAGE, openCard, sentAt, TARGETS, type CardState } from './support/campaign-card'
 
 const WIDTHS = [360, 390, 768, 1024, 1440]
 const STATES: CardState[] = ['sending', 'scheduled', 'done', 'disabled', 'failed']
@@ -146,6 +146,25 @@ test('карточка без запусков показывает пустое
     await expect(results).toContainText('Рассылок ещё не было.')
     expect(intersects(await box(results), await box(blocks(page).preview))).toBe(false)
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+    await page.context().close()
+  }
+})
+
+test('у каждой отправленной группы видно время отправки', async ({ browser }) => {
+  for (const width of [360, 1440]) {
+    const page = await openCard(browser, width, 'sending')
+    const rows = blocks(page).results.getByRole('listitem')
+    await expect(rows).toHaveCount(DELIVERIES)
+    const first = rows.nth(0)
+    await expect(first.locator('time')).toHaveText('отправлено 29.10, 14:00')
+    await expect(first.locator('time')).toHaveAttribute('datetime', sentAt(0))
+    await expect(rows.nth(10).locator('time')).toHaveText('отправлено 29.10, 14:01')
+    await expect(rows.nth(7).locator('time')).toHaveCount(0)
+    await expect(rows.nth(121).locator('time')).toHaveCount(0)
+    const row = await box(first)
+    const time = await box(first.locator('time'))
+    expect(time.x + time.width).toBeLessThanOrEqual(row.x + row.width + TOLERANCE)
+    expect(time.y + time.height).toBeLessThanOrEqual(row.y + row.height + TOLERANCE)
     await page.context().close()
   }
 })

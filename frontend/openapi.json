@@ -2708,11 +2708,28 @@
                     },
                     "rejected": {
                         "type": "boolean"
+                    },
+                    "blockedBy": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "COMMUNITY",
+                            "NOT_MEMBER",
+                            "ADMINS_ONLY",
+                            "TOO_LARGE",
+                            "REJECTED",
+                            "NOT_ARCHIVED",
+                            "SEND_FAILED",
+                            null
+                        ]
                     }
                 },
                 "required": [
                     "active",
                     "archived",
+                    "blockedBy",
                     "canSend",
                     "community",
                     "jid",
@@ -2984,6 +3001,13 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "sentAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
                     }
                 },
                 "required": [
@@ -2991,6 +3015,7 @@
                     "groupJid",
                     "groupName",
                     "position",
+                    "sentAt",
                     "status"
                 ]
             },

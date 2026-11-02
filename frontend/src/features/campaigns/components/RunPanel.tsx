@@ -135,6 +135,11 @@ export function RunPanel({ runs }: { runs: Run[] }) {
               <span className="min-w-0 flex-1 text-sm">
                 <span className="block truncate">{d.groupName ?? d.groupJid}</span>
                 {d.error && <span className="block truncate text-xs text-muted">{deliveryReason(d.error)}</span>}
+                {d.sentAt && (
+                  <time dateTime={d.sentAt} className="block truncate text-xs text-muted tabular-nums">
+                    отправлено {formatTime(d.sentAt)}
+                  </time>
+                )}
               </span>
               <span className="flex w-28 shrink-0 justify-end">
                 <Badge tone={state.tone}>{state.text}</Badge>

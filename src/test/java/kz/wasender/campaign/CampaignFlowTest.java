@@ -1,5 +1,6 @@
 package kz.wasender.campaign;
 
+import kz.wasender.dispatch.DeliveryRecord;
 import kz.wasender.dispatch.DeliveryStatus;
 import kz.wasender.dispatch.DispatcherState;
 import kz.wasender.request.RequestIntake;
@@ -7,6 +8,7 @@ import kz.wasender.request.RequestStatus;
 import kz.wasender.settings.SettingsService;
 import kz.wasender.sheets.SheetField;
 import kz.wasender.support.IntegrationTest;
+import kz.wasender.web.AdminController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -26,6 +28,8 @@ class CampaignFlowTest extends IntegrationTest {
     CampaignRepository repository;
     @Autowired
     SettingsService settings;
+    @Autowired
+    AdminController admin;
 
     private static RequestIntake.Draft draft(String route) {
         var fields = new EnumMap<SheetField, String>(SheetField.class);
@@ -62,17 +66,29 @@ class CampaignFlowTest extends IntegrationTest {
     }
 
     @Test
-    void intervalOccurrenceIsSkippedWhileThePreviousRunIsStillSending() throws Exception {
+    void nextIntervalOccurrenceClosesTheUnfinishedRunAndSendsItsGroupsInTheNewOne() throws Exception {
         useGroups(40);
         var campaign = create("ХОРГОС → БАКУ", new Schedule(RepeatMode.INTERVAL, LocalTime.of(8, 0), LocalTime.of(20, 0), 60), true);
-        assertThat(requests.findByCampaign(campaign.id())).hasSize(1);
-
         dispatcher.cycle();
+        var first = requests.findByCampaign(campaign.id()).getFirst();
+        var sentAt = clock.instant();
+
         clock.advance(Duration.ofMinutes(31));
         assertThat(campaigns.tick()).as("10:30 ещё не время").isZero();
         clock.set(LocalDateTime.of(2026, 9, 28, 11, 0, 5));
-        assertThat(campaigns.tick()).as("прошлая рассылка ещё идёт").isZero();
-        assertThat(requests.findByCampaign(campaign.id())).hasSize(1);
+        assertThat(campaigns.tick()).as("новый час не пропускается").isEqualTo(1);
+
+        assertThat(requests.find(first.id()).orElseThrow().status()).isEqualTo(RequestStatus.DONE);
+        var left = deliveries.findByRequest(first.id()).stream().filter(d -> d.status() == DeliveryStatus.SKIPPED).toList();
+        assertThat(left).hasSize(39).allMatch(d -> d.error().equals("перенесено в следующий запуск"));
+        assertThat(admin.deliveries(first.id())).filteredOn(d -> d.status() == DeliveryStatus.SENT).singleElement()
+                .satisfies(d -> assertThat(d.sentAt()).isEqualTo(sentAt));
+        assertThat(admin.deliveries(first.id())).filteredOn(d -> d.status() == DeliveryStatus.SKIPPED).allMatch(d -> d.sentAt() == null);
+
+        var second = requests.findByCampaign(campaign.id()).stream().filter(r -> r.status().active()).findFirst().orElseThrow();
+        dispatcher.cycle();
+        assertThat(deliveries.findByRequest(second.id())).extracting(DeliveryRecord::groupJid)
+                .containsAll(left.stream().map(DeliveryRecord::groupJid).toList());
         assertThat(repository.find(campaign.id()).orElseThrow().nextRunAt())
                 .isEqualTo(LocalDateTime.of(2026, 9, 28, 12, 0).atZone(clock.getZone()).toInstant());
     }
@@ -92,7 +108,7 @@ class CampaignFlowTest extends IntegrationTest {
         var closed = requests.find(first.id()).orElseThrow();
         assertThat(closed.status()).isEqualTo(RequestStatus.DONE);
         assertThat(deliveries.findByRequest(first.id())).filteredOn(d -> d.status() == DeliveryStatus.SKIPPED)
-                .hasSize(39).allMatch(d -> d.error().contains("устарела"));
+                .hasSize(39).allMatch(d -> d.error().equals("перенесено в следующий запуск"));
     }
 
     @Test
