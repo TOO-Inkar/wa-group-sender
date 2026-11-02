@@ -9,5 +9,6 @@ export type Run = S['Run']
 export type Delivery = S['DeliveryView']
 export type DeliveryStatus = Delivery['status']
 export type Group = S['GroupRecord']
+export type GroupBlock = NonNullable<Group['blockedBy']>
 export type GroupList = S['GroupList']
 export type Settings = S['View']

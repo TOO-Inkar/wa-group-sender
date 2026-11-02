@@ -26,6 +26,7 @@ async function open(browser: Browser, width: number, height = 800) {
       community: false,
       rejected: false,
       rejectedCount: 0,
+      blockedBy: null,
       participants: 200 + i,
     }))
     await route.fulfill({ response, json: groups })

@@ -17,7 +17,8 @@ public class DeliveryRepository {
             rs.getInt("position"),
             DeliveryStatus.valueOf(rs.getString("status")),
             rs.getString("error"),
-            rs.getInt("attempts"));
+            rs.getInt("attempts"),
+            rs.getObject("updated_at", Instant.class));
 
     private final JdbcClient jdbc;
 

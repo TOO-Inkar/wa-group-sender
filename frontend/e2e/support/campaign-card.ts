@@ -27,10 +27,12 @@ export type CardState = 'sending' | 'scheduled' | 'done' | 'disabled' | 'failed'
 
 const at = (minutes: number) => new Date(Date.UTC(2026, 9, 29, 14, 1) - minutes * 60_000).toISOString()
 
+export const sentAt = (position: number) => new Date(Date.UTC(2026, 9, 29, 9, 0) + position * 6_000).toISOString()
+
 function deliveries(state: CardState) {
   return Array.from({ length: DELIVERIES }, (_, i) => {
     const status = state === 'sending' && i > 120 ? 'PENDING' : i === 7 ? 'FAILED' : i % 60 === 3 ? 'SKIPPED' : 'SENT'
-    return { groupJid: `${120363800000000 + i}@g.us`, groupName: name(i), position: i, status, error: status === 'FAILED' ? 'not-participant' : status === 'SKIPPED' ? 'community' : null }
+    return { groupJid: `${120363800000000 + i}@g.us`, groupName: name(i), position: i, status, error: status === 'FAILED' ? 'not-participant' : status === 'SKIPPED' ? 'community' : null, sentAt: status === 'SENT' ? sentAt(i) : null }
   })
 }
 

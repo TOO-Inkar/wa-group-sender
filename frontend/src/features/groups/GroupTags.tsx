@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import type { Group } from '@/shared/api/types'
+import type { Group, GroupBlock } from '@/shared/api/types'
 import { cn } from '@/shared/lib/cn'
 import { plural } from '@/shared/lib/format'
-import { Badge } from '@/shared/ui/badge'
+import { Badge, type Tone } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { CheckboxInput } from '@/shared/ui/input'
 
@@ -55,34 +55,29 @@ function GroupAvatar({ group }: { group: Group }) {
   )
 }
 
+const BLOCKED: Record<GroupBlock, { text: string; tone: Tone; hint: string }> = {
+  COMMUNITY: { text: 'сообщество', tone: 'warn', hint: 'в само сообщество писать нельзя, только в его группу объявлений' },
+  NOT_MEMBER: { text: 'номер не в группе', tone: 'bad', hint: 'добавьте номер в группу и нажмите «Обновить»' },
+  ADMINS_ONLY: { text: 'пишут только админы', tone: 'warn', hint: 'сделайте номер админом группы или разрешите писать всем' },
+  TOO_LARGE: { text: 'слишком большая', tone: 'warn', hint: 'участников больше лимита из настроек' },
+  REJECTED: { text: 'WhatsApp отклоняет', tone: 'bad', hint: 'WhatsApp отклонил отправку в трёх рассылках подряд (ошибка 479)' },
+  NOT_ARCHIVED: { text: 'не в архиве', tone: 'warn', hint: 'рассылка идёт только по архиву: заархивируйте группу в WhatsApp и нажмите «Обновить»' },
+  SEND_FAILED: { text: 'ошибка отправки', tone: 'bad', hint: 'WhatsApp не дал отправить в группу — нажмите «Обновить», чтобы проверить снова' },
+}
+
 export function GroupTags({ group, onReset }: { group: Group; onReset?: (jid: string) => void }) {
+  const blocked = group.blockedBy ? BLOCKED[group.blockedBy] : null
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {group.active ? <Badge tone="ok">в рассылке</Badge> : !group.archived && <Badge>не в архиве</Badge>}
-      {group.community ? (
-        <Badge tone="warn" title="В само сообщество писать нельзя, только в его группу объявлений">
-          сообщество
-        </Badge>
-      ) : group.member === false ? (
-        <Badge tone="bad">номер не в группе</Badge>
-      ) : group.canSend === false ? (
-        <Badge tone="warn">пишут только админы</Badge>
-      ) : null}
-      {group.rejected ? (
-        <>
-          <Badge tone="bad" title="WhatsApp отклонил отправку в трёх рассылках подряд (ошибка 479)">
-            WhatsApp отклоняет
-          </Badge>
-          {onReset && (
-            <Button variant="link" size="inline" onClick={() => onReset(group.jid)}>
-              вернуть в рассылку
-            </Button>
-          )}
-        </>
-      ) : (
-        group.rejectedCount > 0 && <Badge tone="warn">был отказ</Badge>
+      {blocked ? <Badge tone={blocked.tone}>{blocked.text}</Badge> : <Badge tone="ok">в рассылке</Badge>}
+      {group.blockedBy === 'REJECTED' && onReset && (
+        <Button variant="link" size="inline" onClick={() => onReset(group.jid)}>
+          вернуть в рассылку
+        </Button>
       )}
+      {!group.rejected && group.rejectedCount > 0 && <Badge tone="warn">был отказ</Badge>}
       {group.participants != null && <Badge>{plural(group.participants, 'участник', 'участника', 'участников')}</Badge>}
+      {blocked && <span className="basis-full text-xs text-muted">{blocked.hint}</span>}
     </span>
   )
 }

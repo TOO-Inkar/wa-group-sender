@@ -983,6 +983,8 @@ export interface components {
             /** Format: int32 */
             rejectedCount: number;
             rejected: boolean;
+            /** @enum {string|null} */
+            blockedBy: "COMMUNITY" | "NOT_MEMBER" | "ADMINS_ONLY" | "TOO_LARGE" | "REJECTED" | "NOT_ARCHIVED" | "SEND_FAILED" | null;
         };
         Me: {
             authenticated?: boolean;
@@ -1046,6 +1048,8 @@ export interface components {
             /** @enum {string} */
             status: "PENDING" | "SENDING" | "SENT" | "FAILED" | "SKIPPED";
             error: string | null;
+            /** Format: date-time */
+            sentAt: string | null;
         };
         Health: {
             status: string;

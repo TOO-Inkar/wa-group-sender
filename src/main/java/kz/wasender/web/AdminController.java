@@ -168,7 +168,7 @@ public class AdminController {
         var names = groups.namesByJid();
         return deliveries.findByRequest(id).stream()
                 .map(delivery -> new DeliveryView(delivery.groupJid(), names.get(delivery.groupJid()), delivery.position(),
-                        delivery.status(), delivery.error()))
+                        delivery.status(), delivery.error(), delivery.sentAt()))
                 .toList();
     }
 
@@ -235,7 +235,8 @@ public class AdminController {
         }
     }
 
-    public record DeliveryView(String groupJid, @Nullable String groupName, int position, DeliveryStatus status, @Nullable String error) {
+    public record DeliveryView(String groupJid, @Nullable String groupName, int position, DeliveryStatus status, @Nullable String error,
+                               @Nullable Instant sentAt) {
     }
 
     public record NewRequest(@Nullable String route, @Nullable String date, @Nullable String vehicles, @Nullable String cargo,
