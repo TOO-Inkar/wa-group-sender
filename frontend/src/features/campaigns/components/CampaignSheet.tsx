@@ -2,6 +2,7 @@ import { Ban, Pencil, Play, Send, Trash2 } from 'lucide-react'
 import { useCampaign } from '../api'
 import { useCampaignCommands } from '../commands'
 import { campaignState, scheduleText, STATE, whereText } from '../model'
+import { Recipients } from './Recipients'
 import { RunPanel } from './RunPanel'
 import { formatTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
@@ -37,58 +38,43 @@ export function CampaignSheet({ id, onClose }: { id: string; onClose: () => void
       }
     >
       <div className="grid gap-4">
-        <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" onClick={() => cmd.edit(c)}>
-            <Pencil size={14} /> Изменить
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <Button onClick={() => cmd.edit(c)}>
+            <Pencil size={15} /> Изменить
           </Button>
-          <Button size="sm" disabled={!!c.current || cmd.busy} onClick={() => cmd.sendNow(c)} title={c.current ? 'Рассылка ещё идёт' : undefined}>
-            <Send size={14} /> Отправить сейчас
+          <Button disabled={!!c.current || cmd.busy} onClick={() => cmd.sendNow(c)} title={c.current ? 'Рассылка ещё идёт' : undefined}>
+            <Send size={15} /> Отправить сейчас
           </Button>
           {c.enabled || c.current ? (
-            <Button size="sm" disabled={cmd.busy} onClick={() => cmd.disable(c)}>
-              <Ban size={14} /> Выключить
+            <Button disabled={cmd.busy} onClick={() => cmd.disable(c)}>
+              <Ban size={15} /> Выключить
             </Button>
           ) : (
             c.repeatMode !== 'ONCE' && (
-              <Button size="sm" disabled={cmd.busy} onClick={() => cmd.enable(c)}>
-                <Play size={14} /> Включить расписание
+              <Button disabled={cmd.busy} onClick={() => cmd.enable(c)}>
+                <Play size={15} /> Включить расписание
               </Button>
             )
           )}
-          <Button size="sm" variant="danger" disabled={cmd.busy} onClick={() => cmd.remove(c)}>
-            <Trash2 size={14} /> Удалить
+          <Button variant="danger" className="odd:last:col-span-2" disabled={cmd.busy} onClick={() => cmd.remove(c)}>
+            <Trash2 size={15} /> Удалить
           </Button>
         </div>
 
-        <div className="grid items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="grid min-w-0 gap-3">
-            <WhatsAppBubble text={c.message} className="max-h-[46vh] overflow-auto" />
-            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="grid min-w-0 gap-4">
+            <section aria-label="Сообщение">
+              <WhatsAppBubble text={c.message} className="max-h-[46vh] overflow-auto" />
+            </section>
+            <dl aria-label="Параметры заявки" className="grid gap-x-3 gap-y-1 text-sm sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-y-2">
               <dt className="text-muted">Кому</dt>
-              <dd>
-                {c.targeted ? (
-                  <details>
-                    <summary className="cursor-pointer">
-                      {whereText(c)} · {c.targets.length}
-                    </summary>
-                    <ul className="mt-1 max-h-40 overflow-auto text-[13px] text-muted">
-                      {c.targets.map((t) => (
-                        <li key={t.jid} className="truncate">
-                          {t.name}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : (
-                  'все группы в рассылке'
-                )}
-              </dd>
+              <dd className="mb-2 min-w-0 sm:mb-0">{c.targeted ? <Recipients label={whereText(c)} targets={c.targets} /> : 'все группы в рассылке'}</dd>
               <dt className="text-muted">Когда</dt>
-              <dd>{scheduleText(c)}</dd>
+              <dd className="mb-2 sm:mb-0">{scheduleText(c)}</dd>
               {c.enabled && c.nextRunAt && (
                 <>
                   <dt className="text-muted">Следующая</dt>
-                  <dd className="tabular-nums">{formatTime(c.nextRunAt)}</dd>
+                  <dd className="mb-2 tabular-nums sm:mb-0">{formatTime(c.nextRunAt)}</dd>
                 </>
               )}
               <dt className="text-muted">Создана</dt>
