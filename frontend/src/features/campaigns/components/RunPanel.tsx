@@ -14,6 +14,7 @@ import { useConfirm } from '@/shared/ui/confirm-context'
 import { Select } from '@/shared/ui/input'
 import { EmptyState } from '@/shared/ui/empty-state'
 import { SearchInput } from '@/shared/ui/search-input'
+import { FOCUS_RING } from '@/shared/ui/styles'
 
 type Filter = 'all' | 'sent' | 'waiting' | 'failed' | 'skipped'
 
@@ -37,7 +38,12 @@ export function RunPanel({ runs }: { runs: Run[] }) {
   const action = useCampaignAction()
   const confirm = useConfirm()
 
-  if (!run) return <p className="text-sm text-muted">Рассылок ещё не было.</p>
+  if (!run)
+    return (
+      <section aria-label="Результаты рассылки">
+        <EmptyState>Рассылок ещё не было.</EmptyState>
+      </section>
+    )
 
   const counts = { all: deliveries.length, sent: 0, waiting: 0, failed: 0, skipped: 0 }
   deliveries.forEach((d) => counts[bucket(d)]++)
@@ -60,33 +66,33 @@ export function RunPanel({ runs }: { runs: Run[] }) {
     download(`/api/admin/reports/requests/${encodeURIComponent(run.id)}?format=${format}`, `wa-report-${run.id}.${format}`).catch((e: Error) => toast.error(e.message))
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {runs.length > 1 ? (
-          <Select value={run.id} onChange={(e) => setRunId(e.target.value)} className="text-sm" aria-label="Рассылка">
-            {runs.map((r) => (
-              <option key={r.id} value={r.id}>
-                {formatTime(r.queuedAt)} — {RUN_STATE[r.status].text}
-              </option>
-            ))}
-          </Select>
-        ) : (
-          <span className="text-sm font-semibold">{formatTime(run.queuedAt)}</span>
-        )}
-        <Badge tone={RUN_STATE[run.status].tone}>{RUN_STATE[run.status].text}</Badge>
-        <span className="ml-auto flex gap-1.5">
+    <section aria-label="Результаты рассылки" className="grid min-w-0 gap-3">
+      <div role="group" aria-label="Запуск" className="grid gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {runs.length > 1 ? (
+            <Select block value={run.id} onChange={(e) => setRunId(e.target.value)} aria-label="Рассылка">
+              {runs.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {formatTime(r.queuedAt)} — {RUN_STATE[r.status].text}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold tabular-nums">{formatTime(run.queuedAt)}</span>
+          )}
+          <span className="shrink-0">
+            <Badge tone={RUN_STATE[run.status].tone}>{RUN_STATE[run.status].text}</Badge>
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           {(run.status === 'DONE' || run.status === 'FAILED') && run.progress.failed > 0 && (
-            <Button size="sm" onClick={retry}>
-              <RotateCcw size={14} /> Повторить ошибки
+            <Button className="col-span-2" onClick={retry}>
+              <RotateCcw size={15} /> Повторить ошибки
             </Button>
           )}
-          <Button size="sm" onClick={() => report('xlsx')}>
-            Excel
-          </Button>
-          <Button size="sm" onClick={() => report('pdf')}>
-            PDF
-          </Button>
-        </span>
+          <Button onClick={() => report('xlsx')}>Excel</Button>
+          <Button onClick={() => report('pdf')}>PDF</Button>
+        </div>
       </div>
 
       {run.waiting && (
@@ -96,40 +102,47 @@ export function RunPanel({ runs }: { runs: Run[] }) {
         </p>
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(96px,1fr))] gap-1.5">
+      <div role="group" aria-label="Итоги рассылки" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {tiles.map((t) => (
           <button
             key={t.key}
             type="button"
+            aria-pressed={filter === t.key}
             onClick={() => setFilter(t.key)}
-            className={cn('cursor-pointer rounded-xl border px-2 py-2 text-left', filter === t.key ? 'border-accent bg-accent-soft' : 'border-border bg-surface hover:bg-surface-2')}
+            className={cn(
+              'min-w-0 cursor-pointer rounded-xl border px-3 py-2 text-left',
+              FOCUS_RING,
+              filter === t.key ? 'border-accent bg-accent-soft' : 'border-border bg-surface hover:bg-surface-2',
+            )}
           >
             <div className={cn('text-lg leading-tight font-bold tabular-nums', t.tone)}>{counts[t.key]}</div>
-            <div className="truncate text-xs text-muted">{t.label}</div>
+            <div className="text-xs [overflow-wrap:anywhere] text-muted">{t.label}</div>
           </button>
         ))}
       </div>
 
       <SearchInput value={query} onChange={setQuery} placeholder="Найти группу" />
 
-      <div className="max-h-[52vh] overflow-auto rounded-xl border border-border bg-surface">
+      <div role="list" aria-label="Группы рассылки" className="max-h-[min(60dvh,480px)] overflow-auto overscroll-contain rounded-xl border border-border bg-surface">
         {isPending && <p className="p-3 text-sm text-muted">Загрузка…</p>}
-        {!isPending && !deliveries.length && <p className="p-3 text-sm text-muted">{run.waiting ? 'Рассылка ещё не начиналась — причина выше.' : 'Рассылка ещё не начиналась.'}</p>}
+        {!isPending && !deliveries.length && <EmptyState inset>{run.waiting ? 'Рассылка ещё не начиналась — причина выше.' : 'Рассылка ещё не начиналась.'}</EmptyState>}
         {!isPending && deliveries.length > 0 && !shown.length && <EmptyState inset>Ничего не найдено</EmptyState>}
         {shown.map((d) => {
           const waiting = d.status === 'PENDING' && d.error
           const state = waiting ? { text: 'пауза', tone: 'warn' as Tone } : GROUP_STATE[d.status]
           return (
-            <div key={d.groupJid} className="flex items-center justify-between gap-3 border-b border-border px-3 py-2 last:border-b-0">
-              <span className="min-w-0 text-sm">
+            <div role="listitem" key={d.groupJid} className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 last:border-b-0">
+              <span className="min-w-0 flex-1 text-sm">
                 <span className="block truncate">{d.groupName ?? d.groupJid}</span>
                 {d.error && <span className="block truncate text-xs text-muted">{deliveryReason(d.error)}</span>}
               </span>
-              <Badge tone={state.tone}>{state.text}</Badge>
+              <span className="flex w-28 shrink-0 justify-end">
+                <Badge tone={state.tone}>{state.text}</Badge>
+              </span>
             </div>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }
