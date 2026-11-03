@@ -104,10 +104,9 @@ public class DeliveryRepository {
                 .list();
     }
 
-    public Optional<DeliveryRecord> readyFor(String requestId, String groupJid, Instant now) {
-        return jdbc.sql("select * from delivery where request_id = ? and group_jid = ? and status = 'PENDING' "
-                        + "and (not_before is null or not_before <= ?)")
-                .params(requestId, groupJid, now)
+    public Optional<DeliveryRecord> pendingFor(String requestId, String groupJid) {
+        return jdbc.sql("select * from delivery where request_id = ? and group_jid = ? and status = 'PENDING'")
+                .params(requestId, groupJid)
                 .query(MAPPER)
                 .optional();
     }
