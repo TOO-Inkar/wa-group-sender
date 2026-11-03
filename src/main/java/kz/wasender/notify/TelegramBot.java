@@ -86,7 +86,7 @@ public class TelegramBot {
                         : ((c.firstName() == null ? "" : c.firstName()) + " " + (c.lastName() == null ? "" : c.lastName())).strip();
                 return new ChatInfo(id, name.isEmpty() ? null : name, c.username());
             } catch (RuntimeException e) {
-                log.warn("TELEGRAM getChat {} failed: {}", id, e.getMessage());
+                log.warn("TELEGRAM getChat {} failed: {}", id, properties.describe(e));
                 return new ChatInfo(id, null, null);
             }
         });
@@ -100,7 +100,7 @@ public class TelegramBot {
                     username = me.result().username();
                 }
             } catch (RuntimeException e) {
-                log.warn("TELEGRAM getMe failed: {}", e.getMessage());
+                log.warn("TELEGRAM getMe failed: {}", properties.describe(e));
             }
         }
         return username;
@@ -139,7 +139,7 @@ public class TelegramBot {
                 if (stopped) {
                     return;
                 }
-                log.warn("TELEGRAM getUpdates failed: {}", e.toString());
+                log.warn("TELEGRAM getUpdates failed: {}", properties.describe(e));
                 if (!sleepQuietly()) {
                     return;
                 }

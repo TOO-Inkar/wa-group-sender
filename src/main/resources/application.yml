@@ -44,7 +44,7 @@ app:
     check-interval: ${WATCHDOG_CHECK_INTERVAL:15s}
     max-attempts: ${WATCHDOG_MAX_ATTEMPTS:8}
     initial-delay: ${WATCHDOG_INITIAL_DELAY:10s}
-    max-delay: ${WATCHDOG_MAX_DELAY:15m}
+    max-delay: ${WATCHDOG_MAX_DELAY:1m}
     connect-timeout: ${WATCHDOG_CONNECT_TIMEOUT:3m}
   sheets:
     enabled: ${SHEETS_ENABLED:false}
