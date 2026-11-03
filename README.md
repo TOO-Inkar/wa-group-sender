@@ -229,7 +229,6 @@ docker compose up -d
 | Постоянный дневной предел | `DAILY_SEND_LIMIT=900` (действует и после прогрева; 0 — без предела) |
 | Волны | `DISPATCH_WAVE_SIZE`, `DISPATCH_WAVE_PAUSE_MIN/MAX` |
 | Паузы между группами | `DISPATCH_GROUP_PAUSE_MIN/MAX` |
-| «Печатает» | `DISPATCH_TYPING_MIN/MAX` |
 | Пороги риска | `RISK_WINDOW`, `RISK_WARN_THRESHOLD`, `RISK_CRITICAL_THRESHOLD`, `RISK_PAUSE_MULTIPLIER` |
 | Опрос таблицы | `SHEETS_POLL_INTERVAL`, `SHEETS_PROGRESS_FLUSH_INTERVAL` |
 | Синхронизация групп | `GROUPS_SYNC_INTERVAL` |

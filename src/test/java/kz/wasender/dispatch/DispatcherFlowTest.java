@@ -31,7 +31,6 @@ class DispatcherFlowTest extends IntegrationTest {
         assertThat(sentJids()).hasSize(25).doesNotHaveDuplicates();
         assertThat(sentJids()).allMatch(jid -> jid.compareTo("120363000000006@g.us") >= 0);
         assertThat(gateway.sent()).allMatch(message -> message.text().startsWith("📍*АЛМАТЫ → ШЫМКЕНТ*") && message.text().contains("⚖️"));
-        assertThat(gateway.typing()).hasSize(25);
         var finalRow = sheet.row(row);
         assertThat(finalRow.get(SheetField.STATUS)).isEqualTo("Отправлено");
         assertThat(finalRow.get(SheetField.PROGRESS)).isEqualTo("25 / 25");
@@ -49,10 +48,9 @@ class DispatcherFlowTest extends IntegrationTest {
         runUntilBlocked(500);
 
         assertThat(sentJids()).hasSize(25);
-        var typing = sleeper.sleeps().stream().filter(d -> d.compareTo(Duration.ofSeconds(6)) <= 0).toList();
         var groupPauses = sleeper.sleeps().stream().filter(d -> d.compareTo(Duration.ofSeconds(6)) > 0 && d.compareTo(Duration.ofMinutes(5)) < 0).toList();
         var wavePauses = sleeper.sleeps().stream().filter(d -> d.compareTo(Duration.ofMinutes(5)) >= 0).toList();
-        assertThat(typing).hasSize(25).allMatch(d -> d.compareTo(Duration.ofSeconds(2)) >= 0);
+        assertThat(sleeper.sleeps()).as("без «печатает…» перед отправкой").noneMatch(d -> d.compareTo(Duration.ofSeconds(6)) <= 0);
         assertThat(wavePauses).hasSize(2).allMatch(d -> d.compareTo(Duration.ofMinutes(10)) >= 0 && d.compareTo(Duration.ofMinutes(20)) <= 0);
         assertThat(groupPauses).hasSizeGreaterThanOrEqualTo(20).allMatch(d -> d.compareTo(Duration.ofSeconds(60)) <= 0);
         assertThat(new HashSet<>(groupPauses)).hasSizeGreaterThan(groupPauses.size() / 2);

@@ -86,8 +86,6 @@ app:
     wave-pause-max: ${DISPATCH_WAVE_PAUSE_MAX:20m}
     group-pause-min: ${DISPATCH_GROUP_PAUSE_MIN:20s}
     group-pause-max: ${DISPATCH_GROUP_PAUSE_MAX:60s}
-    typing-min: ${DISPATCH_TYPING_MIN:2s}
-    typing-max: ${DISPATCH_TYPING_MAX:6s}
     idle-poll: ${DISPATCH_IDLE_POLL:5s}
     window-start: ${DISPATCH_WINDOW_START:08:00}
     window-end: ${DISPATCH_WINDOW_END:20:00}

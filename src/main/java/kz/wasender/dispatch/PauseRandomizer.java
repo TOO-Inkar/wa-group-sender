@@ -37,11 +37,6 @@ public class PauseRandomizer {
         return scale(between(p.wavePauseMin(), p.wavePauseMax()), multiplier);
     }
 
-    public Duration typing() {
-        var p = properties.get();
-        return between(p.typingMin(), p.typingMax());
-    }
-
     public Duration groupPace(Duration interval) {
         return interval.minus(between(Duration.ZERO, interval.dividedBy(GROUP_PACE_SPREAD_DIVISOR)));
     }

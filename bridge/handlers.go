@@ -287,34 +287,6 @@ func isAny(err error, targets ...error) bool {
 	return false
 }
 
-func (s *session) handleTyping(w http.ResponseWriter, r *http.Request) {
-	var req sendRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.JID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "jid is required"})
-		return
-	}
-	jid, err := types.ParseJID(req.JID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-		return
-	}
-	cli, err := s.client()
-	if err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
-		return
-	}
-	// Typing is only shown while the device is online.
-	if err := cli.SendPresence(r.Context(), types.PresenceAvailable); err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "presence: " + err.Error()})
-		return
-	}
-	if err := cli.SendChatPresence(r.Context(), jid, types.ChatPresenceComposing, types.ChatPresenceMediaText); err != nil {
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
 // Reactions and protocol messages (edits, revokes) do not push our post up, so they do not count as the last message.
 func (s *session) onMessage(cli *whatsmeow.Client, e *events.Message) {
 	if e.Message == nil || e.Message.GetReactionMessage() != nil || e.Message.GetProtocolMessage() != nil {

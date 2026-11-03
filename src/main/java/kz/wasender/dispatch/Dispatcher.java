@@ -381,9 +381,6 @@ public class Dispatcher {
     private void send(RequestRecord request, DeliveryRecord delivery, Duration pause) throws InterruptedException {
         var jid = delivery.groupJid();
         var wave = sentInWave / Math.max(1, pauses.waveSize()) + 1;
-        var typing = pauses.typing();
-        gateway.sendTyping(jid, true);
-        sleeper.sleep(typing);
         warmup.registerAttempt();
         sentInWave++;
         deliveries.updateStatus(delivery.id(), DeliveryStatus.SENDING, null, Instant.now(clock));
@@ -392,9 +389,8 @@ public class Dispatcher {
             lastSendAt = Instant.now(clock);
             deliveries.updateStatus(delivery.id(), DeliveryStatus.SENT, null, lastSendAt);
             groups.clearRejections(jid);
-            gateway.sendTyping(jid, false);
-            log.info("SEND request_id={} group_jid={} status=SENT position={} wave={} typing_ms={} pause_ms={} sent_today={}",
-                    request.id(), jid, delivery.position(), wave, typing.toMillis(), pause.toMillis(), warmup.sentToday());
+            log.info("SEND request_id={} group_jid={} status=SENT position={} wave={} pause_ms={} sent_today={}",
+                    request.id(), jid, delivery.position(), wave, pause.toMillis(), warmup.sentToday());
         } catch (SendException e) {
             lastSendAt = Instant.now(clock);
             if (e.rejectedByServer() && delivery.attempts() < REJECTED_RETRIES) {

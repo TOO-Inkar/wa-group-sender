@@ -52,7 +52,7 @@ public class SettingsService {
                 duration(Setting.WAVE_PAUSE_MAX, d.wavePauseMax()),
                 duration(Setting.GROUP_PAUSE_MIN, d.groupPauseMin()),
                 duration(Setting.GROUP_PAUSE_MAX, d.groupPauseMax()),
-                d.typingMin(), d.typingMax(), d.idlePoll(),
+                d.idlePoll(),
                 time(Setting.WINDOW_START, d.windowStart()),
                 time(Setting.WINDOW_END, d.windowEnd()),
                 bool(Setting.WEEKENDS_ENABLED, d.weekendsEnabled()),

@@ -27,7 +27,6 @@ public interface WhatsAppGateway {
 
     void sendText(String groupJid, String text) throws SendException;
 
-    void sendTyping(String groupJid, boolean typing);
 
     void subscribe(Consumer<GatewayEvent> listener);
 

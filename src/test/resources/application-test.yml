@@ -33,8 +33,6 @@ app:
     wave-pause-max: 20m
     group-pause-min: 20s
     group-pause-max: 60s
-    typing-min: 2s
-    typing-max: 6s
     idle-poll: 5s
     window-start: "08:00"
     window-end: "20:00"
