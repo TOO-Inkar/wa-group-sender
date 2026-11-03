@@ -85,7 +85,7 @@ daily_counter(counter_date date pk, sent int, limit_value int)
 | app.whatsapp.metadata-ttl | WA_METADATA_TTL | 6h |
 | app.watchdog.check-interval | WATCHDOG_CHECK_INTERVAL | 15s |
 | app.watchdog.max-attempts | WATCHDOG_MAX_ATTEMPTS | 8 |
-| app.watchdog.initial-delay / max-delay | WATCHDOG_INITIAL_DELAY / MAX_DELAY | 10s / 15m |
+| app.watchdog.initial-delay / max-delay | WATCHDOG_INITIAL_DELAY / MAX_DELAY | 10s / 1m |
 | app.watchdog.connect-timeout | WATCHDOG_CONNECT_TIMEOUT | 3m |
 | app.sheets.enabled | SHEETS_ENABLED | true |
 | app.sheets.spreadsheet-id | SHEETS_SPREADSHEET_ID | — |

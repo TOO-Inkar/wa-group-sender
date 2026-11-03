@@ -54,7 +54,7 @@ public class TelegramNotifier implements Notifier {
                         .toBodilessEntity();
                 delivered++;
             } catch (RuntimeException e) {
-                log.error("ALERT telegram chat_id={} failed: {}", chatId, e.getMessage());
+                log.error("ALERT telegram chat_id={} failed: {}", chatId, properties.describe(e));
             }
         }
         return delivered;
@@ -88,7 +88,7 @@ public class TelegramNotifier implements Notifier {
                     .toBodilessEntity();
             return true;
         } catch (RuntimeException e) {
-            log.error("TELEGRAM chat_id={} failed: {}", chatId, e.getMessage());
+            log.error("TELEGRAM chat_id={} failed: {}", chatId, properties.describe(e));
             return false;
         }
     }

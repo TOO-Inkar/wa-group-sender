@@ -5,6 +5,9 @@ import kz.wasender.config.NotifyProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -15,6 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(OutputCaptureExtension.class)
 class TelegramNotifierTest {
     private HttpServer server;
     private final List<String> bodies = new CopyOnWriteArrayList<>();
@@ -54,6 +58,18 @@ class TelegramNotifierTest {
         assertThat(bodies).hasSize(3).allMatch(body -> body.startsWith("/botTOKEN/sendMessage"));
         assertThat(bodies.get(0)).contains("\"111\"").contains("Рассылка ОСТАНОВЛЕНА 🔥");
         assertThat(bodies.get(2)).contains("\"-222\"");
+    }
+
+    @Test
+    void networkFailureIsLoggedWithoutTheBotToken(CapturedOutput output) {
+        var notifier = notifier("123456:SECRET-token", List.of("111"));
+        server.stop(0);
+
+        assertThat(notifier.send("тест")).isZero();
+        assertThat(notifier.sendTo("111", "тест")).isFalse();
+
+        assertThat(output).contains("ALERT telegram chat_id=111 failed", "TELEGRAM chat_id=111 failed", "/bot<token>/sendMessage")
+                .doesNotContain("SECRET-token");
     }
 
     @Test
