@@ -43,7 +43,7 @@ public class PauseRandomizer {
     }
 
     public Duration groupPace(Duration interval) {
-        return interval.plus(between(Duration.ZERO, interval.dividedBy(GROUP_PACE_SPREAD_DIVISOR)));
+        return interval.minus(between(Duration.ZERO, interval.dividedBy(GROUP_PACE_SPREAD_DIVISOR)));
     }
 
     public int waveSize() {

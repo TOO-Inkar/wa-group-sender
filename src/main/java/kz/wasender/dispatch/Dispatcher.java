@@ -366,11 +366,12 @@ public class Dispatcher {
         var ours = Stream.of(deliveries.lastSentTo(jid, request.message()), last.filter(LastMessage::fromMe).map(LastMessage::at))
                 .flatMap(Optional::stream)
                 .max(Comparator.naturalOrder())
-                .filter(at -> at.plus(interval).isAfter(now));
+                .map(at -> at.plus(pauses.groupPace(interval)))
+                .filter(now::isBefore);
         if (ours.isEmpty()) {
             return false;
         }
-        var notBefore = ours.get().plus(pauses.groupPace(interval));
+        var notBefore = ours.get();
         deliveries.postpone(delivery.id(), notBefore, "ждём: в эту группу писали меньше " + interval.toMinutes() + " мин назад", now);
         log.info("POSTPONE request_id={} group_jid={} position={} until={} reason=group-interval", request.id(), jid, delivery.position(),
                 notBefore);
