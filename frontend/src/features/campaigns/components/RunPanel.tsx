@@ -68,7 +68,7 @@ export function RunPanel({ runs }: { runs: Run[] }) {
   return (
     <section aria-label="Результаты рассылки" className="grid min-w-0 gap-3">
       <div role="group" aria-label="Запуск" className="grid gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {runs.length > 1 ? (
             <Select block value={run.id} onChange={(e) => setRunId(e.target.value)} aria-label="Рассылка">
               {runs.map((r) => (

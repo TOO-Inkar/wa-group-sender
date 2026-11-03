@@ -5,6 +5,7 @@ const WIDTHS = [360, 390, 768, 1024, 1440]
 const STATES: CardState[] = ['sending', 'scheduled', 'done', 'disabled', 'failed']
 const COLLAPSED_RECIPIENTS = 5
 const TOLERANCE = 0.5
+const WIDE = 768
 
 type Box = { x: number; y: number; width: number; height: number }
 
@@ -69,7 +70,9 @@ for (const width of WIDTHS) {
     expect(intersects(await box(b.badge), await box(b.select))).toBe(false)
     const select = await box(b.select)
     const badge = await box(b.badge)
-    expect(Math.abs(select.y + select.height / 2 - (badge.y + badge.height / 2))).toBeLessThan(select.height / 2)
+    const sameLine = Math.abs(select.y + select.height / 2 - (badge.y + badge.height / 2)) < select.height / 2
+    expect(sameLine || badge.y >= select.y + select.height - TOLERANCE).toBe(true)
+    if (width >= WIDE) expect(sameLine).toBe(true)
 
     for (const button of await page.getByRole('dialog').getByRole('button', { name: /Изменить|Отправить сейчас|Удалить|Excel|PDF|Повторить ошибки/ }).all())
       expect((await box(button)).height).toBeGreaterThanOrEqual(40)
