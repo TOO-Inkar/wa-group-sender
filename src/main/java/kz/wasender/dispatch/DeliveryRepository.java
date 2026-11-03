@@ -96,23 +96,16 @@ public class DeliveryRepository {
                 .optional();
     }
 
-    public List<String> lastSentMessagesTo(String groupJid) {
-        return jdbc.sql("select r.message from delivery d join request r on r.id = d.request_id where d.group_jid = ? and d.status = 'SENT' "
-                        + "and d.updated_at = (select max(updated_at) from delivery where group_jid = ? and status = 'SENT')")
-                .params(groupJid, groupJid)
+    public Optional<String> lastSentMessageTo(String groupJid) {
+        return jdbc.sql("select r.message from delivery d join request r on r.id = d.request_id "
+                        + "where d.group_jid = ? and d.status = 'SENT' order by d.updated_at desc limit 1")
+                .param(groupJid)
                 .query(String.class)
-                .list();
-    }
-
-    public Optional<DeliveryRecord> pendingFor(String requestId, String groupJid) {
-        return jdbc.sql("select * from delivery where request_id = ? and group_jid = ? and status = 'PENDING'")
-                .params(requestId, groupJid)
-                .query(MAPPER)
                 .optional();
     }
 
     public int attemptsSince(Instant since) {
-        return jdbc.sql("select count(*) from (select distinct group_jid, updated_at from delivery where status in ('SENT', 'FAILED') and updated_at >= ?)")
+        return jdbc.sql("select count(*) from delivery where status in ('SENT', 'FAILED') and updated_at >= ?")
                 .param(since)
                 .query(Integer.class)
                 .single();

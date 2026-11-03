@@ -46,9 +46,6 @@ public class Dispatcher {
     private static final int REJECTED_RETRIES = 2;
     private static final Duration REJECTED_RETRY_MIN = Duration.ofMinutes(20);
     private static final Duration REJECTED_RETRY_MAX = Duration.ofMinutes(30);
-    private static final String COMBINED_SEPARATOR = "\n\n";
-    private static final Duration JOIN_WAIT = Duration.ofMinutes(15);
-    private static final String JOINING = "ждём: отправим одним сообщением с другой заявкой для этой группы";
 
     private final RequestRepository requests;
     private final DeliveryRepository deliveries;
@@ -193,16 +190,20 @@ public class Dispatcher {
             return idle;
         }
         var now = Instant.now(clock);
-        var planned = new ArrayList<RequestRecord>(open.size());
-        for (var request : open) {
-            if (deliveries.hasPlan(request.id()) || plan(request)) {
-                planned.add(request);
-                startSending(request, now);
-            }
-        }
-        var withoutGroups = open.size() - planned.size();
         Instant earliest = null;
-        for (var request : inTurn(planned)) {
+        var withoutGroups = 0;
+        for (var request : inTurn(open)) {
+            if (!deliveries.hasPlan(request.id()) && !plan(request)) {
+                withoutGroups++;
+                continue;
+            }
+            if (request.status() == RequestStatus.QUEUED) {
+                requests.markSending(request.id(), now);
+                sheet.put(request.id(), SheetField.STATUS, RequestStatus.SENDING.sheetText());
+                sheet.put(request.id(), SheetField.PROGRESS, deliveries.progress(request.id()).sheetText());
+                sheet.flushAsync();
+                log.info("SENDING request_id={} started", request.id());
+            }
             var ready = deliveries.nextReady(request.id(), now);
             if (ready.isEmpty()) {
                 var postponed = deliveries.earliestPostponed(request.id());
@@ -215,7 +216,7 @@ public class Dispatcher {
             }
             lastRequestId = request.id();
             changeState(DispatcherState.RUNNING);
-            deliver(request, ready.get(), planned);
+            deliver(request, ready.get());
             return Duration.ZERO;
         }
         if (earliest == null) {
@@ -225,17 +226,6 @@ public class Dispatcher {
         changeState(DispatcherState.WAITING_GROUPS);
         var wait = Duration.between(now, earliest);
         return wait.compareTo(idle) < 0 ? (wait.isNegative() ? Duration.ZERO : wait) : idle;
-    }
-
-    private void startSending(RequestRecord request, Instant now) {
-        if (request.status() != RequestStatus.QUEUED) {
-            return;
-        }
-        requests.markSending(request.id(), now);
-        sheet.put(request.id(), SheetField.STATUS, RequestStatus.SENDING.sheetText());
-        sheet.put(request.id(), SheetField.PROGRESS, deliveries.progress(request.id()).sheetText());
-        sheet.flushAsync();
-        log.info("SENDING request_id={} started", request.id());
     }
 
     private List<RequestRecord> stopWaitingForReplyAfterTheWindow(List<RequestRecord> active) {
@@ -330,24 +320,15 @@ public class Dispatcher {
         return sentInWave >= pauses.waveSize();
     }
 
-    private void deliver(RequestRecord request, DeliveryRecord delivery, List<RequestRecord> open) throws InterruptedException {
+    private void deliver(RequestRecord request, DeliveryRecord delivery) throws InterruptedException {
         var jid = delivery.groupJid();
-        if (!sendable(request, jid)) {
+        if (requests.isTargeted(request.id()) ? !groups.isSendable(jid) : !groups.isActive(jid)) {
             deliveries.updateStatus(delivery.id(), DeliveryStatus.SKIPPED, "group inactive", Instant.now(clock));
             log.info("SEND request_id={} group_jid={} status=SKIPPED position={} reason=group-inactive", request.id(), jid, delivery.position());
             afterDelivery(request, delivery);
             return;
         }
-        var pace = groupPace();
-        var now = Instant.now(clock);
-        var hold = hold(request, jid, now, pace);
-        if (hold.isPresent()) {
-            postpone(request, delivery, hold.get());
-            return;
-        }
-        var together = together(new Part(request, delivery), open, pace, now);
-        if (together.joinAt().isPresent()) {
-            postpone(request, delivery, new Hold(together.joinAt().get(), JOINING, "join-other-request", false));
+        if (holdForGroupPace(request, delivery)) {
             return;
         }
         var wave = waveBoundary();
@@ -364,132 +345,77 @@ public class Dispatcher {
         if (wave) {
             sentInWave = 0;
         }
-        send(together.parts(), pause);
+        send(request, delivery, pause);
     }
 
-    private boolean sendable(RequestRecord request, String jid) {
-        return requests.isTargeted(request.id()) ? groups.isSendable(jid) : groups.isActive(jid);
-    }
-
-    private Together together(Part primary, List<RequestRecord> open, Duration pace, Instant now) {
-        var jid = primary.delivery().groupJid();
-        var parts = new ArrayList<>(List.of(primary));
-        Instant joinAt = null;
-        for (var other : open) {
-            if (other.id().equals(primary.request().id())) {
-                continue;
-            }
-            var pending = deliveries.pendingFor(other.id(), jid);
-            if (pending.isEmpty() || !sendable(other, jid)) {
-                continue;
-            }
-            var hold = hold(other, jid, now, pace);
-            if (hold.isEmpty()) {
-                parts.add(new Part(other, pending.get()));
-            } else if (!hold.get().waitingReply() && hold.get().until().isBefore(now.plus(JOIN_WAIT))
-                    && (joinAt == null || hold.get().until().isAfter(joinAt))) {
-                joinAt = hold.get().until();
-            }
-        }
-        return new Together(parts, Optional.ofNullable(joinAt));
-    }
-
-    private static String text(List<Part> parts) {
-        return String.join(COMBINED_SEPARATOR, parts.stream().map(part -> part.request().message()).distinct().toList());
-    }
-
-    private Duration groupPace() {
-        var interval = settings.dispatch().groupInterval();
-        return interval == null || !interval.isPositive() ? Duration.ZERO : pauses.groupPace(interval);
-    }
-
-    private Optional<Hold> hold(RequestRecord request, String jid, Instant now, Duration pace) {
+    private boolean holdForGroupPace(RequestRecord request, DeliveryRecord delivery) {
         var dispatch = settings.dispatch();
-        var lastTexts = deliveries.lastSentMessagesTo(jid);
-        var sameText = lastTexts.isEmpty() || lastTexts.contains(request.message());
+        var jid = delivery.groupJid();
+        var now = Instant.now(clock);
+        var sameText = deliveries.lastSentMessageTo(jid).map(request.message()::equals).orElse(true);
         var last = gateway.lastMessage(jid).filter(message -> !message.fromMe() || sameText);
         if (dispatch.waitForReply() && last.isPresent() && last.get().fromMe()) {
-            return Optional.of(new Hold(now.plus(REPLY_RECHECK), WAITING_REPLY, "no-reply-after-our-message", true));
+            deliveries.waitForReply(delivery.id(), now.plus(REPLY_RECHECK), WAITING_REPLY, now);
+            log.info("POSTPONE request_id={} group_jid={} position={} reason=no-reply-after-our-message", request.id(), jid, delivery.position());
+            return true;
         }
-        if (!pace.isPositive()) {
-            return Optional.empty();
+        var interval = dispatch.groupInterval();
+        if (interval == null || !interval.isPositive()) {
+            return false;
         }
-        var minutes = dispatch.groupInterval().toMinutes();
-        return Stream.of(deliveries.lastSentTo(jid, request.message()), last.filter(LastMessage::fromMe).map(LastMessage::at))
+        var ours = Stream.of(deliveries.lastSentTo(jid, request.message()), last.filter(LastMessage::fromMe).map(LastMessage::at))
                 .flatMap(Optional::stream)
                 .max(Comparator.naturalOrder())
-                .map(at -> at.plus(pace))
-                .filter(now::isBefore)
-                .map(until -> new Hold(until, "ждём: в эту группу писали меньше " + minutes + " мин назад", "group-interval", false));
-    }
-
-    private void postpone(RequestRecord request, DeliveryRecord delivery, Hold hold) {
-        var now = Instant.now(clock);
-        if (hold.waitingReply()) {
-            deliveries.waitForReply(delivery.id(), hold.until(), hold.reason(), now);
-        } else {
-            deliveries.postpone(delivery.id(), hold.until(), hold.reason(), now);
+                .map(at -> at.plus(pauses.groupPace(interval)))
+                .filter(now::isBefore);
+        if (ours.isEmpty()) {
+            return false;
         }
-        log.info("POSTPONE request_id={} group_jid={} position={} until={} reason={}", request.id(), delivery.groupJid(), delivery.position(),
-                hold.until(), hold.code());
+        var notBefore = ours.get();
+        deliveries.postpone(delivery.id(), notBefore, "ждём: в эту группу писали меньше " + interval.toMinutes() + " мин назад", now);
+        log.info("POSTPONE request_id={} group_jid={} position={} until={} reason=group-interval", request.id(), jid, delivery.position(),
+                notBefore);
+        return true;
     }
 
-    private void send(List<Part> parts, Duration pause) throws InterruptedException {
-        var jid = parts.getFirst().delivery().groupJid();
+    private void send(RequestRecord request, DeliveryRecord delivery, Duration pause) throws InterruptedException {
+        var jid = delivery.groupJid();
         var wave = sentInWave / Math.max(1, pauses.waveSize()) + 1;
         warmup.registerAttempt();
         sentInWave++;
-        var startedAt = Instant.now(clock);
-        parts.forEach(part -> deliveries.updateStatus(part.delivery().id(), DeliveryStatus.SENDING, null, startedAt));
+        deliveries.updateStatus(delivery.id(), DeliveryStatus.SENDING, null, Instant.now(clock));
         try {
-            gateway.sendText(jid, text(parts));
+            gateway.sendText(jid, request.message());
             lastSendAt = Instant.now(clock);
+            deliveries.updateStatus(delivery.id(), DeliveryStatus.SENT, null, lastSendAt);
             groups.clearRejections(jid);
-            for (var part : parts) {
-                deliveries.updateStatus(part.delivery().id(), DeliveryStatus.SENT, null, lastSendAt);
-                log.info("SEND request_id={} group_jid={} status=SENT position={} wave={} pause_ms={} combined={} sent_today={}",
-                        part.request().id(), jid, part.delivery().position(), wave, pause.toMillis(), parts.size(), warmup.sentToday());
-            }
+            log.info("SEND request_id={} group_jid={} status=SENT position={} wave={} pause_ms={} sent_today={}",
+                    request.id(), jid, delivery.position(), wave, pause.toMillis(), warmup.sentToday());
         } catch (SendException e) {
             lastSendAt = Instant.now(clock);
-            var gaveUp = false;
-            for (var part : parts) {
-                gaveUp |= !retriedLater(part, e, wave);
+            if (e.rejectedByServer() && delivery.attempts() < REJECTED_RETRIES) {
+                retryRejectedLater(request, delivery);
+                afterDelivery(request, delivery);
+                return;
             }
-            if (gaveUp) {
-                groupFailed(jid, parts.getFirst().request(), e);
+            deliveries.updateStatus(delivery.id(), DeliveryStatus.FAILED, e.getMessage(), lastSendAt);
+            log.warn("SEND request_id={} group_jid={} status=FAILED position={} wave={} error={}", request.id(), jid, delivery.position(), wave, e.getMessage());
+            if (e.groupUnavailable()) {
+                groups.deactivate(jid, lastSendAt);
+                log.warn("GROUP deactivated group_jid={} reason=send-rejected", jid);
+            }
+            if (e.connectionLost()) {
+                log.warn("SEND request_id={} group_jid={} connection lost, not a risk signal", request.id(), jid);
+            } else if (e.rejectedByServer()) {
+                log.warn("SEND request_id={} group_jid={} rejected by WhatsApp for this group, not a risk signal", request.id(), jid);
+                if (groups.recordRejection(jid, lastSendAt)) {
+                    log.warn("GROUP excluded group_jid={} reason=rejected-by-whatsapp-in-a-row", jid);
+                }
+            } else {
+                risk.record(RiskType.SEND_FAILED, jid, request.id(), e.getMessage());
             }
         }
-        parts.forEach(part -> afterDelivery(part.request(), part.delivery()));
-    }
-
-    private void groupFailed(String jid, RequestRecord request, SendException e) {
-        if (e.groupUnavailable()) {
-            groups.deactivate(jid, lastSendAt);
-            log.warn("GROUP deactivated group_jid={} reason=send-rejected", jid);
-        }
-        if (e.connectionLost()) {
-            log.warn("SEND group_jid={} connection lost, not a risk signal", jid);
-        } else if (e.rejectedByServer()) {
-            log.warn("SEND group_jid={} rejected by WhatsApp for this group, not a risk signal", jid);
-            if (groups.recordRejection(jid, lastSendAt)) {
-                log.warn("GROUP excluded group_jid={} reason=rejected-by-whatsapp-in-a-row", jid);
-            }
-        } else {
-            risk.record(RiskType.SEND_FAILED, jid, request.id(), e.getMessage());
-        }
-    }
-
-    private boolean retriedLater(Part part, SendException e, int wave) {
-        var delivery = part.delivery();
-        if (e.rejectedByServer() && delivery.attempts() < REJECTED_RETRIES) {
-            retryRejectedLater(part.request(), delivery);
-            return true;
-        }
-        deliveries.updateStatus(delivery.id(), DeliveryStatus.FAILED, e.getMessage(), lastSendAt);
-        log.warn("SEND request_id={} group_jid={} status=FAILED position={} wave={} error={}", part.request().id(), delivery.groupJid(),
-                delivery.position(), wave, e.getMessage());
-        return false;
+        afterDelivery(request, delivery);
     }
 
     private void retryRejectedLater(RequestRecord request, DeliveryRecord delivery) {
@@ -539,14 +465,5 @@ public class Dispatcher {
             log.info("DISPATCHER state {} -> {}", state.label(), newState.label());
             state = newState;
         }
-    }
-
-    private record Part(RequestRecord request, DeliveryRecord delivery) {
-    }
-
-    private record Together(List<Part> parts, Optional<Instant> joinAt) {
-    }
-
-    private record Hold(Instant until, String reason, String code, boolean waitingReply) {
     }
 }

@@ -10,8 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,10 +40,12 @@ class CsvFullCycleTest extends IntegrationTest {
             assertThat(row.get(SheetField.STATUS)).isEqualTo("Отправлено");
             assertThat(row.get(SheetField.PROGRESS)).isEqualTo("25 / 25");
         });
-        var goldens = List.of(golden("kalzhat-baku.txt"), golden("horgos-baku.txt"), golden("horgos-moscow.txt"));
-        assertThat(gateway.sent()).hasSize(25).extracting(FakeWhatsAppGateway.SentMessage::groupJid).doesNotHaveDuplicates();
-        var combinedLength = goldens.stream().mapToInt(String::length).sum() + 2 * "\n\n".length();
-        assertThat(gateway.sent()).allSatisfy(message -> assertThat(message.text()).contains(goldens).hasSize(combinedLength));
+        var byText = gateway.sent().stream().collect(Collectors.groupingBy(FakeWhatsAppGateway.SentMessage::text, Collectors.counting()));
+        assertThat(byText).containsOnly(
+                Map.entry(golden("kalzhat-baku.txt"), 25L),
+                Map.entry(golden("horgos-baku.txt"), 25L),
+                Map.entry(golden("horgos-moscow.txt"), 25L));
+        assertThat(gateway.sent()).extracting(message -> message.groupJid() + message.text()).doesNotHaveDuplicates();
     }
 
     @Test
