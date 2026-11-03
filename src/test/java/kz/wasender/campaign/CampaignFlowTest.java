@@ -154,12 +154,45 @@ class CampaignFlowTest extends IntegrationTest {
         assertThat(gateway.sent()).hasSize(3);
         assertThat(gateway.sent().get(2).groupJid()).isEqualTo(lively);
         var run = requests.findByCampaign(second.id()).getFirst();
-        assertThat(run.status()).isEqualTo(RequestStatus.DONE);
+        assertThat(requests.find(run.id()).orElseThrow().status()).as("после всех групп ждём тихую").isEqualTo(RequestStatus.SENDING);
         assertThat(deliveries.findByRequest(run.id())).filteredOn(d -> d.groupJid().equals(quiet))
                 .singleElement().satisfies(d -> {
-                    assertThat(d.status()).isEqualTo(DeliveryStatus.SKIPPED);
+                    assertThat(d.status()).isEqualTo(DeliveryStatus.PENDING);
                     assertThat(d.error()).contains("никто не написал");
                 });
+
+        gateway.simulateForeignMessage(quiet);
+        clock.advance(Duration.ofMinutes(76));
+        runUntilBlocked(200);
+
+        assertThat(gateway.sent()).hasSize(4);
+        assertThat(gateway.sent().get(3).groupJid()).isEqualTo(quiet);
+        assertThat(requests.find(run.id()).orElseThrow().status()).isEqualTo(RequestStatus.DONE);
+    }
+
+    @Test
+    void groupWhereNobodyWroteIsSkippedOnlyWhenTheWorkWindowCloses() throws Exception {
+        useGroups(1);
+        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, true,
+                null, null, null, null, null));
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        runUntilBlocked(200);
+        var second = create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        clock.advance(Duration.ofHours(3));
+        runUntilBlocked(200);
+
+        var run = requests.findByCampaign(second.id()).getFirst();
+        assertThat(requests.find(run.id()).orElseThrow().status()).isEqualTo(RequestStatus.SENDING);
+
+        clock.set(LocalDateTime.of(2026, 9, 28, 23, 30));
+        dispatcher.cycle();
+
+        assertThat(gateway.sent()).hasSize(1);
+        assertThat(requests.find(run.id()).orElseThrow().status()).isEqualTo(RequestStatus.FAILED);
+        assertThat(deliveries.findByRequest(run.id())).singleElement().satisfies(d -> {
+            assertThat(d.status()).isEqualTo(DeliveryStatus.SKIPPED);
+            assertThat(d.error()).contains("до конца рабочего окна");
+        });
     }
 
     @Test

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,8 +40,8 @@ import java.util.stream.Stream;
 public class Dispatcher {
     private static final Logger log = LoggerFactory.getLogger(Dispatcher.class);
     private static final Duration REPLY_RECHECK = Duration.ofMinutes(10);
-    private static final String WAITING_REPLY = "ждём: в группе никто не написал после нашего сообщения";
-    private static final String NO_REPLY = "пропущено: в группе никто не написал после нашего сообщения";
+    private static final String WAITING_REPLY = "ждём: в группе никто не написал после нашего сообщения, проверяем каждые 10 мин";
+    private static final String NO_REPLY = "пропущено: до конца рабочего окна в группе никто не написал после нашего сообщения";
     private static final String REJECTED_RETRY = "ждём: WhatsApp отклонил отправку, повторим позже";
     private static final int REJECTED_RETRIES = 2;
     private static final Duration REJECTED_RETRY_MIN = Duration.ofMinutes(20);
@@ -178,7 +179,7 @@ public class Dispatcher {
             changeState(gate);
             return idle;
         }
-        var active = requests.active();
+        var active = stopWaitingForReplyAfterTheWindow(requests.active());
         if (active.isEmpty()) {
             changeState(DispatcherState.IDLE);
             return idle;
@@ -205,12 +206,6 @@ public class Dispatcher {
             }
             var ready = deliveries.nextReady(request.id(), now);
             if (ready.isEmpty()) {
-                if (deliveries.onlyWaitingReply(request.id())) {
-                    var skipped = deliveries.skipWaitingReply(request.id(), NO_REPLY, now);
-                    log.info("SKIP request_id={} groups={} reason=no-reply-after-our-message", request.id(), skipped);
-                    finish(request);
-                    return Duration.ZERO;
-                }
                 var postponed = deliveries.earliestPostponed(request.id());
                 if (postponed.isEmpty()) {
                     finish(request);
@@ -231,6 +226,23 @@ public class Dispatcher {
         changeState(DispatcherState.WAITING_GROUPS);
         var wait = Duration.between(now, earliest);
         return wait.compareTo(idle) < 0 ? (wait.isNegative() ? Duration.ZERO : wait) : idle;
+    }
+
+    private List<RequestRecord> stopWaitingForReplyAfterTheWindow(List<RequestRecord> active) {
+        var today = LocalDate.now(clock);
+        var remaining = new ArrayList<RequestRecord>(active.size());
+        for (var request : active) {
+            var over = !window.isOpenNow(request.windowStart(), request.windowEnd())
+                    || LocalDate.ofInstant(request.queuedAt(), clock.getZone()).isBefore(today);
+            if (over && deliveries.hasPlan(request.id()) && deliveries.onlyWaitingReply(request.id())) {
+                var skipped = deliveries.skipWaitingReply(request.id(), NO_REPLY, Instant.now(clock));
+                log.info("SKIP request_id={} groups={} reason=no-reply-until-window-end", request.id(), skipped);
+                finish(request);
+            } else {
+                remaining.add(request);
+            }
+        }
+        return remaining;
     }
 
     private List<RequestRecord> inTurn(List<RequestRecord> open) {
