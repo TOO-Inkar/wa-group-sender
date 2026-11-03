@@ -11,6 +11,8 @@ import java.util.random.RandomGenerator;
 
 @Component
 public class PauseRandomizer {
+    private static final int GROUP_PACE_SPREAD_DIVISOR = 4;
+
     private final Supplier<DispatchProperties> properties;
     private final RandomGenerator random;
 
@@ -38,6 +40,10 @@ public class PauseRandomizer {
     public Duration typing() {
         var p = properties.get();
         return between(p.typingMin(), p.typingMax());
+    }
+
+    public Duration groupPace(Duration interval) {
+        return interval.plus(between(Duration.ZERO, interval.dividedBy(GROUP_PACE_SPREAD_DIVISOR)));
     }
 
     public int waveSize() {

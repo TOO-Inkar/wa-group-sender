@@ -148,7 +148,7 @@ class CampaignFlowTest extends IntegrationTest {
         assertThat(dispatcher.state()).isEqualTo(DispatcherState.WAITING_GROUPS);
         assertThat(controller.get(second.id()).current().waiting()).startsWith("ждёт до ");
 
-        clock.advance(Duration.ofMinutes(61));
+        clock.advance(Duration.ofMinutes(76));
         runUntilBlocked(200);
 
         assertThat(gateway.sent()).hasSize(3);

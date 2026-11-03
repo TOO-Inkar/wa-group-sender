@@ -353,14 +353,15 @@ public class Dispatcher {
         }
         var ours = Stream.of(deliveries.lastSentTo(jid, request.message()), last.filter(LastMessage::fromMe).map(LastMessage::at))
                 .flatMap(Optional::stream)
-                .max(Comparator.naturalOrder());
-        var notBefore = ours.map(at -> at.plus(interval)).filter(at -> at.isAfter(now));
-        if (notBefore.isEmpty()) {
+                .max(Comparator.naturalOrder())
+                .filter(at -> at.plus(interval).isAfter(now));
+        if (ours.isEmpty()) {
             return false;
         }
-        deliveries.postpone(delivery.id(), notBefore.get(), "ждём: в эту группу писали меньше " + interval.toMinutes() + " мин назад", now);
+        var notBefore = ours.get().plus(pauses.groupPace(interval));
+        deliveries.postpone(delivery.id(), notBefore, "ждём: в эту группу писали меньше " + interval.toMinutes() + " мин назад", now);
         log.info("POSTPONE request_id={} group_jid={} position={} until={} reason=group-interval", request.id(), jid, delivery.position(),
-                notBefore.get());
+                notBefore);
         return true;
     }
 
