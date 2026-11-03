@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page, type Route } from '@playwright/test'
+import { expectReadable } from './support/select'
 
 const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pass'
 const WIDTHS = [360, 390, 768, 1024, 1440]
@@ -158,6 +159,7 @@ for (const width of WIDTHS) {
     await expect(shown(page, 'Неудачный вход')).toBeVisible()
     await page.getByLabel('Кабинет').selectOption({ label: '№3 Без прокси ТОО' })
     await expect(page).toHaveURL(/\/platform\/audit\?tenant=3$/)
+    await expectReadable(page.getByLabel('Кабинет'), 'кабинет')
     await expect(shown(page, 'Кабинет создан')).toBeVisible()
     await expect(page.getByText('Неудачный вход')).toHaveCount(0)
     expect(fake.calls.some((c) => c.path === '/audit?limit=100&tenantId=3')).toBe(true)

@@ -13,7 +13,7 @@ export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
 
 export function Select({ className, block, ...props }: ComponentProps<'select'> & { block?: boolean }) {
   return (
-    <span className={cn('relative max-w-full', block ? 'flex min-w-0 flex-1' : 'inline-flex')}>
+    <span className={cn('relative max-w-full', block ? 'flex flex-auto' : 'inline-flex')}>
       <select className={cn(control, 'max-w-full cursor-pointer appearance-none pr-9', block ? 'w-full' : 'w-auto', className)} {...props} />
       <ChevronDown size={16} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted" />
     </span>
