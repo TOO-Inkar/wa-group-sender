@@ -189,24 +189,6 @@ public class BridgeWhatsAppGateway extends AbstractWhatsAppGateway {
         }
     }
 
-    @Override
-    public void sendTyping(String groupJid, boolean typing) {
-        if (!typing) {
-            return;
-        }
-        try {
-            client.post().uri("/typing")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("jid", groupJid))
-                    .retrieve()
-                    .toBodilessEntity();
-        } catch (RestClientResponseException e) {
-            log.warn("Typing presence failed group_jid={}: {}", groupJid, bridgeError(e).error());
-        } catch (RestClientException e) {
-            log.warn("Typing presence failed group_jid={}: {}", groupJid, e.toString());
-        }
-    }
-
     @PreDestroy
     void stop() {
         stopped = true;

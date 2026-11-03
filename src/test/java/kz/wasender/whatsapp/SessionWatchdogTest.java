@@ -141,9 +141,5 @@ class SessionWatchdogTest {
         @Override
         public void sendText(String groupJid, String text) {
         }
-
-        @Override
-        public void sendTyping(String groupJid, boolean typing) {
-        }
     }
 }

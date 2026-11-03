@@ -104,7 +104,6 @@ daily_counter(counter_date date pk, sent int, limit_value int)
 | app.dispatch.wave-size | DISPATCH_WAVE_SIZE | 25 |
 | app.dispatch.wave-pause-min / max | DISPATCH_WAVE_PAUSE_MIN / MAX | 10m / 20m |
 | app.dispatch.group-pause-min / max | DISPATCH_GROUP_PAUSE_MIN / MAX | 20s / 60s |
-| app.dispatch.typing-min / max | DISPATCH_TYPING_MIN / MAX | 2s / 6s |
 | app.dispatch.idle-poll | DISPATCH_IDLE_POLL | 5s |
 | app.dispatch.window-start / end | DISPATCH_WINDOW_START / END | 08:00 / 20:00 |
 | app.dispatch.weekends-enabled | DISPATCH_WEEKENDS_ENABLED | false |

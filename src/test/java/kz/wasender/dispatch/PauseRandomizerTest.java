@@ -15,7 +15,6 @@ class PauseRandomizerTest {
     private final DispatchProperties properties = new DispatchProperties(false, 25,
             Duration.ofMinutes(10), Duration.ofMinutes(20),
             Duration.ofSeconds(20), Duration.ofSeconds(60),
-            Duration.ofSeconds(2), Duration.ofSeconds(6),
             Duration.ofSeconds(5), LocalTime.of(8, 0), LocalTime.of(21, 0), true, 0, Duration.ZERO, false);
     private final PauseRandomizer randomizer = new PauseRandomizer(properties, new Random(7));
 
@@ -39,10 +38,9 @@ class PauseRandomizerTest {
     }
 
     @Test
-    void wavePausesAndTypingStayInRange() {
+    void wavePausesStayInRange() {
         IntStream.range(0, 500).forEach(i -> {
             assertThat(randomizer.wavePause(1.0)).isBetween(Duration.ofMinutes(10), Duration.ofMinutes(20));
-            assertThat(randomizer.typing()).isBetween(Duration.ofSeconds(2), Duration.ofSeconds(6));
         });
     }
 

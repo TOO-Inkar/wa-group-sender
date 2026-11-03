@@ -63,7 +63,6 @@ var sessionRoutes = []sessionRoute{
 	{http.MethodGet, "/events", (*session).handleEvents},
 	{http.MethodGet, "/groups", (*session).handleGroups},
 	{http.MethodPost, "/send", (*session).handleSend},
-	{http.MethodPost, "/typing", (*session).handleTyping},
 	{http.MethodGet, "/last", (*session).handleLast},
 	{http.MethodGet, "/picture", (*session).handlePicture},
 	{http.MethodGet, "/devices", (*session).handleDevices},

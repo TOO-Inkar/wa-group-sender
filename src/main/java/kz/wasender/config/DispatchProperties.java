@@ -13,8 +13,6 @@ public record DispatchProperties(
         Duration wavePauseMax,
         Duration groupPauseMin,
         Duration groupPauseMax,
-        Duration typingMin,
-        Duration typingMax,
         Duration idlePoll,
         LocalTime windowStart,
         LocalTime windowEnd,

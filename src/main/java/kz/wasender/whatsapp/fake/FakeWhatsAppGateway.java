@@ -31,7 +31,6 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
     private final RandomGenerator random;
     private final List<GroupInfo> groups = new CopyOnWriteArrayList<>();
     private final List<SentMessage> sent = new CopyOnWriteArrayList<>();
-    private final List<String> typing = new CopyOnWriteArrayList<>();
     private final Set<String> failing = ConcurrentHashMap.newKeySet();
     private final Map<String, Integer> rejecting = new ConcurrentHashMap<>();
     private final Map<String, LastMessage> last = new ConcurrentHashMap<>();
@@ -124,24 +123,12 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         return List.copyOf(rejectedCalls);
     }
 
-    @Override
-    public void sendTyping(String groupJid, boolean on) {
-        if (on) {
-            typing.add(groupJid);
-        }
-    }
-
     public List<SentMessage> sent() {
         return List.copyOf(sent);
     }
 
-    public List<String> typing() {
-        return List.copyOf(typing);
-    }
-
     public void reset() {
         sent.clear();
-        typing.clear();
         failing.clear();
         last.clear();
         direct.clear();
