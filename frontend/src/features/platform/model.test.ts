@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TenantOverview } from './api'
-import { accountErrors, auditActionText, generatePassword, GENERATED_PASSWORD_LENGTH, matchesTenant, proxyError, proxyState } from './model'
+import { accountErrors, auditActionText, generatePassword, GENERATED_PASSWORD_LENGTH, matchesTenant, proxyError, proxyState, proxyVerdict } from './model'
 
 const tenant = (patch: Partial<TenantOverview>): TenantOverview => ({
   id: 2,
@@ -74,5 +74,24 @@ describe('прокси', () => {
     expect(proxyState(tenant({ proxy: null }))).toEqual({ text: 'Без прокси', tone: 'warn' })
     expect(proxyState(tenant({ proxy: null, legacy: true }))).toEqual({ text: 'Прямое подключение', tone: 'neutral' })
     expect(proxyState(tenant({ proxy: null, proxyRequired: false }))).toEqual({ text: 'Прямое подключение', tone: 'neutral' })
+  })
+})
+
+describe('proxyVerdict', () => {
+  it('reports a working Kazakh proxy with its address', () => {
+    expect(proxyVerdict({ ok: true, ip: '203.0.113.7', country: 'KZ', city: 'Almaty', org: 'Tele2', whatsapp: true })).toEqual({
+      ok: true,
+      text: 'Прокси работает, WhatsApp доступен: IP 203.0.113.7 · KZ, Almaty · Tele2',
+    })
+  })
+
+  it('warns when the proxy exits outside Kazakhstan', () => {
+    const verdict = proxyVerdict({ ok: true, ip: '198.51.100.1', country: 'DE', whatsapp: true })
+    expect(verdict.ok).toBe(false)
+    expect(verdict.text).toContain('не казахстанский')
+  })
+
+  it('shows the bridge error when the proxy fails', () => {
+    expect(proxyVerdict({ ok: false, error: 'connection refused' })).toEqual({ ok: false, text: 'Не работает: connection refused' })
   })
 })

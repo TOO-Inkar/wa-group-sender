@@ -75,7 +75,7 @@ function platform() {
       return route.fulfill({ status: 204 })
     }
     if (method === 'POST' && path.endsWith('/enter')) return json({ url: ENTER_URL })
-    if (method === 'POST' && path.endsWith('/proxy-check')) return json({ ok: true, ip: '203.0.113.7' })
+    if (method === 'POST' && path.endsWith('/proxy-check')) return json({ ok: true, ip: '203.0.113.7', country: 'KZ', city: 'Almaty', org: 'Tele2', whatsapp: true })
     if (method === 'GET' && path.endsWith('/users')) return json(users)
     if (method === 'POST' && path.endsWith('/users')) return json({ id: 99, login: body?.login, enabled: true, createdAt: '2026-10-27T05:00:00Z', lastLoginAt: null }, 201)
     if (method === 'PATCH' && path.startsWith('/users/')) return json({ ...users[0], ...body })
@@ -275,7 +275,7 @@ for (const width of WIDTHS) {
     await expect(sheet.getByText('socks5://new-host:1080')).toBeVisible()
     expect(fake.calls.find((c) => c.method === 'PATCH')?.body).toEqual({ proxy: 'socks5://u:p@new-host:1080' })
     await sheet.getByRole('button', { name: 'Проверить' }).click()
-    await expect(sheet.getByRole('status')).toHaveText('Прокси работает, внешний IP 203.0.113.7')
+    await expect(sheet.getByRole('status')).toHaveText('Прокси работает, WhatsApp доступен: IP 203.0.113.7 · KZ, Almaty · Tele2')
     await sheet.getByRole('button', { name: 'Убрать' }).click()
     await page.getByRole('dialog', { name: 'Убрать прокси?' }).getByRole('button', { name: 'Убрать' }).click()
     await expect(sheet).toContainText('не задан — номер не подключится')
