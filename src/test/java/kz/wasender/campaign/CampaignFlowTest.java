@@ -147,29 +147,6 @@ class CampaignFlowTest extends IntegrationTest {
     }
 
     @Test
-    void campaignsThatReachedAGroupAtDifferentTimesMeetInOneMessageNextTime() throws Exception {
-        useGroups(1);
-        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, false,
-                null, null, null, null, null));
-        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
-        runUntilBlocked(200);
-        clock.advance(Duration.ofMinutes(10));
-        create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
-        runUntilBlocked(200);
-        assertThat(gateway.sent()).hasSize(2);
-        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
-        create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
-
-        for (var minute = 0; minute < 80 && gateway.sent().size() < 3; minute++) {
-            clock.advance(Duration.ofMinutes(1));
-            runUntilBlocked(200);
-        }
-
-        assertThat(gateway.sent()).hasSize(3);
-        assertThat(gateway.sent().get(2).text()).contains("Первая", "Вторая");
-    }
-
-    @Test
     void combinedMessageWaitsForAReplyAsAWholeAndGoesOutTogetherAgain() throws Exception {
         useGroups(1);
         settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, true,

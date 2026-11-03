@@ -47,8 +47,6 @@ public class Dispatcher {
     private static final Duration REJECTED_RETRY_MIN = Duration.ofMinutes(20);
     private static final Duration REJECTED_RETRY_MAX = Duration.ofMinutes(30);
     private static final String COMBINED_SEPARATOR = "\n\n";
-    private static final Duration JOIN_WAIT = Duration.ofMinutes(15);
-    private static final String JOINING = "ждём: отправим одним сообщением с другой заявкой для этой группы";
 
     private final RequestRepository requests;
     private final DeliveryRepository deliveries;
@@ -339,15 +337,9 @@ public class Dispatcher {
             return;
         }
         var pace = groupPace();
-        var now = Instant.now(clock);
-        var hold = hold(request, jid, now, pace);
+        var hold = hold(request, jid, Instant.now(clock), pace);
         if (hold.isPresent()) {
             postpone(request, delivery, hold.get());
-            return;
-        }
-        var together = together(new Part(request, delivery), open, pace, now);
-        if (together.joinAt().isPresent()) {
-            postpone(request, delivery, new Hold(together.joinAt().get(), JOINING, "join-other-request", false));
             return;
         }
         var wave = waveBoundary();
@@ -364,34 +356,26 @@ public class Dispatcher {
         if (wave) {
             sentInWave = 0;
         }
-        send(together.parts(), pause);
+        send(withCompanions(new Part(request, delivery), open, pace), pause);
     }
 
     private boolean sendable(RequestRecord request, String jid) {
         return requests.isTargeted(request.id()) ? groups.isSendable(jid) : groups.isActive(jid);
     }
 
-    private Together together(Part primary, List<RequestRecord> open, Duration pace, Instant now) {
+    private List<Part> withCompanions(Part primary, List<RequestRecord> open, Duration pace) {
         var jid = primary.delivery().groupJid();
+        var now = Instant.now(clock);
         var parts = new ArrayList<>(List.of(primary));
-        Instant joinAt = null;
         for (var other : open) {
             if (other.id().equals(primary.request().id())) {
                 continue;
             }
-            var pending = deliveries.pendingFor(other.id(), jid);
-            if (pending.isEmpty() || !sendable(other, jid)) {
-                continue;
-            }
-            var hold = hold(other, jid, now, pace);
-            if (hold.isEmpty()) {
-                parts.add(new Part(other, pending.get()));
-            } else if (!hold.get().waitingReply() && hold.get().until().isBefore(now.plus(JOIN_WAIT))
-                    && (joinAt == null || hold.get().until().isAfter(joinAt))) {
-                joinAt = hold.get().until();
-            }
+            deliveries.readyFor(other.id(), jid, now)
+                    .filter(delivery -> sendable(other, jid) && hold(other, jid, now, pace).isEmpty())
+                    .ifPresent(delivery -> parts.add(new Part(other, delivery)));
         }
-        return new Together(parts, Optional.ofNullable(joinAt));
+        return parts;
     }
 
     private static String text(List<Part> parts) {
@@ -542,9 +526,6 @@ public class Dispatcher {
     }
 
     private record Part(RequestRecord request, DeliveryRecord delivery) {
-    }
-
-    private record Together(List<Part> parts, Optional<Instant> joinAt) {
     }
 
     private record Hold(Instant until, String reason, String code, boolean waitingReply) {
