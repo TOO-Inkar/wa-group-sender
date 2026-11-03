@@ -122,13 +122,51 @@ class CampaignFlowTest extends IntegrationTest {
         runUntilBlocked(200);
 
         assertThat(dispatcher.state()).isEqualTo(DispatcherState.HOURLY_LIMIT_REACHED);
-        assertThat(gateway.sent()).hasSize(6);
-        assertThat(gateway.sent()).filteredOn(m -> m.text().contains("Первая")).hasSize(3);
-        assertThat(gateway.sent()).filteredOn(m -> m.text().contains("Вторая")).hasSize(3);
+        assertThat(gateway.sent()).hasSize(6).allMatch(m -> m.text().contains("Первая") && m.text().contains("Вторая"));
 
         clock.advance(Duration.ofMinutes(61));
         runUntilBlocked(200);
-        assertThat(gateway.sent()).hasSize(12);
+        assertThat(gateway.sent()).hasSize(10);
+    }
+
+    @Test
+    void campaignsRunningTogetherReachEachGroupAsOneMessage() throws Exception {
+        useGroups(3);
+        var first = create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        var second = create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+
+        runUntilBlocked(200);
+
+        assertThat(sentJids()).hasSize(3).doesNotHaveDuplicates();
+        assertThat(gateway.sent()).allSatisfy(m -> assertThat(m.text()).contains("Первая", "Вторая", "\n\n"));
+        for (var campaign : List.of(first, second)) {
+            var run = requests.findByCampaign(campaign.id()).getFirst();
+            assertThat(requests.find(run.id()).orElseThrow().status()).isEqualTo(RequestStatus.DONE);
+            assertThat(deliveries.findByRequest(run.id())).hasSize(3).allMatch(d -> d.status() == DeliveryStatus.SENT);
+        }
+    }
+
+    @Test
+    void combinedMessageWaitsForAReplyAsAWholeAndGoesOutTogetherAgain() throws Exception {
+        useGroups(1);
+        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, true,
+                null, null, null, null, null));
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        runUntilBlocked(200);
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        create("Вторая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+
+        clock.advance(Duration.ofMinutes(61));
+        runUntilBlocked(200);
+        assertThat(gateway.sent()).as("никто не написал после общего сообщения").hasSize(1);
+
+        gateway.simulateForeignMessage(sentJids().getFirst());
+        clock.advance(Duration.ofMinutes(11));
+        runUntilBlocked(200);
+
+        assertThat(gateway.sent()).hasSize(2);
+        assertThat(gateway.sent().get(1).text()).contains("Первая", "Вторая");
     }
 
     @Test
