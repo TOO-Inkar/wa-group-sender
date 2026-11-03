@@ -30,11 +30,11 @@ class PauseRandomizerTest {
     }
 
     @Test
-    void repeatToTheSameGroupLandsAtADifferentMinuteEachTime() {
+    void repeatToTheSameGroupLandsAtADifferentMinuteWithinTheInterval() {
         var hour = Duration.ofMinutes(60);
         var values = IntStream.range(0, 500).mapToObj(i -> randomizer.groupPace(hour)).toList();
 
-        assertThat(values).allMatch(d -> d.compareTo(hour) >= 0 && d.compareTo(Duration.ofMinutes(75)) <= 0);
+        assertThat(values).allMatch(d -> d.compareTo(Duration.ofMinutes(45)) >= 0 && d.compareTo(hour) <= 0);
         assertThat(values.stream().map(Duration::toMinutes).distinct()).hasSizeGreaterThan(12);
     }
 

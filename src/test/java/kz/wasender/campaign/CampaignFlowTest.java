@@ -148,7 +148,7 @@ class CampaignFlowTest extends IntegrationTest {
         assertThat(dispatcher.state()).isEqualTo(DispatcherState.WAITING_GROUPS);
         assertThat(controller.get(second.id()).current().waiting()).startsWith("ждёт до ");
 
-        clock.advance(Duration.ofMinutes(76));
+        clock.advance(Duration.ofMinutes(61));
         runUntilBlocked(200);
 
         assertThat(gateway.sent()).hasSize(3);
@@ -162,12 +162,30 @@ class CampaignFlowTest extends IntegrationTest {
                 });
 
         gateway.simulateForeignMessage(quiet);
-        clock.advance(Duration.ofMinutes(76));
+        clock.advance(Duration.ofMinutes(61));
         runUntilBlocked(200);
 
         assertThat(gateway.sent()).hasSize(4);
         assertThat(gateway.sent().get(3).groupJid()).isEqualTo(quiet);
         assertThat(requests.find(run.id()).orElseThrow().status()).isEqualTo(RequestStatus.DONE);
+    }
+
+    @Test
+    void hourlyRepeatToTheSameGroupNeverWaitsLongerThanTheInterval() throws Exception {
+        useGroups(1);
+        settings.update(new SettingsService.View(null, null, null, null, null, null, null, null, null, null, null, 60, false,
+                null, null, null, null, null));
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+        runUntilBlocked(200);
+        create("Первая", new Schedule(RepeatMode.ONCE, null, null, null), true);
+
+        clock.advance(Duration.ofMinutes(44));
+        runUntilBlocked(200);
+        assertThat(gateway.sent()).hasSize(1);
+
+        clock.advance(Duration.ofMinutes(16));
+        runUntilBlocked(200);
+        assertThat(gateway.sent()).hasSize(2);
     }
 
     @Test
