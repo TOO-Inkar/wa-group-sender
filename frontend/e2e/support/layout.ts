@@ -423,9 +423,21 @@ export function summarize(findings: Finding[]) {
   )
 }
 
-export async function expectLayout(page: Page, scene: string, only?: CheckName[]) {
+export async function settleLayout(page: Page) {
   await page.evaluate(() => document.fonts.ready)
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  )
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+}
+
+export async function expectLayout(page: Page, scene: string, only?: CheckName[]) {
+  await settleLayout(page)
   const report = await measureLayout(page)
   for (const check of only ?? (Object.keys(CHECKS) as CheckName[]))
     expect.soft(summarize(report[check]), `${scene}: ${CHECKS[check]}`).toEqual([])

@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
-import { controlHeightOk, controlHeightRule, pointerIsCoarse } from './support/layout'
+import { controlHeightOk, controlHeightRule, pointerIsCoarse, settleLayout } from './support/layout'
 import { uniqueName } from './support/names'
 
 const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pass'
@@ -52,6 +52,7 @@ async function box(locator: Locator) {
 }
 
 async function expectDialogFits(page: Page, dialog: Locator) {
+  await settleLayout(page)
   expect(await pageOverflow(page)).toBeLessThanOrEqual(0)
   const viewport = page.viewportSize()!
   const d = await box(dialog)
