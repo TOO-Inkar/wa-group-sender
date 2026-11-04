@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 import { controlHeightOk, controlHeightRule, pointerIsCoarse } from './support/layout'
+import { uniqueName } from './support/names'
 
 const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pass'
 const WIDTHS = [360, 390, 768, 1024, 1440]
@@ -203,7 +204,7 @@ for (const width of WIDTHS) {
     await page.goto('/groups')
     await page.locator('main input[aria-label$=" 1"]').check()
     await page.getByRole('button', { name: 'Новый список из отмеченных' }).click()
-    await page.getByLabel('Название списка').fill(`Проверка ${width}`)
+    await page.getByLabel('Название списка').fill(uniqueName(`Проверка ${width}`))
     await page.getByRole('button', { name: 'Создать список' }).click()
     await page.getByRole('button', { name: 'Действия со списком' }).click()
     await page.getByRole('menuitem', { name: 'Удалить список' }).click()
@@ -257,7 +258,8 @@ test('состав списка меняется в одном месте и о�
     const { context, page } = await open(browser, width)
     await page.goto('/groups')
     await page.getByRole('button', { name: 'Новый список' }).click()
-    await page.getByLabel('Название списка').fill(`Три ${width}`)
+    const listName = uniqueName(`Три ${width}`)
+    await page.getByLabel('Название списка').fill(listName)
     const search = page.getByPlaceholder('Поиск по названию группы')
     for (const n of [1, 2, 3]) {
       await search.fill(groupName(n))
@@ -266,7 +268,7 @@ test('состав списка меняется в одном месте и о�
     await search.fill('')
     await expect(page.getByText('В списке 3 группы')).toBeVisible()
     await page.getByRole('button', { name: 'Создать список' }).click()
-    const chip = page.getByRole('radio', { name: new RegExp(`^Три ${width}`) })
+    const chip = page.getByRole('radio', { name: new RegExp(`^${listName}`) })
     await expect(chip).toHaveAttribute('aria-checked', 'true')
     await expect(chip).toContainText('3')
 

@@ -39,11 +39,11 @@ export function PlatformTenantsPage() {
           </Button>
         </div>
         {withoutProxy > 0 && (
-          <p className="rounded-xl bg-warn-bg px-4 py-2.5 text-sm font-medium text-warn-text">
+          <p className="rounded-xl bg-warn-bg px-4 py-2 text-sm font-medium text-warn-text">
             Без прокси: {withoutProxy} — номера этих кабинетов не подключатся, пока прокси не задан.
           </p>
         )}
-        <div className="grid gap-2 lg:grid-cols-2">
+        <div className="grid gap-2 xl:grid-cols-2">
           <Segmented
             stretch
             value={filter}
@@ -62,7 +62,7 @@ export function PlatformTenantsPage() {
       ) : error ? (
         <EmptyState>{error.message}</EmptyState>
       ) : isPending ? (
-        <p className="text-muted">Загрузка…</p>
+        <p className="text-sm text-muted">Загрузка…</p>
       ) : shown.length ? (
         <TenantTable tenants={shown} />
       ) : (

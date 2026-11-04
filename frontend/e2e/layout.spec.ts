@@ -2,6 +2,7 @@ import { expect, test, type Browser, type Locator, type Page } from '@playwright
 import { CAMPAIGN_ID } from './support/campaign-card'
 import { EDGE_TOLERANCE_PX, expectLayout, pointerIsCoarse, type CheckName } from './support/layout'
 import { LONG_LIST, mockLayoutData, SHORT_LIST } from './support/layout-data'
+import { mockPlatform } from './support/platform'
 import { login, newPage, pointerFor, type Pointer, type Scheme } from './support/session'
 
 const WIDTHS = [360, 390, 768, 1024, 1440]
@@ -9,6 +10,7 @@ const TOUCH_TABLET = 1024
 const DARK_WIDTHS = [390, 1440]
 const CLICK_TIMEOUT = 5_000
 const SHOTS = 'e2e-results/layout'
+const PLATFORM_TENANT = 2
 
 test.describe.configure({ mode: 'parallel' })
 
@@ -155,6 +157,44 @@ const flows: Record<string, (page: Page, check: (scene: string) => Promise<void>
     await page.getByRole('button', { name: 'Новый список' }).click()
     await expect(page.getByLabel('Название списка')).toBeVisible()
     await check('groups-new-list')
+  },
+
+  async platform(page, check) {
+    await mockPlatform(page)
+    await page.goto('/groups')
+    const switcher = page.getByRole('button', { name: 'Кабинет: Кабинет 1. Сменить кабинет' })
+    await expect(switcher).toBeVisible()
+    await check('platform-shell')
+    await switcher.click()
+    const cabinets = page.getByRole('dialog', { name: 'Кабинеты' })
+    await expect(cabinets.getByRole('button', { name: /Логистик Плюс/ })).toBeVisible()
+    await check('platform-switcher')
+    await closeWith(page, cabinets)
+
+    await page.goto('/platform')
+    await expect(page.locator('main').getByText('Логистик Плюс').locator('visible=true')).toBeVisible()
+    await check('platform-tenants')
+    await page.getByRole('button', { name: 'Создать кабинет' }).click()
+    const create = page.getByRole('dialog', { name: 'Новый кабинет' })
+    await create.getByRole('button', { name: 'Создать кабинет' }).click()
+    await expect(create).toContainText('Введите название')
+    await check('platform-create')
+    await closeWith(page, create)
+
+    await page.goto(`/platform/tenants/${PLATFORM_TENANT}`)
+    const sheet = page.getByRole('dialog', { name: 'Логистик Плюс' })
+    await expect(sheet.getByRole('button', { name: 'Действия: logist' })).toBeVisible()
+    await check('platform-tenant')
+    await sheet.getByRole('button', { name: 'Удалить', exact: true }).click()
+    const remove = page.getByRole('dialog', { name: 'Удалить «Логистик Плюс»?' })
+    await expect(remove).toBeVisible()
+    await check('platform-delete')
+    await closeWith(page, remove)
+    await closeWith(page, sheet)
+
+    await page.goto('/platform/audit')
+    await expect(page.getByText('Неудачный вход', { exact: true }).locator('visible=true')).toBeVisible()
+    await check('platform-audit')
   },
 
   async connection(page, check) {

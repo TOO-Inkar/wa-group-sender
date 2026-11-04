@@ -10,16 +10,16 @@ export function LoginPage() {
   if (me?.authenticated) return <Navigate to={homePath(me, window.location.hostname)} replace />
   return (
     <div className="grid min-h-full place-items-center bg-bg p-4">
-      <div className="grid w-full max-w-[380px] gap-5">
+      <div className="grid w-full max-w-[360px] gap-4">
         <div className="flex items-center gap-3">
-          <Logo className="size-10" />
+          <Logo className="size-9" />
           <div className="leading-tight">
             <div className="font-semibold">wa-group-sender</div>
-            <div className="text-[13px] text-muted">Рассылка заявок в группы WhatsApp</div>
+            <div className="text-caption text-muted">Рассылка заявок в группы WhatsApp</div>
           </div>
         </div>
-        <Card className="grid gap-5 p-7">
-          <h1 className="text-2xl font-semibold">Вход</h1>
+        <Card className="grid gap-4 p-6">
+          <h1 className="text-xl font-semibold">Вход</h1>
           <LoginForm />
         </Card>
       </div>

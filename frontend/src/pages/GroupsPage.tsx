@@ -9,6 +9,7 @@ import { matches, matchesGroupFilter, sortGroups, type GroupFilter } from '@/fea
 import { formatTime, groupsCount } from '@/shared/lib/format'
 import { ActionBar } from '@/shared/ui/action-bar'
 import { Button } from '@/shared/ui/button'
+import { Card } from '@/shared/ui/card'
 import { Chips } from '@/shared/ui/chips'
 import { useConfirm } from '@/shared/ui/confirm-context'
 import { RowMenu } from '@/shared/ui/menu'
@@ -91,7 +92,7 @@ export function GroupsPage() {
               })
             }
           >
-            <RefreshCw size={14} className={sync.isPending ? 'animate-spin' : ''} /> {sync.isPending ? 'Обновляем…' : 'Обновить'}
+            <RefreshCw size={16} className={sync.isPending ? 'animate-spin' : ''} /> {sync.isPending ? 'Обновляем…' : 'Обновить'}
           </Button>
         </div>
         <Chips
@@ -101,25 +102,26 @@ export function GroupsPage() {
           options={[{ value: ALL, label: 'Все группы', count: groups.length }, ...lists.map((l) => ({ value: String(l.id), label: l.name, count: l.groups.length }))]}
           after={
             <Button variant="link" size="inline" className="shrink-0 px-2" onClick={() => setComposing({ groups: [] })}>
-              <Plus size={15} /> Новый список
+              <Plus size={16} /> Новый список
             </Button>
           }
         />
         {list && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2">
-            <span className="mr-auto min-w-0 truncate font-semibold">
+          <Card className="flex flex-wrap items-center gap-2 px-3 py-2">
+            <span className="min-w-0 basis-full truncate font-semibold sm:mr-auto sm:basis-auto">
               {list.name} <span className="font-normal text-muted">· {groupsCount(list.groups.length)}</span>
             </span>
-            <Button variant="primary" onClick={() => navigate('/campaigns/new', { state: { target: 'list', listId: String(list.id) } })}>
-              <Send size={15} /> Заявка в список
+            <Button variant="primary" className="flex-1 sm:flex-none" onClick={() => navigate('/campaigns/new', { state: { target: 'list', listId: String(list.id) } })}>
+              <Send size={16} /> Заявка в список
             </Button>
-            <Button onClick={() => setComposing({ listId: list.id, groups: list.groups })}>
-              <Pencil size={15} /> Изменить состав
+            <Button title="Изменить состав" onClick={() => setComposing({ listId: list.id, groups: list.groups })}>
+              <Pencil size={16} />
+              <span className="max-sm:sr-only">Изменить состав</span>
             </Button>
             <RowMenu bordered label="Действия со списком" items={[{ label: 'Удалить список', icon: <Trash2 size={15} />, danger: true, onSelect: removeList }]} />
-          </div>
+          </Card>
         )}
-        <div className="grid gap-2 lg:grid-cols-2">
+        <div className="grid gap-2 xl:grid-cols-2">
           <Segmented
             stretch
             value={filter}
@@ -135,20 +137,20 @@ export function GroupsPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface">
+      <Card className="overflow-hidden p-0">
         <div className="border-b border-border">
           <GroupSelectAll groups={shown} selected={selected} onToggle={toggle} />
         </div>
         <GroupRows groups={shown} selected={selected} onToggle={toggle} onReset={resetGroup} empty={groups.length ? 'Ничего не найдено' : 'Групп пока нет — подключите номер и нажмите «Обновить».'} />
-      </div>
+      </Card>
 
       {selected.size > 0 && (
         <ActionBar title={`Отмечено ${groupsCount(selected.size)}`}>
           <Button size="sm" variant="primary" onClick={() => navigate('/campaigns/new', { state: { target: 'pick', groups: [...selected] } })}>
-            Заявка в отмеченные
+            Заявка<span className="max-sm:sr-only"> в отмеченные</span>
           </Button>
           <Button size="sm" onClick={() => setComposing({ groups: [...selected] })}>
-            Новый список из отмеченных
+            Новый список<span className="max-sm:sr-only"> из отмеченных</span>
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
             Сбросить
