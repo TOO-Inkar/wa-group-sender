@@ -12,7 +12,7 @@ import { Dot } from '@/shared/ui/badge'
 import { Dialog } from '@/shared/ui/dialog'
 import { EmptyState } from '@/shared/ui/empty-state'
 import { SearchInput } from '@/shared/ui/search-input'
-import { buttonVariants, FOCUS_RING } from '@/shared/ui/styles'
+import { buttonVariants, FOCUS_RING, TRANSITION } from '@/shared/ui/styles'
 
 const FALLBACK = 'wa-group-sender'
 
@@ -23,17 +23,17 @@ function TenantOption({ t, current, onPick, busy }: { t: TenantOverview; current
       disabled={isBlocked(t) || busy}
       onClick={onPick}
       aria-current={current || undefined}
-      className={cn('flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:enabled:bg-surface-2 disabled:cursor-default disabled:opacity-60', FOCUS_RING, current && 'bg-surface-2')}
+      className={cn('flex min-h-control w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left text-sm hover:enabled:bg-surface-2 disabled:cursor-default disabled:opacity-60', TRANSITION, FOCUS_RING, current && 'bg-surface-2')}
     >
       <Dot tone={isBlocked(t) ? 'neutral' : sessionTone(t.session)} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium">{t.name}</span>
-        <span className="block truncate text-[13px] text-muted tabular-nums">
-          №{t.id}
+      <span className="min-w-0 flex-1 truncate">
+        <span className="font-medium">{t.name}</span>
+        <span className="text-caption text-muted tabular-nums">
+          {' · '}№{t.id}
           {t.account && ` · ${t.account}`}
         </span>
       </span>
-      <span className="flex shrink-0 flex-wrap justify-end gap-1">
+      <span className="flex shrink-0 gap-1">
         <TenantBadges t={t} quiet />
       </span>
       {current && <Check size={16} className="shrink-0 text-accent" aria-label="текущий" />}
@@ -61,7 +61,7 @@ export function CabinetSwitcher() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Кабинет: ${name}. Сменить кабинет`}
-        className={cn('-mx-1 flex max-w-full cursor-pointer items-center gap-1 rounded-md px-1 text-left hover:bg-surface-2', FOCUS_RING)}
+        className={cn('-mx-2 flex min-h-control-sm max-w-[calc(100%+1rem)] cursor-pointer items-center gap-1.5 rounded-md px-2 text-left hover:bg-surface-2', TRANSITION, FOCUS_RING)}
       >
         <span className="truncate">{name}</span>
         <ChevronsUpDown size={14} className="shrink-0 text-muted" />

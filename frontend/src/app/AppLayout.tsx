@@ -1,6 +1,6 @@
 import { ClipboardList, Settings, ShieldCheck, Smartphone, Users } from 'lucide-react'
 import { Link } from 'react-router'
-import { type NavItem, Shell } from './Shell'
+import { type NavItem, Shell, SIDE_ITEM } from './Shell'
 import { useMe } from '@/features/auth/api'
 import { isSuperadmin, PLATFORM_PATH } from '@/features/auth/model'
 import { useHealth } from '@/features/health/api'
@@ -33,7 +33,7 @@ export function AppLayout() {
       banner={<StatusBanner />}
       footer={
         isSuperadmin(me) && (
-          <Link to={PLATFORM_PATH} className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-text">
+          <Link to={PLATFORM_PATH} className={SIDE_ITEM}>
             <ShieldCheck size={16} /> Админка
           </Link>
         )

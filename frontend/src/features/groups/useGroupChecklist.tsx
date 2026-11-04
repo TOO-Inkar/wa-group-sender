@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useGroups } from './api'
 import { GroupRows, GroupSelectAll } from './GroupList'
 import { matches, sortGroups } from './model'
+import { cn } from '@/shared/lib/cn'
 import { Checkbox } from '@/shared/ui/input'
 import { SearchInput } from '@/shared/ui/search-input'
+
+const INSET = '-mx-4 [--row-x:1rem] sm:-mx-6 sm:[--row-x:1.5rem]'
 
 export function useGroupChecklist(value: string[], onChange: (jids: string[]) => void): { toolbar: ReactNode; rows: ReactNode } {
   const { data: groups = [] } = useGroups()
@@ -29,13 +32,13 @@ export function useGroupChecklist(value: string[], onChange: (jids: string[]) =>
       <>
         <SearchInput value={query} onChange={setQuery} placeholder="Поиск по названию группы" />
         <Checkbox label="только группы из рассылки (в архиве)" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
-        <div className="-mx-3">
+        <div className={INSET}>
           <GroupSelectAll groups={shown} selected={selected} onToggle={toggle} />
         </div>
       </>
     ),
     rows: (
-      <div className="-mx-4 -my-3 sm:-mx-5">
+      <div className={cn(INSET, '-my-4 sm:-mb-6')}>
         <GroupRows groups={shown} selected={selected} onToggle={toggle} empty="Ничего не найдено" />
       </div>
     ),

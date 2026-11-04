@@ -15,7 +15,7 @@ export function PlatformLayout() {
     <Shell
       items={ITEMS}
       title="Админка"
-      status={<span className="block truncate text-[13px] leading-snug text-muted">{me?.username ?? 'суперадмин'}</span>}
+      status={<span className="block truncate text-caption text-muted">{me?.username ?? 'суперадмин'}</span>}
     />
   )
 }

@@ -3,7 +3,10 @@ import { useEffect } from 'react'
 import { Link } from 'react-router'
 import { useHealth } from '@/features/health/api'
 import { SESSION_TEXT } from '@/features/health/texts'
+import { cn } from '@/shared/lib/cn'
+import { Badge } from '@/shared/ui/badge'
 import { Card } from '@/shared/ui/card'
+import { buttonVariants } from '@/shared/ui/styles'
 
 export function ConnectionPanel() {
   const { data: health } = useHealth()
@@ -22,10 +25,16 @@ export function ConnectionPanel() {
   }, [qr.data])
 
   return (
-    <Card className="grid items-start gap-6 p-5 md:grid-cols-[auto_minmax(0,1fr)]">
-      <div className={`grid max-w-full place-items-center rounded-xl border border-border p-3.5 text-center ${connected ? 'w-full bg-ok-bg py-6 font-semibold text-ok-text md:size-[300px]' : 'size-[300px] bg-white text-[#64707f]'}`}>
-        {connected ? 'Номер привязан' : qr.data ? <img alt="QR для привязки" src={qr.data} className="size-full [image-rendering:pixelated]" /> : health?.session === 'BANNED' ? 'Номер заблокирован' : 'Ждём QR от WhatsApp…'}
-      </div>
+    <Card className={cn('grid items-start gap-4', !connected && 'md:grid-cols-[auto_minmax(0,1fr)] md:gap-6')}>
+      {connected ? (
+        <span className="justify-self-start">
+          <Badge tone="ok">Номер привязан</Badge>
+        </span>
+      ) : (
+        <div className="grid size-[300px] max-w-full place-items-center rounded-lg border border-border bg-white p-3 text-center text-[#5c6670]">
+          {qr.data ? <img alt="QR для привязки" src={qr.data} className="size-full [image-rendering:pixelated]" /> : health?.session === 'BANNED' ? 'Номер заблокирован' : 'Ждём QR от WhatsApp…'}
+        </div>
+      )}
       <div className="grid gap-3 text-sm">
         {connected ? (
           <>
@@ -33,7 +42,7 @@ export function ConnectionPanel() {
               WhatsApp подключён. Групп в рассылке: <b>{health.activeGroups}</b>.
             </p>
             <p className="text-muted">Если на телефоне поменялся состав «Архива», обновите список групп.</p>
-            <Link to="/groups" className="justify-self-start rounded-lg border border-border px-3.5 py-2 font-medium hover:bg-surface-2">
+            <Link to="/groups" className={buttonVariants({ className: 'justify-self-start' })}>
               Открыть группы
             </Link>
           </>
