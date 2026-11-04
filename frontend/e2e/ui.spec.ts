@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
+import { expectControlHeight } from './support/controls'
 
 const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pass'
 const WIDTHS = [360, 390, 768, 1024, 1440]
@@ -172,7 +173,7 @@ for (const width of WIDTHS) {
     const groups = await style()
     expect(await pageOverflow(page)).toBeLessThanOrEqual(0)
     expect(groups).toEqual(campaigns)
-    expect(campaigns.height).toBeGreaterThanOrEqual(40)
+    await expectControlHeight(page, campaigns.height, 'таб')
     await page.screenshot({ path: `e2e-results/ui/${width}-groups.png` })
     await context.close()
   })

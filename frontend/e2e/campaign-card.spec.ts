@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expectControlHeight } from './support/controls'
 import { DELIVERIES, FIRST_PAGE, MESSAGE, openCard, sentAt, TARGETS, type CardState } from './support/campaign-card'
 
 const WIDTHS = [360, 390, 768, 1024, 1440]
@@ -75,7 +76,7 @@ for (const width of WIDTHS) {
     if (width >= WIDE) expect(sameLine).toBe(true)
 
     for (const button of await page.getByRole('dialog').getByRole('button', { name: /Изменить|Отправить сейчас|Удалить|Excel|PDF|Повторить ошибки/ }).all())
-      expect((await box(button)).height).toBeGreaterThanOrEqual(40)
+      await expectControlHeight(page, (await box(button)).height, await button.innerText())
 
     const tiles = await b.tiles.getByRole('button').all()
     const heights = new Set(await Promise.all(tiles.map(async (t) => Math.round((await box(t)).height))))
@@ -85,7 +86,7 @@ for (const width of WIDTHS) {
     expect(columns).toBe(width >= 1024 ? 5 : width >= 640 ? 3 : 2)
 
     const search = await box(b.search)
-    expect(search.height).toBeGreaterThanOrEqual(44)
+    await expectControlHeight(page, search.height, 'поиск')
     const list = b.results
     expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
     for (const row of (await list.getByRole('listitem').all()).slice(0, 12)) {

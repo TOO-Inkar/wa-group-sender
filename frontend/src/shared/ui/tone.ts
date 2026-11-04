@@ -9,9 +9,9 @@ export const toneSurface: Record<Tone, string> = {
 }
 
 export const toneDot: Record<Tone, string> = {
-  neutral: 'bg-neutral-bg',
-  ok: 'bg-accent',
-  warn: 'bg-[#e0a030]',
-  bad: 'bg-danger',
+  neutral: 'bg-muted',
+  ok: 'bg-ok-text',
+  warn: 'bg-warn-text',
+  bad: 'bg-bad-text',
   info: 'bg-info-text',
 }
