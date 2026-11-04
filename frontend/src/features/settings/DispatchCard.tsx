@@ -5,12 +5,12 @@ import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { useDispatchControl, useSaveSettings, useSettings } from './api'
+import { SettingsCard } from './SettingsCard'
 import { dispatchControl, groupPaceText, limitsText, windowText, type DispatchControl } from './model'
 import { useHealth } from '@/features/health/api'
 import type { Settings } from '@/shared/api/types'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardTitle } from '@/shared/ui/card'
 import { useConfirm } from '@/shared/ui/confirm-context'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Checkbox, Field, Input } from '@/shared/ui/input'
@@ -71,7 +71,7 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
         </DialogActions>
       }
     >
-      <form id={WINDOW_FORM} onSubmit={submit} noValidate className="grid gap-3.5">
+      <form id={WINDOW_FORM} onSubmit={submit} noValidate className="grid gap-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="С" error={e.windowStart?.message}>
             <Controller control={form.control} name="windowStart" render={({ field }) => <TimeSelect label="С" invalid={!!e.windowStart} value={field.value} onChange={field.onChange} />} />
@@ -90,15 +90,15 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
           </Field>
         </div>
         <Checkbox label="Прогрев нового номера" {...form.register('warmupEnabled')} />
-        <div className="grid gap-2 rounded-lg border border-border p-3">
+        <div className="grid gap-2 border-t border-border pt-4">
           <span className="text-sm font-medium">Каждая группа отдельно</span>
           <Field label="Не чаще раза в, мин" hint="0 — без ограничения" error={e.groupIntervalMinutes?.message}>
             <Input type="number" min={0} {...form.register('groupIntervalMinutes')} />
           </Field>
           <Checkbox label="Только если после нашего сообщения в группе кто-то написал" {...form.register('waitForReply')} />
         </div>
-        <details className="grid gap-3">
-          <summary className="cursor-pointer text-sm text-muted">Паузы — меняйте осторожно</summary>
+        <details className="grid gap-3 border-t border-border pt-4">
+          <summary className="cursor-pointer text-sm text-muted hover:text-text">Паузы — меняйте осторожно</summary>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Field label="Между группами, от, с" error={e.groupPauseMinSeconds?.message}>
               <Input type="number" min={0} step={PAUSE_STEP} inputMode="decimal" {...form.register('groupPauseMinSeconds')} />
@@ -137,34 +137,37 @@ export function DispatchCard() {
   }
 
   return (
-    <Card className="grid content-start gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <CardTitle className="mb-0">Рассылка</CardTitle>
-        {state && <Badge tone={state.tone}>{state.badge}</Badge>}
-      </div>
+    <SettingsCard
+      title="Рассылка"
+      aside={state && <Badge tone={state.tone}>{state.badge}</Badge>}
+      actions={
+        <>
+          {state && (
+            <Button variant={state.action === 'resume' ? 'primary' : 'secondary'} disabled={control.isPending} onClick={() => apply(state)}>
+              {state.action === 'pause' ? <Pause className="size-4" /> : <Play className="size-4" />}
+              {state.label}
+            </Button>
+          )}
+          {settings && (
+            <Button variant="ghost" onClick={() => setOpen(true)}>
+              Изменить окно и лимиты
+            </Button>
+          )}
+        </>
+      }
+    >
       {state?.hint && <p className="text-sm text-muted">{state.hint}</p>}
-      {state && (
-        <Button className="justify-self-start" variant={state.action === 'resume' ? 'primary' : 'secondary'} disabled={control.isPending} onClick={() => apply(state)}>
-          {state.action === 'pause' ? <Pause className="size-4" /> : <Play className="size-4" />}
-          {state.label}
-        </Button>
-      )}
       {settings && (
-        <div className="grid gap-2 border-t border-border pt-3">
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
-            <dt className="text-muted">Рабочее окно</dt>
-            <dd className="text-right font-semibold">{windowText(settings)}</dd>
-            <dt className="text-muted">Лимиты</dt>
-            <dd className="text-right font-semibold">{limitsText(settings)}</dd>
-            <dt className="text-muted">В группу</dt>
-            <dd className="text-right font-semibold">{groupPaceText(settings)}</dd>
-          </dl>
-          <Button variant="link" size="inline" className="justify-self-start" onClick={() => setOpen(true)}>
-            Изменить окно и лимиты
-          </Button>
-        </div>
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
+          <dt className="text-muted">Рабочее окно</dt>
+          <dd className="text-right font-medium tabular-nums">{windowText(settings)}</dd>
+          <dt className="text-muted">Лимиты</dt>
+          <dd className="text-right font-medium tabular-nums">{limitsText(settings)}</dd>
+          <dt className="text-muted">В группу</dt>
+          <dd className="text-right font-medium tabular-nums">{groupPaceText(settings)}</dd>
+        </dl>
       )}
       {settings && <WindowDialog settings={settings} open={open} onOpenChange={setOpen} />}
-    </Card>
+    </SettingsCard>
   )
 }
