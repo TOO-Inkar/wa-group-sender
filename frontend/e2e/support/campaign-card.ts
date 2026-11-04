@@ -4,6 +4,7 @@ export const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pass'
 export const CAMPAIGN_ID = '777'
 export const TARGETS = 255
 export const DELIVERIES = 259
+export const FIRST_PAGE = 100
 
 const NAMES = [
   '🚛 Грузоперевозки Казахстан Россия Узбекистан Кыргызстан Китай 24/7',

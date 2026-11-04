@@ -17,6 +17,8 @@ import { Checkbox, Field, Input } from '@/shared/ui/input'
 import { TimeSelect } from '@/shared/ui/time-select'
 
 const n = z.coerce.number().int().min(0, 'Не меньше 0')
+const PAUSE_STEP = 0.1
+const seconds = z.coerce.number().min(0, 'Не меньше 0')
 const schema = z
   .object({
     windowStart: z.string().regex(/^\d{2}:\d{2}$/, 'Время'),
@@ -25,8 +27,8 @@ const schema = z
     hourlyLimit: n,
     dailyLimit: n,
     warmupEnabled: z.boolean(),
-    groupPauseMinSeconds: n,
-    groupPauseMaxSeconds: n,
+    groupPauseMinSeconds: seconds,
+    groupPauseMaxSeconds: seconds,
     waveSize: z.coerce.number().int().min(1, 'От 1'),
     wavePauseMinMinutes: n,
     wavePauseMaxMinutes: n,
@@ -99,10 +101,10 @@ function WindowDialog({ settings, open, onOpenChange }: { settings: Settings; op
           <summary className="cursor-pointer text-sm text-muted">Паузы — меняйте осторожно</summary>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <Field label="Между группами, от, с" error={e.groupPauseMinSeconds?.message}>
-              <Input type="number" min={0} {...form.register('groupPauseMinSeconds')} />
+              <Input type="number" min={0} step={PAUSE_STEP} inputMode="decimal" {...form.register('groupPauseMinSeconds')} />
             </Field>
             <Field label="до, с" error={e.groupPauseMaxSeconds?.message}>
-              <Input type="number" min={0} {...form.register('groupPauseMaxSeconds')} />
+              <Input type="number" min={0} step={PAUSE_STEP} inputMode="decimal" {...form.register('groupPauseMaxSeconds')} />
             </Field>
             <Field label="Волна, групп" error={e.waveSize?.message}>
               <Input type="number" min={1} {...form.register('waveSize')} />

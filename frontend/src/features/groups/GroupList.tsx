@@ -4,6 +4,7 @@ import { sendable } from './model'
 import type { Group } from '@/shared/api/types'
 import { EmptyState } from '@/shared/ui/empty-state'
 import { CheckboxInput } from '@/shared/ui/input'
+import { Paged } from '@/shared/ui/paged'
 
 type Toggle = (jids: string[], on: boolean) => void
 
@@ -44,17 +45,21 @@ export function GroupRows({
 }) {
   if (!groups.length) return <EmptyState inset>{empty}</EmptyState>
   return (
-    <div className="divide-y divide-border">
-      {groups.map((g) => (
-        <GroupRow
-          key={g.jid}
-          group={g}
-          checked={selected.has(g.jid)}
-          disabled={!sendable(g) && !selected.has(g.jid)}
-          onChange={(on) => onToggle([g.jid], on)}
-          onReset={onReset}
-        />
-      ))}
-    </div>
+    <Paged items={groups}>
+      {(visible) => (
+        <div className="divide-y divide-border">
+          {visible.map((g) => (
+            <GroupRow
+              key={g.jid}
+              group={g}
+              checked={selected.has(g.jid)}
+              disabled={!sendable(g) && !selected.has(g.jid)}
+              onChange={(on) => onToggle([g.jid], on)}
+              onReset={onReset}
+            />
+          ))}
+        </div>
+      )}
+    </Paged>
   )
 }

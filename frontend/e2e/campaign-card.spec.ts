@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DELIVERIES, MESSAGE, openCard, sentAt, TARGETS, type CardState } from './support/campaign-card'
+import { DELIVERIES, FIRST_PAGE, MESSAGE, openCard, sentAt, TARGETS, type CardState } from './support/campaign-card'
 
 const WIDTHS = [360, 390, 768, 1024, 1440]
 const STATES: CardState[] = ['sending', 'scheduled', 'done', 'disabled', 'failed']
@@ -63,7 +63,7 @@ for (const width of WIDTHS) {
   test(`карточка заявки: блоки не налезают · ${width}`, async ({ browser }) => {
     const page = await openCard(browser, width)
     const b = blocks(page)
-    await expect(b.results.getByRole('listitem')).toHaveCount(DELIVERIES)
+    await expect(b.results.getByRole('listitem')).toHaveCount(FIRST_PAGE)
     await expectNoOverlaps(page)
     await expectPreviewReadable(page)
 
@@ -134,7 +134,7 @@ for (const state of STATES) {
   for (const width of [390, 1440]) {
     test(`карточка «${state}» выглядит одинаково · ${width}`, async ({ browser }) => {
       const page = await openCard(browser, width, state)
-      await expect(blocks(page).results.getByRole('listitem')).toHaveCount(DELIVERIES)
+      await expect(blocks(page).results.getByRole('listitem')).toHaveCount(FIRST_PAGE)
       await expectNoOverlaps(page)
       await page.screenshot({ path: `e2e-results/card/state-${state}-${width}.png` })
       await page.context().close()
@@ -157,7 +157,9 @@ test('у каждой отправленной группы видно врем�
   for (const width of [360, 1440]) {
     const page = await openCard(browser, width, 'sending')
     const rows = blocks(page).results.getByRole('listitem')
-    await expect(rows).toHaveCount(DELIVERIES)
+    await expect(rows).toHaveCount(FIRST_PAGE)
+    await page.getByRole('button', { name: `Показать ещё ${FIRST_PAGE} из ${DELIVERIES - FIRST_PAGE}` }).click()
+    await expect(rows).toHaveCount(2 * FIRST_PAGE)
     const first = rows.nth(0)
     await expect(first.locator('time')).toHaveText('отправлено 29.10, 14:00')
     await expect(first.locator('time')).toHaveAttribute('datetime', sentAt(0))
