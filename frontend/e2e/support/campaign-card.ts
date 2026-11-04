@@ -1,6 +1,7 @@
 import { expect, type Browser, type Page } from '@playwright/test'
+import { login, newPage } from './session'
 
-export const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pass'
+export { PASSWORD } from './session'
 export const CAMPAIGN_ID = '777'
 export const TARGETS = 255
 export const DELIVERIES = 259
@@ -79,17 +80,15 @@ export function campaign(state: CardState) {
   }
 }
 
-export async function openCard(browser: Browser, width: number, state: CardState = 'done', height = 900): Promise<Page> {
-  const phone = width < 768
-  const context = await browser.newContext({ viewport: { width, height }, isMobile: phone, hasTouch: phone, locale: 'ru-RU', timezoneId: 'Asia/Almaty' })
-  const page = await context.newPage()
+export async function mockCard(page: Page, state: CardState = 'done') {
   await page.route(`**/api/admin/campaigns/${CAMPAIGN_ID}`, (route) => route.fulfill({ json: campaign(state) }))
   await page.route('**/api/admin/requests/*/deliveries', (route) => route.fulfill({ json: deliveries(state) }))
-  await page.goto('/login')
-  await page.getByLabel('Логин').fill('admin')
-  await page.getByLabel('Пароль', { exact: true }).fill(PASSWORD)
-  await page.getByRole('button', { name: 'Войти' }).click()
-  await expect(page).toHaveURL(/\/campaigns$/)
+}
+
+export async function openCard(browser: Browser, width: number, state: CardState = 'done', height = 900): Promise<Page> {
+  const page = await newPage(browser, width, { height })
+  await mockCard(page, state)
+  await login(page)
   await page.goto(`/campaigns/${CAMPAIGN_ID}`)
   await expect(page.getByRole('dialog')).toBeVisible()
   return page
