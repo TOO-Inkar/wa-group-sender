@@ -5,6 +5,8 @@ const WIDTHS = [360, 390, 768, 1024, 1440]
 const GROUPS = 284
 const NAMES = ['🚛 Грузоперевозки Казахстан Россия Узбекистан Кыргызстан Китай 24/7', '🌐💤🌐Azərbaycan yük qrupu🇦🇿🇹🇷🇷🇺🇧🇾🌐💤🌐', 'Логистика СНГ | Фуры | Тенты | Рефы | Попутные грузы', 'ГРУЗЫ КНР']
 const MAX_MENU_HEIGHT = 300
+const FIRST_PAGE = 100
+const groupName = (n: number) => `${NAMES[(n - 1) % NAMES.length]} ${n}`
 
 test.describe.configure({ mode: 'parallel' })
 
@@ -69,7 +71,7 @@ for (const width of WIDTHS) {
     await page.goto('/campaigns/new')
     await page.getByRole('radio', { name: 'Выбрать' }).click()
     const dialog = page.getByRole('dialog', { name: 'Выберите группы' })
-    await expect(dialog.getByRole('checkbox', { name: new RegExp(` ${GROUPS}$`) })).toBeAttached()
+    await expect(dialog.getByRole('button', { name: `Показать ещё ${FIRST_PAGE} из ${GROUPS - FIRST_PAGE}` })).toBeAttached()
     const body = dialog.locator('[data-dialog-body]')
     const search = dialog.getByRole('searchbox')
     const done = dialog.getByRole('button', { name: 'Готово' })
@@ -254,7 +256,12 @@ test('состав списка меняется в одном месте и о�
     await page.goto('/groups')
     await page.getByRole('button', { name: 'Новый список' }).click()
     await page.getByLabel('Название списка').fill(`Три ${width}`)
-    for (const n of [1, 2, 3]) await page.locator(`main input[aria-label$=" ${n}"]`).check()
+    const search = page.getByPlaceholder('Поиск по названию группы')
+    for (const n of [1, 2, 3]) {
+      await search.fill(groupName(n))
+      await page.locator(`main input[aria-label$=" ${n}"]`).check()
+    }
+    await search.fill('')
     await expect(page.getByText('В списке 3 группы')).toBeVisible()
     await page.getByRole('button', { name: 'Создать список' }).click()
     const chip = page.getByRole('radio', { name: new RegExp(`^Три ${width}`) })
