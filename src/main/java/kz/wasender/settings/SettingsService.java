@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class SettingsService {
     private static final Logger log = LoggerFactory.getLogger(SettingsService.class);
+    private static final double MILLIS_PER_SECOND = 1000.0;
 
     public static final String DEFAULT_AUTOREPLY_TEXT = """
             Здравствуйте! Это автоматический номер для рассылки заявок на грузоперевозки — \
@@ -79,7 +80,7 @@ public class SettingsService {
         var w = warmup();
         var a = autoReply();
         return new View(d.windowStart().toString(), d.windowEnd().toString(), d.weekendsEnabled(), d.hourlyLimit(), w.dailyCap(),
-                w.enabled(), (int) d.groupPauseMin().toSeconds(), (int) d.groupPauseMax().toSeconds(), d.waveSize(),
+                w.enabled(), seconds(d.groupPauseMin()), seconds(d.groupPauseMax()), d.waveSize(),
                 (int) d.wavePauseMin().toMinutes(), (int) d.wavePauseMax().toMinutes(), (int) d.groupInterval().toMinutes(), d.waitForReply(),
                 a.enabled(), a.rejectCalls(), (int) a.cooldown().toHours(), a.text(), DEFAULT_AUTOREPLY_TEXT);
     }
@@ -92,8 +93,8 @@ public class SettingsService {
         if (changes.hourlyLimit() != null) values.put(Setting.HOURLY_LIMIT, nonNegative(changes.hourlyLimit(), "лимит в час"));
         if (changes.dailyLimit() != null) values.put(Setting.DAILY_LIMIT, nonNegative(changes.dailyLimit(), "лимит в день"));
         if (changes.warmupEnabled() != null) values.put(Setting.WARMUP_ENABLED, changes.warmupEnabled().toString());
-        if (changes.groupPauseMinSeconds() != null) values.put(Setting.GROUP_PAUSE_MIN, seconds(changes.groupPauseMinSeconds(), "пауза между группами"));
-        if (changes.groupPauseMaxSeconds() != null) values.put(Setting.GROUP_PAUSE_MAX, seconds(changes.groupPauseMaxSeconds(), "пауза между группами"));
+        if (changes.groupPauseMinSeconds() != null) values.put(Setting.GROUP_PAUSE_MIN, fractionalSeconds(changes.groupPauseMinSeconds(), "пауза между группами"));
+        if (changes.groupPauseMaxSeconds() != null) values.put(Setting.GROUP_PAUSE_MAX, fractionalSeconds(changes.groupPauseMaxSeconds(), "пауза между группами"));
         if (changes.waveSize() != null) {
             if (changes.waveSize() < 1) throw new InvalidSettingException("размер волны — от 1 группы");
             values.put(Setting.WAVE_SIZE, changes.waveSize().toString());
@@ -209,6 +210,15 @@ public class SettingsService {
         return Duration.ofSeconds(value).toString();
     }
 
+    private static String fractionalSeconds(double value, String what) {
+        if (value < 0) throw new InvalidSettingException(what + " не может быть меньше 0");
+        return Duration.ofMillis(Math.round(value * MILLIS_PER_SECOND)).toString();
+    }
+
+    private static double seconds(Duration duration) {
+        return duration.toMillis() / MILLIS_PER_SECOND;
+    }
+
     private static String minutes(int value, String what) {
         if (value < 0) throw new InvalidSettingException(what + " не может быть меньше 0");
         return Duration.ofMinutes(value).toString();
@@ -221,7 +231,7 @@ public class SettingsService {
     }
 
     public record View(String windowStart, String windowEnd, Boolean weekendsEnabled, Integer hourlyLimit, Integer dailyLimit,
-                       Boolean warmupEnabled, Integer groupPauseMinSeconds, Integer groupPauseMaxSeconds, Integer waveSize,
+                       Boolean warmupEnabled, Double groupPauseMinSeconds, Double groupPauseMaxSeconds, Integer waveSize,
                        Integer wavePauseMinMinutes, Integer wavePauseMaxMinutes, Integer groupIntervalMinutes, Boolean waitForReply,
                        Boolean autoReplyEnabled, Boolean autoReplyRejectCalls, Integer autoReplyCooldownHours, String autoReplyText,
                        String defaultAutoReplyText) {

@@ -1614,12 +1614,12 @@
                         "type": "boolean"
                     },
                     "groupPauseMinSeconds": {
-                        "type": "integer",
-                        "format": "int32"
+                        "type": "number",
+                        "format": "double"
                     },
                     "groupPauseMaxSeconds": {
-                        "type": "integer",
-                        "format": "int32"
+                        "type": "number",
+                        "format": "double"
                     },
                     "waveSize": {
                         "type": "integer",

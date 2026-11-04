@@ -737,9 +737,9 @@ export interface components {
             /** Format: int32 */
             dailyLimit: number;
             warmupEnabled: boolean;
-            /** Format: int32 */
+            /** Format: double */
             groupPauseMinSeconds: number;
-            /** Format: int32 */
+            /** Format: double */
             groupPauseMaxSeconds: number;
             /** Format: int32 */
             waveSize: number;
