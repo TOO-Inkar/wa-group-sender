@@ -7,7 +7,6 @@ import { Button } from '@/shared/ui/button'
 import { Field, Input } from '@/shared/ui/input'
 
 const EMPTY: PasswordChange = { current: '', next: '', repeat: '' }
-const PASSWORD_FORM = 'password-form'
 
 export function PasswordCard() {
   const { data: me } = useMe()
@@ -40,20 +39,13 @@ export function PasswordCard() {
   }
 
   return (
-    <SettingsCard
-      title="Сменить пароль"
-      actions={
-        <Button type="submit" form={PASSWORD_FORM} variant="primary" className="w-full sm:w-auto" disabled={change.isPending}>
-          {change.isPending ? 'Сохраняем…' : 'Сменить пароль'}
-        </Button>
-      }
-    >
+    <SettingsCard title="Сменить пароль">
       {me?.username && (
         <CardNote>
           Логин: <b className="font-medium text-text">{me.username}</b>. Другие устройства выйдут из аккаунта.
         </CardNote>
       )}
-      <form id={PASSWORD_FORM} onSubmit={submit} noValidate className="grid w-full max-w-[420px] gap-3">
+      <form onSubmit={submit} noValidate className="grid w-full max-w-[420px] gap-3">
         <input type="text" autoComplete="username" value={me?.username ?? ''} readOnly hidden />
         <Field label="Текущий пароль" error={errors.current}>
           <Input type="password" autoComplete="current-password" {...field('current')} />
@@ -69,6 +61,9 @@ export function PasswordCard() {
             {failure}
           </p>
         )}
+        <Button type="submit" variant="primary" className="w-full justify-self-start sm:w-auto" disabled={change.isPending}>
+          {change.isPending ? 'Сохраняем…' : 'Сменить пароль'}
+        </Button>
       </form>
     </SettingsCard>
   )
