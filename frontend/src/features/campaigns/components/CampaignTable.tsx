@@ -13,12 +13,12 @@ function Progress({ c }: { c: Campaign }) {
   const p = run?.progress
   const waiting = waitingShort(run)
   if (!p?.total) {
-    if (waiting) return <span title={run?.waiting ?? undefined} className="text-[13px] text-warn-text">{waiting}</span>
-    return <span className="text-[13px] text-muted">{run && run.status !== 'QUEUED' ? 'не отправлялась' : 'не начата'}</span>
+    if (waiting) return <span title={run?.waiting ?? undefined} className="text-caption text-warn-text">{waiting}</span>
+    return <span className="text-caption text-muted">{run && run.status !== 'QUEUED' ? 'не отправлялась' : 'не начата'}</span>
   }
   return (
     <div className="grid gap-1">
-      <div className="flex items-baseline justify-between gap-2 text-[13px] tabular-nums">
+      <div className="flex items-baseline justify-between gap-2 text-caption tabular-nums">
         <span>
           <b>{p.sent}</b>
           <span className="text-muted">/{p.total}</span>
@@ -26,7 +26,7 @@ function Progress({ c }: { c: Campaign }) {
         {p.failed > 0 && <span className="text-bad-text">ошибок {p.failed}</span>}
       </div>
       <ProgressBar percent={percent(run)} />
-      {waiting && <span title={run?.waiting ?? undefined} className="truncate text-xs text-warn-text">{waiting}</span>}
+      {waiting && <span title={run?.waiting ?? undefined} className="truncate text-caption text-warn-text">{waiting}</span>}
     </div>
   )
 }
@@ -50,18 +50,17 @@ export function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
 
   return (
     <>
-      {/* Телефон и планшет: строка-карточка вместо таблицы на 720px. */}
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface lg:hidden">
         {campaigns.map((c) => {
           const state = STATE[campaignState(c)]
           return (
-            <li key={c.id} className="relative flex gap-2 py-3 pr-2 pl-4">
+            <li key={c.id} className="relative flex items-center gap-2 py-3 pr-2 pl-4 hover:bg-surface-2">
               <Link to={`/campaigns/${c.id}`} className="grid min-w-0 flex-1 gap-1.5 after:absolute after:inset-0">
                 <span className="line-clamp-2 font-semibold [overflow-wrap:anywhere]">
                   <span className="font-normal text-muted tabular-nums">№{c.id}</span> {c.title}
                 </span>
-                <span className="truncate text-[13px] text-muted">→ {whereText(c)}</span>
-                <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+                <span className="truncate text-caption text-muted">→ {whereText(c)}</span>
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption">
                   <Badge tone={state.tone}>{state.text}</Badge>
                   <span className="text-muted tabular-nums">
                     {scheduleShort(c)} · {when(c)}
@@ -71,7 +70,7 @@ export function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
                   <Progress c={c} />
                 </span>
               </Link>
-              <span className="relative z-10 self-start">
+              <span className="relative z-10 self-center">
                 <RowMenu items={actions(c, cmd)} />
               </span>
             </li>
@@ -82,7 +81,7 @@ export function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
       <div className="hidden overflow-x-auto rounded-xl border border-border bg-surface lg:block">
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-border text-xs text-muted">
+            <tr className="border-b border-border text-caption text-muted">
               <th className="w-32 px-3 py-2.5 font-medium">Статус</th>
               <th className="px-3 py-2.5 font-medium">Заявка</th>
               <th className="w-56 px-3 py-2.5 font-medium">Когда</th>
@@ -102,11 +101,11 @@ export function CampaignTable({ campaigns }: { campaigns: Campaign[] }) {
                     <div className="truncate font-semibold" title={c.title}>
                       <span className="font-normal text-muted tabular-nums">№{c.id}</span> {c.title}
                     </div>
-                    <div className="truncate text-[13px] text-muted">→ {whereText(c)}</div>
+                    <div className="truncate text-caption text-muted">→ {whereText(c)}</div>
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="truncate">{scheduleShort(c)}</div>
-                    <div className="text-[13px] text-muted tabular-nums">{when(c)}</div>
+                    <div className="text-caption text-muted tabular-nums">{when(c)}</div>
                   </td>
                   <td className="px-3 py-2.5">
                     <Progress c={c} />

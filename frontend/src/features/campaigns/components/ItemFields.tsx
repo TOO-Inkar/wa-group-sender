@@ -29,7 +29,7 @@ export function ItemFields() {
       {fields.map((item, index) => (
         <div key={item.id} className={cn('grid gap-2.5', fields.length > 1 && 'rounded-xl border border-border p-3')}>
           {fields.length > 1 && (
-            <div className="flex items-center justify-between text-[13px] font-semibold">
+            <div className="flex items-center justify-between text-caption font-semibold">
               Заявка {index + 1}
               <Button variant="ghost" size="icon" onClick={() => remove(index)} aria-label={`Убрать заявку ${index + 1}`}>
                 <X size={15} />
@@ -42,7 +42,7 @@ export function ItemFields() {
               const error = formState.errors.items?.[index]?.[name]?.message
               const props = { ...register(`items.${index}.${name}`), placeholder: meta.placeholder, 'data-nav': '', 'aria-invalid': !!error }
               return (
-                <label key={name} className={cn('grid gap-1', span && 'sm:col-span-2')}>
+                <label key={name} className={cn('grid content-start gap-1', span && 'sm:col-span-2')}>
                   <Label name={name} error={error} />
                   {meta.rows ? <Textarea rows={name === 'vehicles' ? 2 : 1} {...props} /> : <Input autoComplete="off" {...props} />}
                 </label>

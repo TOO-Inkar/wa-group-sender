@@ -113,6 +113,12 @@ const flows: Record<string, (page: Page, check: (scene: string) => Promise<void>
     await check('new-contact')
     await closeWith(page, contact)
 
+    await sheet.getByRole('button', { name: /Эмодзи/ }).click()
+    const emoji = page.getByRole('dialog').filter({ has: page.getByRole('radio', { name: 'Флаги' }) })
+    await expect(emoji).toBeVisible()
+    await check('new-emoji')
+    await closeWith(page, emoji)
+
     await sheet.getByRole('radio', { name: 'Выбрать' }).click()
     const picker = page.getByRole('dialog', { name: 'Выберите группы' })
     await expect(picker.getByRole('checkbox').first()).toBeVisible()

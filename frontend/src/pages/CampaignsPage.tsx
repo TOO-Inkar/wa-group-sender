@@ -32,7 +32,7 @@ export function CampaignsPage() {
             </Link>
           </span>
         </div>
-        <div className="grid gap-2 lg:grid-cols-2">
+        <div className="grid gap-2 xl:grid-cols-2">
           <Segmented
             stretch
             value={filter}
@@ -49,7 +49,7 @@ export function CampaignsPage() {
         </div>
       </div>
       {isPending ? (
-        <p className="text-muted">Загрузка…</p>
+        <p className="text-sm text-muted">Загрузка…</p>
       ) : shown.length ? (
         <CampaignTable campaigns={shown} />
       ) : (
