@@ -6,10 +6,10 @@ import { TelegramCard } from '@/features/telegram/TelegramCard'
 
 export function SettingsPage() {
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 gap-4">
       <h1 className="text-xl font-semibold">Настройки</h1>
       <StatsCards />
-      <div className="grid items-start gap-3 md:grid-cols-[repeat(auto-fit,minmax(300px,1fr))]">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <DispatchCard />
         <AutoReplyCard />
         <TelegramCard />
