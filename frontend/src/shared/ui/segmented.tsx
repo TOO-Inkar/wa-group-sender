@@ -1,5 +1,6 @@
 import { cn } from '@/shared/lib/cn'
-import { FOCUS_RING } from './styles'
+import { fitsPhoneRow, type SegmentOption } from './segmented-layout'
+import { FOCUS_RING, TRANSITION } from './styles'
 
 export function Segmented<T extends string>({
   value,
@@ -9,13 +10,21 @@ export function Segmented<T extends string>({
   stretch,
 }: {
   value: T
-  options: { value: T; label: string; count?: number }[]
+  options: SegmentOption<T>[]
   onChange: (value: T) => void
   className?: string
   stretch?: boolean
 }) {
   return (
-    <div role="radiogroup" className={cn('max-w-full flex-wrap gap-0.5 rounded-xl bg-surface-2 p-0.5', stretch ? 'flex w-full' : 'inline-flex', className)}>
+    <div
+      role="radiogroup"
+      className={cn(
+        'max-w-full gap-0.5 rounded-lg bg-surface-2 p-0.5',
+        !stretch && 'inline-flex overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        stretch && (fitsPhoneRow(options) ? 'flex w-full' : 'grid w-full grid-cols-2 lg:flex'),
+        className,
+      )}
+    >
       {options.map((option) => {
         const active = option.value === value
         return (
@@ -26,14 +35,15 @@ export function Segmented<T extends string>({
             aria-checked={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              'inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-sm whitespace-nowrap transition-colors',
+              'inline-flex h-control-sm cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 text-sm leading-none font-medium whitespace-nowrap',
+              TRANSITION,
               FOCUS_RING,
-              stretch && 'flex-auto',
-              active ? 'bg-surface font-semibold text-text shadow-sm ring-1 ring-border' : 'text-muted hover:text-text',
+              stretch ? 'flex-[1_0_0%] max-lg:odd:last:col-span-2' : 'shrink-0',
+              active ? 'bg-raised text-text shadow-sm' : 'text-muted hover:text-text',
             )}
           >
             {option.label}
-            {option.count !== undefined && <span className={cn('text-xs tabular-nums', active ? 'text-muted' : 'text-muted/70')}>{option.count}</span>}
+            {option.count !== undefined && <span className="text-xs leading-none text-muted tabular-nums">{option.count}</span>}
           </button>
         )
       })}

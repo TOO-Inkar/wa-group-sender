@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { useChangePassword, useMe } from './api'
 import { MIN_PASSWORD, passwordChangeErrors, type PasswordChange } from './model'
+import { CardNote, SettingsCard } from '@/features/settings/SettingsCard'
 import { Button } from '@/shared/ui/button'
-import { Card, CardTitle } from '@/shared/ui/card'
 import { Field, Input } from '@/shared/ui/input'
 
 const EMPTY: PasswordChange = { current: '', next: '', repeat: '' }
@@ -39,14 +39,13 @@ export function PasswordCard() {
   }
 
   return (
-    <Card className="grid content-start gap-3">
-      <CardTitle className="mb-0">Сменить пароль</CardTitle>
+    <SettingsCard title="Сменить пароль">
       {me?.username && (
-        <p className="text-[13px] text-muted">
-          Логин: <b className="text-text">{me.username}</b>. Другие устройства выйдут из аккаунта.
-        </p>
+        <CardNote>
+          Логин: <b className="font-medium text-text">{me.username}</b>. Другие устройства выйдут из аккаунта.
+        </CardNote>
       )}
-      <form onSubmit={submit} noValidate className="grid gap-3">
+      <form onSubmit={submit} noValidate className="grid w-full max-w-[420px] gap-3">
         <input type="text" autoComplete="username" value={me?.username ?? ''} readOnly hidden />
         <Field label="Текущий пароль" error={errors.current}>
           <Input type="password" autoComplete="current-password" {...field('current')} />
@@ -58,14 +57,14 @@ export function PasswordCard() {
           <Input type="password" autoComplete="new-password" {...field('repeat')} />
         </Field>
         {failure && (
-          <p role="alert" className="text-sm text-danger">
+          <p role="alert" className="text-caption text-danger">
             {failure}
           </p>
         )}
-        <Button type="submit" className="justify-self-start" disabled={change.isPending}>
+        <Button type="submit" variant="primary" className="w-full justify-self-start sm:w-auto" disabled={change.isPending}>
           {change.isPending ? 'Сохраняем…' : 'Сменить пароль'}
         </Button>
       </form>
-    </Card>
+    </SettingsCard>
   )
 }

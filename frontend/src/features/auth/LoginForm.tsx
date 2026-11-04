@@ -1,8 +1,10 @@
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useLogin } from './api'
+import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { Field, Input } from '@/shared/ui/input'
+import { FOCUS_RING, TRANSITION } from '@/shared/ui/styles'
 
 export function LoginForm() {
   const login = useLogin()
@@ -25,7 +27,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="grid gap-3.5">
+    <form onSubmit={submit} noValidate className="grid gap-3">
       <Field label="Логин">
         <Input autoComplete="username" autoCapitalize="off" spellCheck={false} autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
       </Field>
@@ -34,7 +36,7 @@ export function LoginForm() {
           <Input
             type={shown ? 'text' : 'password'}
             autoComplete="current-password"
-            className="pr-11"
+            className="pr-10"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -43,9 +45,9 @@ export function LoginForm() {
             onClick={() => setShown(!shown)}
             aria-label={shown ? 'Скрыть пароль' : 'Показать пароль'}
             title={shown ? 'Скрыть пароль' : 'Показать пароль'}
-            className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-text"
+            className={cn('absolute top-1/2 right-1 grid size-[calc(var(--control-h)-0.5rem)] -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-text', TRANSITION, FOCUS_RING)}
           >
-            {shown ? <EyeOff size={17} /> : <Eye size={17} />}
+            {shown ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </span>
       </Field>

@@ -18,12 +18,12 @@ export function GroupSelectAll({ groups, selected, onToggle }: { groups: Group[]
   const all = jids.length > 0 && checked === jids.length
 
   return (
-    <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 px-3">
-      <label className="flex min-h-10 cursor-pointer items-center gap-3 text-sm font-medium">
+    <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 px-[var(--row-x,0.75rem)]">
+      <label className="flex min-h-control cursor-pointer items-center gap-3 text-sm font-medium">
         <CheckboxInput checked={all} indeterminate={checked > 0} disabled={!jids.length} onChange={(e) => onToggle(jids, e.target.checked)} />
         Выбрать все
       </label>
-      <span className="text-[13px] text-muted tabular-nums">
+      <span className="text-caption text-muted tabular-nums">
         Выбрано: {checked} из {jids.length}
       </span>
     </div>

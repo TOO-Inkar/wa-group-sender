@@ -6,6 +6,9 @@ import { useLogout } from '@/features/auth/api'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { Logo } from '@/shared/ui/logo'
+import { FOCUS_RING, TRANSITION } from '@/shared/ui/styles'
+
+export const SIDE_ITEM = `flex min-h-control items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted hover:bg-surface-2 hover:text-text ${TRANSITION} ${FOCUS_RING}`
 
 export type NavItem = { to: string; label: string; icon: LucideIcon; extra?: ReactNode; end?: boolean }
 
@@ -28,53 +31,55 @@ export function Shell({ items, title, status, footer, banner }: { items: NavItem
         </Button>
       </header>
 
-      <aside className="sticky top-0 hidden h-dvh flex-col gap-4 border-r border-border bg-surface px-3 py-4 md:flex">
-        <div className="flex items-center gap-2.5 px-2">
-          <Logo />
-          {brand}
-        </div>
-        <nav className="grid gap-0.5">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cn('flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted hover:bg-surface-2 hover:text-text', isActive && 'bg-surface-2 font-semibold text-text [&>svg]:text-accent')
-              }
-            >
-              <item.icon size={17} />
-              <span className="flex-1">{item.label}</span>
-              {item.extra}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="mt-auto grid gap-0.5">
-          {footer}
-          <button type="button" onClick={() => logout.mutate()} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted hover:text-text">
-            <LogOut size={16} /> Выйти
-          </button>
+      <aside className="hidden border-r border-border bg-surface md:block">
+        <div className="sticky top-0 flex h-dvh flex-col gap-4 px-3 py-4">
+          <div className="flex items-center gap-2.5 px-2">
+            <Logo />
+            {brand}
+          </div>
+          <nav className="grid gap-0.5">
+            {items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => cn(SIDE_ITEM, isActive && 'bg-surface-2 text-text [&>svg]:text-accent')}
+              >
+                <item.icon size={16} />
+                <span className="flex-1">{item.label}</span>
+                {item.extra}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="mt-auto grid gap-0.5">
+            {footer}
+            <button type="button" onClick={() => logout.mutate()} className={cn(SIDE_ITEM, 'cursor-pointer')}>
+              <LogOut size={16} /> Выйти
+            </button>
+          </div>
         </div>
       </aside>
 
-      <main className="w-full max-w-[1280px] px-4 pt-4 pb-[calc(88px+env(safe-area-inset-bottom))] md:px-6 md:pt-5 md:pb-20">
+      <main className="w-full max-w-[1280px] px-4 pt-4 pb-[calc(88px+env(safe-area-inset-bottom))] md:px-6 md:pt-6 md:pb-20">
         {banner}
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid auto-cols-fr grid-flow-col border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid auto-cols-fr grid-flow-col border-t border-border bg-surface px-1 pb-[env(safe-area-inset-bottom)] md:hidden">
         {items.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.end}
-            className={({ isActive }) => cn('grid justify-items-center gap-0.5 pt-2 pb-1.5 text-[11px] font-medium text-muted', isActive && 'text-text [&_svg]:text-accent')}
+            className={({ isActive }) =>
+              cn('flex h-14 min-w-0 flex-col items-center justify-center gap-1 text-xs font-medium text-muted', TRANSITION, FOCUS_RING, isActive && 'text-text [&_svg]:text-accent')
+            }
           >
-            <span className="relative">
-              <item.icon size={21} />
+            <span className="relative flex">
+              <item.icon size={20} />
               {item.extra && <span className="absolute -top-1 left-[calc(100%-6px)] flex">{item.extra}</span>}
             </span>
-            {item.label}
+            <span className="max-w-full truncate px-0.5">{item.label}</span>
           </NavLink>
         ))}
       </nav>

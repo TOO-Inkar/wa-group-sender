@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { useSaveSettings, useSettings } from './api'
 import { autoReplyText } from './model'
+import { SettingsCard } from './SettingsCard'
 import type { Settings } from '@/shared/api/types'
 import { Button } from '@/shared/ui/button'
-import { Card, CardTitle } from '@/shared/ui/card'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Checkbox, Field, Input, Textarea } from '@/shared/ui/input'
 import { WhatsAppBubble } from '@/shared/ui/whatsapp-bubble'
@@ -46,14 +46,14 @@ function ReplyDialog({ settings, open, onOpenChange }: { settings: Settings; ope
         </DialogActions>
       }
     >
-      <form id={AUTOREPLY_FORM} onSubmit={submit} className="grid gap-3.5">
+      <form id={AUTOREPLY_FORM} onSubmit={submit} className="grid gap-4">
         <Checkbox label="Отвечать на личные сообщения" {...form.register('autoReplyEnabled')} />
         <Checkbox label="Отклонять звонки и отвечать тем же текстом" {...form.register('autoReplyRejectCalls')} />
         <Field label="Текст ответа">
           <Textarea rows={7} {...form.register('autoReplyText')} />
         </Field>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex flex-wrap items-center gap-2 text-sm">
             Одному человеку не чаще раза в <Input type="number" min={0} className="w-20" {...form.register('autoReplyCooldownHours')} /> ч
           </label>
           <Button variant="ghost" onClick={() => form.setValue('autoReplyText', settings.defaultAutoReplyText)}>
@@ -69,16 +69,19 @@ function ReplyDialog({ settings, open, onOpenChange }: { settings: Settings; ope
 export function AutoReplyCard() {
   const { data: s } = useSettings()
   const [open, setOpen] = useState(false)
-  if (!s) return <Card>Загрузка…</Card>
+  if (!s) return <SettingsCard title="Автоответчик" />
   return (
-    <Card className="grid content-start gap-3">
-      <CardTitle className="mb-0">Автоответчик</CardTitle>
+    <SettingsCard
+      title="Автоответчик"
+      actions={
+        <Button onClick={() => setOpen(true)}>
+          Изменить
+        </Button>
+      }
+    >
       <p className="text-sm text-muted">{autoReplyText(s)}</p>
       <WhatsAppBubble text={s.autoReplyText} className="max-h-56 overflow-auto p-2.5" />
-      <Button className="justify-self-start" onClick={() => setOpen(true)}>
-        Изменить
-      </Button>
       <ReplyDialog settings={s} open={open} onOpenChange={setOpen} />
-    </Card>
+    </SettingsCard>
   )
 }

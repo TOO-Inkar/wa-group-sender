@@ -5,10 +5,11 @@ import { plural } from '@/shared/lib/format'
 import { Badge, type Tone } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { CheckboxInput } from '@/shared/ui/input'
+import { TRANSITION } from '@/shared/ui/styles'
 
 function GroupTitle({ group }: { group: Group }) {
   return group.name ? (
-    <span className="line-clamp-2 min-w-0 font-semibold [overflow-wrap:anywhere]">{group.name}</span>
+    <span className="line-clamp-2 min-w-0 font-medium [overflow-wrap:anywhere]">{group.name}</span>
   ) : (
     <span className="text-muted italic">Без названия</span>
   )
@@ -30,8 +31,9 @@ export function GroupRow({
   return (
     <label
       className={cn(
-        'flex min-h-14 items-center gap-3 px-3 py-2 text-sm transition-colors',
-        disabled ? 'cursor-default opacity-55' : 'cursor-pointer hover:bg-surface-2',
+        'flex min-h-14 items-center gap-3 px-[var(--row-x,0.75rem)] py-2 text-sm',
+        TRANSITION,
+        disabled ? 'cursor-default text-muted' : 'cursor-pointer hover:bg-surface-2',
         checked && 'bg-accent-soft hover:bg-accent-soft',
       )}
     >
@@ -49,7 +51,7 @@ function GroupAvatar({ group }: { group: Group }) {
   const [failed, setFailed] = useState(false)
   const initial = group.name?.match(/\p{L}|\p{N}/u)?.[0]?.toUpperCase() ?? '?'
   return (
-    <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-border text-xs font-semibold text-muted" aria-hidden>
+    <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-neutral-bg text-xs font-semibold text-muted" aria-hidden>
       {failed ? initial : <img src={`/api/groups/${encodeURIComponent(group.jid)}/picture`} alt="" loading="lazy" className="size-full object-cover" onError={() => setFailed(true)} />}
     </span>
   )
@@ -77,7 +79,7 @@ export function GroupTags({ group, onReset }: { group: Group; onReset?: (jid: st
       )}
       {!group.rejected && group.rejectedCount > 0 && <Badge tone="warn">был отказ</Badge>}
       {group.participants != null && <Badge>{plural(group.participants, 'участник', 'участника', 'участников')}</Badge>}
-      {blocked && <span className="basis-full text-xs text-muted">{blocked.hint}</span>}
+      {blocked && <span className="basis-full text-caption text-muted">{blocked.hint}</span>}
     </span>
   )
 }

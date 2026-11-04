@@ -7,6 +7,7 @@ import type { GroupList } from '@/shared/api/types'
 import { groupsCount } from '@/shared/lib/format'
 import { ActionBar } from '@/shared/ui/action-bar'
 import { Button } from '@/shared/ui/button'
+import { Card } from '@/shared/ui/card'
 import { Field, Input } from '@/shared/ui/input'
 import { SearchInput } from '@/shared/ui/search-input'
 import { Segmented } from '@/shared/ui/segmented'
@@ -69,7 +70,7 @@ export function ListComposer({ list, initial, onClose }: { list?: GroupList; ini
         <Field label="Название списка" error={taken ? `Список «${trimmed}» уже есть` : undefined}>
           <Input autoFocus={!list} value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Китай" aria-invalid={taken} />
         </Field>
-        <div className="grid gap-2 lg:grid-cols-2">
+        <div className="grid gap-2 xl:grid-cols-2">
           <Segmented
             stretch
             value={scope}
@@ -84,12 +85,12 @@ export function ListComposer({ list, initial, onClose }: { list?: GroupList; ini
         </div>
       </div>
 
-      <div className="mb-24 overflow-hidden rounded-xl border border-border bg-surface">
+      <Card className="mb-24 overflow-hidden p-0">
         <div className="border-b border-border">
           <GroupSelectAll groups={shown} selected={draft} onToggle={toggle} />
         </div>
         <GroupRows groups={shown} selected={draft} onToggle={toggle} empty={scope === 'in' ? 'В списке пока нет групп — отметьте их во вкладке «Все группы».' : 'Ничего не найдено'} />
-      </div>
+      </Card>
 
       <ActionBar
         title={

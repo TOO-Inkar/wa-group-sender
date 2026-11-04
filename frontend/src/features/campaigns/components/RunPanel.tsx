@@ -15,7 +15,7 @@ import { Select } from '@/shared/ui/input'
 import { EmptyState } from '@/shared/ui/empty-state'
 import { Paged } from '@/shared/ui/paged'
 import { SearchInput } from '@/shared/ui/search-input'
-import { FOCUS_RING } from '@/shared/ui/styles'
+import { FOCUS_RING, TRANSITION } from '@/shared/ui/styles'
 
 type Filter = 'all' | 'sent' | 'waiting' | 'failed' | 'skipped'
 
@@ -97,8 +97,8 @@ export function RunPanel({ runs }: { runs: Run[] }) {
       </div>
 
       {run.waiting && (
-        <p className={cn('flex items-start gap-2 rounded-lg px-3 py-2 text-sm', toneSurface.warn)}>
-          <Clock className="mt-0.5 size-4 shrink-0" />
+        <p className={cn('flex items-center gap-2 rounded-lg px-3 py-2 text-sm', toneSurface.warn)}>
+          <Clock size={16} aria-hidden className="shrink-0" />
           <span>Не отправляется: {run.waiting}</span>
         </p>
       )}
@@ -111,13 +111,14 @@ export function RunPanel({ runs }: { runs: Run[] }) {
             aria-pressed={filter === t.key}
             onClick={() => setFilter(t.key)}
             className={cn(
-              'min-w-0 cursor-pointer rounded-xl border px-3 py-2 text-left',
+              'min-w-0 cursor-pointer rounded-lg border px-3 py-2 text-left',
+              TRANSITION,
               FOCUS_RING,
               filter === t.key ? 'border-accent bg-accent-soft' : 'border-border bg-surface hover:bg-surface-2',
             )}
           >
-            <div className={cn('text-lg leading-tight font-bold tabular-nums', t.tone)}>{counts[t.key]}</div>
-            <div className="text-xs [overflow-wrap:anywhere] text-muted">{t.label}</div>
+            <div className={cn('text-lg leading-tight font-semibold tabular-nums', t.tone)}>{counts[t.key]}</div>
+            <div className="text-caption [overflow-wrap:anywhere] text-muted">{t.label}</div>
           </button>
         ))}
       </div>
@@ -137,9 +138,9 @@ export function RunPanel({ runs }: { runs: Run[] }) {
                 <div role="listitem" key={d.groupJid} className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 last:border-b-0">
                   <span className="min-w-0 flex-1 text-sm">
                     <span className="block truncate">{d.groupName ?? d.groupJid}</span>
-                    {d.error && <span className="block truncate text-xs text-muted">{deliveryReason(d.error)}</span>}
+                    {d.error && <span className="block truncate text-caption text-muted">{deliveryReason(d.error)}</span>}
                     {d.sentAt && (
-                      <time dateTime={d.sentAt} className="block truncate text-xs text-muted tabular-nums">
+                      <time dateTime={d.sentAt} className="block truncate text-caption text-muted tabular-nums">
                         отправлено {formatTime(d.sentAt)}
                       </time>
                     )}

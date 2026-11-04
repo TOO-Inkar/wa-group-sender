@@ -7,7 +7,7 @@ export function StatusChip({ className }: { className?: string }) {
   const { data: h, isError } = useHealth()
   if (isError || !h) {
     return (
-      <span className={cn('flex items-center gap-1.5 text-[13px] text-bad-text', className)}>
+      <span className={cn('flex items-center gap-1.5 text-caption text-bad-text', className)}>
         <Dot tone="bad" />
         нет связи
       </span>
@@ -17,9 +17,11 @@ export function StatusChip({ className }: { className?: string }) {
   const extra =
     h.dispatcher === 'daily-limit-reached' ? ` ${h.sentToday}/${h.warmupLimitToday ?? '—'}` : h.dispatcher === 'hourly-limit-reached' ? ` ${h.sentLastHour}/${h.hourlyLimit}` : ''
   return (
-    <span title={info.hint} className={cn('flex items-start gap-1.5 text-[13px] leading-snug text-muted', className)}>
-      <span className="mt-[5px] flex"><Dot tone={info.tone} /></span>
-      <span>
+    <span title={info.hint} className={cn('flex items-start gap-1.5 text-caption text-muted', className)}>
+      <span className="flex h-lh items-center">
+        <Dot tone={info.tone} />
+      </span>
+      <span className="min-w-0">
         {info.short}
         {extra}
       </span>

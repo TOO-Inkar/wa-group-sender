@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import { useHealth } from './api'
 import { cn } from '@/shared/lib/cn'
+import { buttonVariants } from '@/shared/ui/styles'
 import { toneSurface } from '@/shared/ui/tone'
 
 type Banner = { tone: 'warn' | 'bad'; text: string; link?: { to: string; label: string } }
@@ -15,10 +16,10 @@ export function StatusBanner() {
   else if (h?.dispatcher === 'paused') banner = { tone: 'warn', text: 'Рассылка на паузе.', link: { to: '/settings', label: 'Возобновить' } }
   if (!banner) return null
   return (
-    <div className={cn('mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2.5 text-sm font-medium', toneSurface[banner.tone])}>
+    <div className={cn('mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-2 text-sm font-medium', toneSurface[banner.tone])}>
       <span>{banner.text}</span>
       {banner.link && (
-        <Link to={banner.link.to} className="rounded-lg bg-surface px-3 py-1 text-text">
+        <Link to={banner.link.to} className={buttonVariants({ size: 'sm', className: 'border-transparent' })}>
           {banner.link.label}
         </Link>
       )}

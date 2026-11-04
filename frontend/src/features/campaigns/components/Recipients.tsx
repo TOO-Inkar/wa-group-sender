@@ -12,7 +12,7 @@ export function Recipients({ label, targets }: { label: string; targets: Campaig
       <span className="font-medium">
         {label} · {targets.length}
       </span>
-      <ul aria-label="Группы заявки" className="grid min-w-0 text-[13px] text-muted">
+      <ul aria-label="Группы заявки" className="grid min-w-0 text-caption text-muted">
         {shown.map((t) => (
           <li key={t.jid} className="truncate leading-6">
             {t.name}

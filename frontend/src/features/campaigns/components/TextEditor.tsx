@@ -1,4 +1,5 @@
 import * as Popover from '@radix-ui/react-popover'
+import { FileText, Minus, Phone, Smile } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { EMOJI, SEPARATOR, SKELETON } from '../emoji'
@@ -6,14 +7,19 @@ import type { FormValues } from '../form'
 import { plural } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
+import { Segmented } from '@/shared/ui/segmented'
+import { buttonVariants, FOCUS_RING } from '@/shared/ui/styles'
 import { Dialog, DialogActions } from '@/shared/ui/dialog'
 import { Input, Textarea } from '@/shared/ui/input'
 
 type Edit = (value: string, start: number, end: number) => { value: string; start: number; end: number }
 
-function Tool({ title, onClick, children, active }: { title?: string; onClick?: () => void; children: ReactNode; active?: boolean }) {
+const TOOL = cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-text hover:enabled:bg-surface data-[state=open]:bg-surface')
+const EMOJI_TABS = Object.keys(EMOJI).map((name) => ({ value: name, label: name }))
+
+function Tool({ title, onClick, children }: { title?: string; onClick?: () => void; children: ReactNode }) {
   return (
-    <button type="button" title={title} onClick={onClick} className={cn('cursor-pointer rounded-md px-2.5 py-1 text-sm hover:bg-surface hover:shadow-sm', active && 'bg-surface shadow-sm')}>
+    <button type="button" title={title} onClick={onClick} className={TOOL}>
       {children}
     </button>
   )
@@ -21,31 +27,26 @@ function Tool({ title, onClick, children, active }: { title?: string; onClick?: 
 
 function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState(Object.keys(EMOJI)[0]!)
+  const [tab, setTab] = useState(EMOJI_TABS[0]!.value)
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button type="button" title="Эмодзи и флаги" className={cn('cursor-pointer rounded-md px-2.5 py-1 text-sm hover:bg-surface hover:shadow-sm', open && 'bg-surface shadow-sm')}>
-          😊 Эмодзи
+        <button type="button" title="Эмодзи и флаги" className={TOOL}>
+          <Smile size={15} aria-hidden /> Эмодзи
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={6} onFocusOutside={(e) => e.preventDefault()} className="z-[60] grid w-[min(420px,calc(100vw-24px))] gap-1.5 rounded-xl border border-border bg-surface p-2 shadow-xl">
-          <div className="flex flex-wrap gap-1">
-            {Object.keys(EMOJI).map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setTab(name)}
-                className={cn('cursor-pointer rounded-full px-2.5 py-0.5 text-[13px]', name === tab ? 'bg-accent-soft font-semibold text-ok-text' : 'text-muted hover:text-text')}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-          <div className="grid max-h-56 grid-cols-[repeat(auto-fill,minmax(36px,1fr))] gap-0.5 overflow-auto">
+        <Popover.Content
+          align="start"
+          sideOffset={6}
+          collisionPadding={8}
+          onFocusOutside={(e) => e.preventDefault()}
+          className="z-[60] grid w-[min(420px,calc(100vw-24px))] gap-2 rounded-xl border border-border bg-surface p-2 shadow-lg motion-safe:animate-fade-in"
+        >
+          <Segmented stretch value={tab} options={EMOJI_TABS} onChange={setTab} />
+          <div className="grid max-h-56 grid-cols-[repeat(auto-fill,minmax(var(--control-h),1fr))] gap-0.5 overflow-auto overscroll-contain">
             {EMOJI[tab]!.map((emoji) => (
-              <button key={emoji} type="button" title={emoji} onClick={() => onPick(emoji)} className="cursor-pointer rounded-lg py-1.5 text-[22px] leading-none hover:bg-surface-2">
+              <button key={emoji} type="button" title={emoji} onClick={() => onPick(emoji)} className={cn('grid h-control cursor-pointer place-items-center rounded-md text-xl leading-none hover:bg-surface-2', FOCUS_RING)}>
                 {emoji}
               </button>
             ))}
@@ -81,7 +82,6 @@ function ContactDialog({ open, onOpenChange, onInsert }: { open: boolean; onOpen
         className="grid gap-3"
         onKeyDown={(e) => e.stopPropagation()}
         onSubmit={(e) => {
-          // Rendered in a portal but still inside the campaign form in the React tree: keep its submit local.
           e.preventDefault()
           e.stopPropagation()
           if (!value.trim()) return
@@ -122,7 +122,6 @@ export function TextEditor() {
       return { value: v.slice(0, s) + piece + v.slice(e), start: s + piece.length, end: s + piece.length }
     })
 
-  // Spaces at the selection edges must stay outside the marks, otherwise WhatsApp ignores the markup.
   const wrap = (mark: string) =>
     apply((v, s, e) => {
       if (s === e) return { value: v.slice(0, s) + mark + mark + v.slice(e), start: s + mark.length, end: s + mark.length }
@@ -143,7 +142,7 @@ export function TextEditor() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface focus-within:border-accent">
-      <div role="toolbar" aria-label="Форматирование" className="flex flex-wrap items-center gap-0.5 border-b border-border bg-surface-2 p-1.5">
+      <div role="toolbar" aria-label="Форматирование" className="flex flex-wrap items-center gap-0.5 border-b border-border bg-surface-2 p-1">
         <Tool title="Жирный (Ctrl+B)" onClick={() => wrap('*')}>
           <b>Ж</b>
         </Tool>
@@ -156,16 +155,16 @@ export function TextEditor() {
         <Tool title="Моноширинный" onClick={() => wrap('```')}>
           <code className="font-mono">M</code>
         </Tool>
-        <span className="mx-1 h-5 w-px bg-border" />
+        <span aria-hidden className="mx-1 h-5 w-px bg-border" />
         <EmojiPicker onPick={insert} />
         <Tool title="Линия-разделитель между заявками" onClick={() => insertBlock(SEPARATOR)}>
-          ━━ Разделитель
+          <Minus size={15} aria-hidden /> Разделитель
         </Tool>
         <Tool title="Строка с контактом" onClick={() => setContactOpen(true)}>
-          📞 Контакт
+          <Phone size={15} aria-hidden /> Контакт
         </Tool>
         <Tool title="Заготовка одной заявки" onClick={() => insertBlock(SKELETON)}>
-          📋 Шаблон
+          <FileText size={15} aria-hidden /> Шаблон
         </Tool>
       </div>
       <Textarea
@@ -192,13 +191,13 @@ export function TextEditor() {
           }
         }}
       />
-      <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-1.5 text-[13px] text-muted">
+      <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-border px-3 py-1.5 text-caption text-muted">
         <span className="tabular-nums">
           {plural(chars, 'символ', 'символа', 'символов')} · {plural(lines, 'строка', 'строки', 'строк')}
         </span>
         <span>*жирный* · _курсив_ · ~зачёркнутый~ · ```моно```</span>
       </div>
-      {formState.errors.text && <p className="px-3 pb-2 text-[13px] text-danger">{formState.errors.text.message}</p>}
+      {formState.errors.text && <p className="px-3 pb-2 text-caption text-danger">{formState.errors.text.message}</p>}
       <ContactDialog open={contactOpen} onOpenChange={setContactOpen} onInsert={(contact) => insertBlock(`\n📞 *${contact}*`)} />
     </div>
   )

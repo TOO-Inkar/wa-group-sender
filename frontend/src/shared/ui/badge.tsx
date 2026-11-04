@@ -6,7 +6,7 @@ export type { Tone }
 
 export function Badge({ tone = 'neutral', children, title }: { tone?: Tone; children: ReactNode; title?: string }) {
   return (
-    <span title={title} className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap', toneSurface[tone])}>
+    <span title={title} className={cn('inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs leading-none font-medium whitespace-nowrap', toneSurface[tone])}>
       {children}
     </span>
   )
@@ -17,5 +17,5 @@ export function Dot({ tone }: { tone: Tone }) {
 }
 
 export function Count({ value }: { value: number }) {
-  return value ? <span className="rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-text tabular-nums">{value}</span> : null
+  return value ? <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-xs leading-none font-semibold text-accent-text tabular-nums">{value}</span> : null
 }

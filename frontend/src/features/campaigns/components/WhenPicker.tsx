@@ -105,21 +105,21 @@ export function WhenPicker({ groups }: { groups: number }) {
       {repeats(values.repeat) && (
         <>
           <ExtraTimes />
-          <p className="text-[13px] text-muted">{runsText(times)}</p>
+          <p className="text-caption text-muted">{runsText(times)}</p>
           {warnings.map((w) => (
-            <p key={w} className={cn('rounded-lg px-2.5 py-1.5 text-[13px]', toneSurface.warn)}>
+            <p key={w} className={cn('rounded-lg px-2.5 py-1.5 text-caption', toneSurface.warn)}>
               {w}
             </p>
           ))}
         </>
       )}
       <div className="flex flex-wrap gap-x-5">
-        {repeats(values.repeat) && <Checkbox className="text-[13px]" label="первую рассылку — сразу" {...register('sendNow')} />}
-        {!roundTheClock && <Checkbox className="text-[13px]" label={`слать и вне рабочего окна (${windowText})`} {...register('anyTime')} />}
+        {repeats(values.repeat) && <Checkbox className="text-caption" label="первую рассылку — сразу" {...register('sendNow')} />}
+        {!roundTheClock && <Checkbox className="text-caption" label={`слать и вне рабочего окна (${windowText})`} {...register('anyTime')} />}
       </div>
-      {lateExtra && <span className="text-[13px] text-warn-text">Время после конца окна — включите «слать и вне рабочего окна», иначе заявка не сохранится.</span>}
+      {lateExtra && <span className="text-caption text-warn-text">Время после конца окна — включите «слать и вне рабочего окна», иначе заявка не сохранится.</span>}
       {errors.map((e) => (
-        <span key={e} className="text-[13px] text-danger">
+        <span key={e} className="text-caption text-danger">
           {e}
         </span>
       ))}

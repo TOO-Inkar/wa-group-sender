@@ -3,6 +3,7 @@ import { useAudit, useTenants, type AuditEntry } from '@/features/platform/api'
 import { ALERT_ACTIONS, auditActionText } from '@/features/platform/model'
 import { formatTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
+import { Card } from '@/shared/ui/card'
 import { EmptyState } from '@/shared/ui/empty-state'
 import { Select } from '@/shared/ui/input'
 
@@ -40,35 +41,37 @@ export function PlatformAuditPage() {
       {error ? (
         <EmptyState>{error.message}</EmptyState>
       ) : isPending ? (
-        <p className="text-muted">Загрузка…</p>
+        <p className="text-sm text-muted">Загрузка…</p>
       ) : !entries.length ? (
         <EmptyState>Записей нет.</EmptyState>
       ) : (
         <>
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface xl:hidden">
-            {entries.map((e, i) => (
-              <li key={`${e.at}-${i}`} className="grid gap-1 px-4 py-2.5">
-                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <Action e={e} />
-                  <span className="text-[13px] text-muted tabular-nums">{formatTime(e.at)}</span>
-                </span>
-                <span className="text-sm">
-                  <b>{e.actor ?? '—'}</b> <span className="text-muted">· {tenantText(e)}</span>
-                </span>
-                {(e.detail || e.ip) && <span className="text-[13px] [overflow-wrap:anywhere] text-muted">{[e.detail, e.ip].filter(Boolean).join(' · ')}</span>}
-              </li>
-            ))}
-          </ul>
-          <div className="hidden overflow-hidden rounded-xl border border-border bg-surface xl:block">
+          <Card className="overflow-hidden p-0 xl:hidden">
+            <ul className="divide-y divide-border">
+              {entries.map((e, i) => (
+                <li key={`${e.at}-${i}`} className="grid gap-1 px-4 py-3">
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Action e={e} />
+                    <span className="text-caption text-muted tabular-nums">{formatTime(e.at)}</span>
+                  </span>
+                  <span className="text-sm">
+                    <b>{e.actor ?? '—'}</b> <span className="text-muted">· {tenantText(e)}</span>
+                  </span>
+                  {(e.detail || e.ip) && <span className="text-caption [overflow-wrap:anywhere] text-muted">{[e.detail, e.ip].filter(Boolean).join(' · ')}</span>}
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card className="hidden overflow-hidden p-0 xl:block">
             <table className="w-full table-fixed border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-border text-xs text-muted">
-                  <th className="w-28 px-3 py-2.5 font-medium">Когда</th>
-                  <th className="w-48 px-3 py-2.5 font-medium">Действие</th>
-                  <th className="w-36 px-3 py-2.5 font-medium">Кто</th>
-                  <th className="w-44 px-3 py-2.5 font-medium">Кабинет</th>
-                  <th className="px-3 py-2.5 font-medium">Подробности</th>
-                  <th className="w-32 px-3 py-2.5 font-medium">IP</th>
+                <tr className="border-b border-border text-caption text-muted">
+                  <th className="w-28 px-3 py-2 font-medium">Когда</th>
+                  <th className="w-48 px-3 py-2 font-medium">Действие</th>
+                  <th className="w-36 px-3 py-2 font-medium">Кто</th>
+                  <th className="w-44 px-3 py-2 font-medium">Кабинет</th>
+                  <th className="px-3 py-2 font-medium">Подробности</th>
+                  <th className="w-32 px-3 py-2 font-medium">IP</th>
                 </tr>
               </thead>
               <tbody>
@@ -86,7 +89,7 @@ export function PlatformAuditPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         </>
       )}
     </>

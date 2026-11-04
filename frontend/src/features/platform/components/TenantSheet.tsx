@@ -11,6 +11,7 @@ import { UserList } from './UserList'
 import { cn } from '@/shared/lib/cn'
 import { formatTime } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
+import { Card } from '@/shared/ui/card'
 import { useConfirm } from '@/shared/ui/confirm-context'
 import { Field, Input } from '@/shared/ui/input'
 import { Sheet } from '@/shared/ui/sheet'
@@ -19,8 +20,8 @@ import { buttonVariants } from '@/shared/ui/styles'
 function Cell({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <div className={cn('grid min-w-0 content-start gap-0.5 bg-surface px-3 py-2.5', wide && 'col-span-2')}>
-      <dt className="text-[13px] text-muted">{label}</dt>
-      <dd className="min-w-0 text-[15px] font-semibold tabular-nums">{children}</dd>
+      <dt className="text-caption text-muted">{label}</dt>
+      <dd className="min-w-0 text-base font-semibold tabular-nums">{children}</dd>
     </div>
   )
 }
@@ -93,9 +94,9 @@ function ProxyForm({ tenant }: { tenant: TenantOverview }) {
         <span className="min-w-0 text-sm">
           <b>Прокси</b>{' '}
           {tenant.proxy ? (
-            <code className="text-[13px] [overflow-wrap:anywhere] text-muted">{tenant.proxy}</code>
+            <code className="text-caption [overflow-wrap:anywhere] text-muted">{tenant.proxy}</code>
           ) : (
-            <span className="text-[13px] text-muted">{tenant.proxyRequired && !tenant.legacy ? 'не задан — номер не подключится' : 'не задан, подключение напрямую'}</span>
+            <span className="text-caption text-muted">{tenant.proxyRequired && !tenant.legacy ? 'не задан — номер не подключится' : 'не задан, подключение напрямую'}</span>
           )}
         </span>
         {tenant.proxy && (
@@ -110,7 +111,7 @@ function ProxyForm({ tenant }: { tenant: TenantOverview }) {
         )}
       </div>
       {verdict && (
-        <p role="status" className={verdict.ok ? 'text-[13px] text-ok-text' : 'text-[13px] text-bad-text'}>
+        <p role="status" className={verdict.ok ? 'text-caption text-ok-text' : 'text-caption text-bad-text'}>
           {verdict.text}
         </p>
       )}
@@ -163,7 +164,7 @@ export function TenantSheet({ tenant, onClose }: { tenant: TenantOverview; onClo
         </div>
       }
     >
-      <div className="grid gap-5">
+      <div className="grid gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <TenantBadges t={tenant} />
           <Link to={`/platform/audit?tenant=${tenant.id}`} className={buttonVariants({ variant: 'link', size: 'inline', className: 'ml-auto' })}>
@@ -187,12 +188,12 @@ export function TenantSheet({ tenant, onClose }: { tenant: TenantOverview; onClo
           <Cell label="За час">{tenant.sentLastHour}</Cell>
           <Cell label="В очереди">{tenant.queueLength}</Cell>
         </dl>
-        <section className="grid gap-4 rounded-xl border border-border bg-surface p-4">
+        <Card className="grid gap-4">
           <RenameForm key={tenant.name} tenant={tenant} />
           <div className="border-t border-border pt-4">
             <ProxyForm key={tenant.proxy ?? ''} tenant={tenant} />
           </div>
-        </section>
+        </Card>
         <UserList tenantId={tenant.id} />
       </div>
       {deleting && <DeleteTenantDialog tenant={tenant} onClose={() => setDeleting(false)} onDeleted={onClose} />}

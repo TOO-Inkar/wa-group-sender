@@ -1,9 +1,9 @@
 import { toast } from 'sonner'
 import { useSubscriberAction, useTelegram, useTestAlert } from './api'
+import { CardNote, SettingsCard } from '@/features/settings/SettingsCard'
 import { formatTime, plural } from '@/shared/lib/format'
 import { Badge, type Tone } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
-import { Card, CardTitle } from '@/shared/ui/card'
 import { useConfirm } from '@/shared/ui/confirm-context'
 import { CopyButton } from '@/shared/ui/copy-button'
 
@@ -15,10 +15,10 @@ const STATUS: Record<string, { text: string; tone: Tone }> = {
 
 function Person({ name, username, note }: { name: string | null; username: string | null; note: string }) {
   return (
-    <span className="min-w-0">
-      <b>{name ?? 'без имени'}</b>
+    <span className="min-w-0 flex-1 basis-40 text-sm break-words">
+      <span className="font-medium">{name ?? 'без имени'}</span>
       {username && <span className="text-muted"> @{username}</span>}
-      <span className="block text-xs text-muted">{note}</span>
+      <span className="block text-caption text-muted">{note}</span>
     </span>
   )
 }
@@ -28,13 +28,28 @@ export function TelegramCard() {
   const action = useSubscriberAction()
   const test = useTestAlert()
   const confirm = useConfirm()
-  if (!data) return <Card>Загрузка…</Card>
-  const row = 'flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-b-0'
+  const title = 'Уведомления в Telegram'
+  if (!data) return <SettingsCard title={title} />
+  const row = 'flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border py-2.5 first:pt-0 last:border-b-0 last:pb-0'
 
   return (
-    <Card className="grid content-start gap-3">
-      <CardTitle className="mb-0">Уведомления в Telegram</CardTitle>
-      <p className="text-[13px] text-muted">
+    <SettingsCard
+      title={title}
+      actions={
+        <Button
+          disabled={test.isPending}
+          onClick={() =>
+            test.mutate(undefined, {
+              onSuccess: (r) => (r.deliveredChats ? toast.success(`Доставлено в ${plural(r.deliveredChats, 'чат', 'чата', 'чатов')}`) : toast.error('Не доставлено: нет подписчиков или бот не настроен')),
+              onError: (e) => toast.error(e.message),
+            })
+          }
+        >
+          Отправить тестовое уведомление
+        </Button>
+      }
+    >
+      <CardNote>
         {data.botConfigured && data.inviteLink ? (
           <>Чтобы получать уведомления этого кабинета, откройте ссылку в Telegram, нажмите «Старт» и одобрите запрос здесь. Отписаться — <code>/stop</code>.</>
         ) : data.botConfigured ? (
@@ -44,16 +59,16 @@ export function TelegramCard() {
         ) : (
           'Бот не настроен: нужен TELEGRAM_BOT_TOKEN в .env на сервере.'
         )}
-      </p>
+      </CardNote>
       {data.inviteLink && (
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-2 py-1 pr-1 pl-3">
-          <a href={data.inviteLink} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-sm text-accent hover:underline" aria-label="Ссылка-приглашение в Telegram">
+        <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border bg-surface-2 pl-3">
+          <a href={data.inviteLink} target="_blank" rel="noreferrer" title={data.inviteLink} className="min-w-0 flex-1 truncate text-sm text-accent hover:underline" aria-label="Ссылка-приглашение в Telegram">
             {data.inviteLink}
           </a>
-          <CopyButton value={data.inviteLink} label="Скопировать ссылку" />
+          <CopyButton value={data.inviteLink} label="Скопировать ссылку" className="shrink-0" />
         </div>
       )}
-      <div>
+      <div className="grid min-w-0">
         {data.configuredChats.map((c) => (
           <div key={c.chatId} className={row}>
             <Person name={c.name ?? `чат ${c.chatId}`} username={c.username} note="задан в настройках сервера (.env)" />
@@ -88,20 +103,8 @@ export function TelegramCard() {
             </span>
           </div>
         ))}
-        {!data.configuredChats.length && !data.subscribers.length && <p className="text-[13px] text-muted">Пока никто не подписан.</p>}
+        {!data.configuredChats.length && !data.subscribers.length && <CardNote>Пока никто не подписан.</CardNote>}
       </div>
-      <Button
-        className="justify-self-start"
-        disabled={test.isPending}
-        onClick={() =>
-          test.mutate(undefined, {
-            onSuccess: (r) => (r.deliveredChats ? toast.success(`Доставлено в ${plural(r.deliveredChats, 'чат', 'чата', 'чатов')}`) : toast.error('Не доставлено: нет подписчиков или бот не настроен')),
-            onError: (e) => toast.error(e.message),
-          })
-        }
-      >
-        Отправить тестовое уведомление
-      </Button>
-    </Card>
+    </SettingsCard>
   )
 }

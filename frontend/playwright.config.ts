@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,
-  use: { baseURL: process.env.BASE_URL ?? 'http://127.0.0.1:18080', locale: 'ru-RU', timezoneId: 'Asia/Almaty', trace: 'retain-on-failure' },
+  use: { baseURL: process.env.BASE_URL ?? 'http://127.0.0.1:18080', locale: 'ru-RU', timezoneId: 'Asia/Almaty', contextOptions: { reducedMotion: 'reduce' }, trace: 'retain-on-failure' },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'phone', use: { ...devices['Pixel 7'] }, grep: /@phone/ },

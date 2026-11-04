@@ -39,21 +39,23 @@ export function WherePicker() {
         ]}
       />
       {target === 'list' && (
-        <Select className="text-sm" aria-invalid={!!error} {...register('listId')}>
-          <option value="">{lists.length ? '— список —' : 'списков нет'}</option>
-          {lists.map((l) => (
-            <option key={l.id} value={String(l.id)}>
-              {l.name} · {l.groups.length}
-            </option>
-          ))}
-        </Select>
+        <div className="-mx-4 sm:mx-0">
+          <Select className="max-sm:rounded-none max-sm:border-x-0 sm:min-w-72" aria-label="Список групп" aria-invalid={!!error} {...register('listId')}>
+            <option value="">{lists.length ? '— список —' : 'списков нет'}</option>
+            {lists.map((l) => (
+              <option key={l.id} value={String(l.id)}>
+                {l.name} · {l.groups.length}
+              </option>
+            ))}
+          </Select>
+        </div>
       )}
       {target === 'pick' && (
-        <Button className="justify-self-start" onClick={pick}>
+        <Button className="w-full sm:w-fit sm:justify-self-start" onClick={pick}>
           {groups.length ? `${groupsCount(groups.length)} · изменить` : 'Выбрать группы…'}
         </Button>
       )}
-      {error && <span className="text-[13px] text-danger">{error}</span>}
+      {error && <span className="text-caption text-danger">{error}</span>}
       <GroupPickerDialog open={picking} onOpenChange={setPicking} value={groups} onChange={(jids) => setValue('groups', jids, { shouldValidate: formState.isSubmitted })} />
     </section>
   )

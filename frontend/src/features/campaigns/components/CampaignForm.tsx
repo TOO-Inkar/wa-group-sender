@@ -146,19 +146,19 @@ export function CampaignFormSheet({ campaign, initial, onClose }: { campaign?: C
               />
               {values.mode === 'fields' && preview.data && body && (
                 <Button variant="link" size="inline" onClick={editAsText}>
-                  Редактировать как текст →
+                  Редактировать как текст
                 </Button>
               )}
             </div>
             {values.mode === 'fields' ? <ItemFields /> : <TextEditor />}
             <div className="grid gap-2.5 sm:grid-cols-2">
               {values.mode === 'fields' && (
-                <label className="grid gap-1">
+                <label className="grid content-start gap-1">
                   <Caption>Контакт в конце</Caption>
                   <Input autoComplete="off" placeholder="Имя +7 7xx xxx xx xx" data-nav="" {...form.register('contact')} />
                 </label>
               )}
-              <label className="grid gap-1">
+              <label className="grid content-start gap-1">
                 <Caption>Название в списке</Caption>
                 <Input autoComplete="off" maxLength={200} placeholder="по умолчанию — маршрут" data-nav="" {...form.register('title')} />
               </label>

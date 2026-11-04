@@ -28,7 +28,7 @@ function Column({ label, values, value, onPick, keepOpen }: { label: string; val
           key={v}
           value={v}
           onSelect={keepOpen ? (e) => e.preventDefault() : undefined}
-          className="flex min-h-9 cursor-pointer items-center justify-center rounded-lg text-sm tabular-nums outline-none select-none data-[highlighted]:bg-surface-2 data-[state=checked]:bg-accent-soft data-[state=checked]:font-semibold"
+          className="flex min-h-control-sm cursor-pointer items-center justify-center rounded-md text-sm tabular-nums outline-none select-none data-[highlighted]:bg-surface-2 data-[state=checked]:bg-accent-soft data-[state=checked]:font-semibold"
         >
           {v}
         </Dropdown.RadioItem>
@@ -63,7 +63,7 @@ export function TimeSelect({
 
   return (
     <Dropdown.Root open={open} onOpenChange={setOpen}>
-      <Dropdown.Trigger aria-label={label} aria-invalid={invalid} className={cn(control, 'inline-flex w-24 cursor-pointer items-center justify-between gap-1 tabular-nums', className)}>
+      <Dropdown.Trigger aria-label={label} aria-invalid={invalid} className={cn(control, 'inline-flex w-24 cursor-pointer items-center justify-between gap-1 pr-2.5 tabular-nums', className)}>
         {value}
         <ChevronDown size={16} className="shrink-0 text-muted" aria-hidden />
       </Dropdown.Trigger>
@@ -74,7 +74,7 @@ export function TimeSelect({
           sideOffset={4}
           collisionPadding={8}
           aria-label={label}
-          className="z-[60] grid w-40 grid-cols-2 gap-1 rounded-xl border border-border bg-surface p-1 shadow-xl"
+          className="z-[60] grid w-40 grid-cols-2 gap-1 rounded-xl border border-border bg-surface p-1 shadow-lg motion-safe:animate-fade-in"
         >
           <Column label="Часы" values={HOURS} value={hour} onPick={(h) => onChange(`${h}:${minute}`)} keepOpen />
           <Column label="Минуты" values={minutes} value={minute} onPick={(m) => onChange(`${hour}:${m}`)} />

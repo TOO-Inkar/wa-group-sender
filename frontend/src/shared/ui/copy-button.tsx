@@ -22,7 +22,7 @@ export function CopyButton({ value, label = 'Скопировать', text, clas
     } else toast.error('Не удалось скопировать — выделите текст и скопируйте вручную')
   }
 
-  const icon = copied ? <Check size={16} className="text-accent" /> : <Copy size={16} />
+  const icon = copied ? <Check size={16} className="text-ok-text" /> : <Copy size={16} />
   return text ? (
     <Button size="sm" onClick={copy} className={className}>
       {icon} {text}
