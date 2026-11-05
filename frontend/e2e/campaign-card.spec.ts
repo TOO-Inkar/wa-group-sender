@@ -1,12 +1,14 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { DELIVERIES, FIRST_PAGE, MESSAGE, openCard, sentAt, TARGETS, type CardState } from './support/campaign-card'
+import { FIRST_PAGE, MESSAGE, openCard, sentAt, TARGETS, type CardState } from './support/campaign-card'
 import { controlHeightOk, controlHeightRule, pointerIsCoarse } from './support/layout'
 
 const WIDTHS = [360, 390, 768, 1024, 1440]
 const STATES: CardState[] = ['sending', 'scheduled', 'done', 'disabled', 'failed']
-const COLLAPSED_RECIPIENTS = 5
+const COLLAPSED_RECIPIENTS = 10
 const TOLERANCE = 0.5
 const WIDE = 768
+const LARGE_PAGE = 100
+const FIRST_PENDING = 121
 
 type Box = { x: number; y: number; width: number; height: number }
 
@@ -91,7 +93,7 @@ for (const width of WIDTHS) {
     const search = await box(b.search)
     expect(controlHeightOk(search.height, coarse), `поиск: ${search.height}px, ${controlHeightRule(coarse)}`).toBe(true)
     const list = b.results
-    expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+    expect(await list.evaluate((el) => el.scrollHeight <= el.clientHeight && getComputedStyle(el).overflowY === 'visible')).toBe(true)
     for (const row of (await list.getByRole('listitem').all()).slice(0, 12)) {
       expect((await box(row)).height).toBeGreaterThanOrEqual(48)
       expect(await row.locator('span.truncate').first().evaluate((el) => getComputedStyle(el).whiteSpace)).toBe('nowrap')
@@ -118,11 +120,14 @@ for (const width of WIDTHS) {
     await b.run.scrollIntoViewIfNeeded()
     await b.run.evaluate((el) => el.scrollIntoView({ block: 'start' }))
     await page.screenshot({ path: `e2e-results/card/after-${width}-results.png` })
-    await b.sheet.getByRole('button', { name: `Показать все ${TARGETS}` }).click()
-    await expect(recipients.getByRole('listitem')).toHaveCount(TARGETS)
-    await expectNoOverlaps(page)
-    await b.sheet.getByRole('button', { name: 'Свернуть' }).click()
+    const recipientsPager = b.sheet.getByRole('navigation', { name: 'Страницы получателей' })
+    const firstRecipient = await recipients.getByRole('listitem').first().textContent()
+    await recipientsPager.getByRole('button', { name: 'Следующая страница' }).click()
     await expect(recipients.getByRole('listitem')).toHaveCount(COLLAPSED_RECIPIENTS)
+    await expect(recipients.getByRole('listitem').first()).not.toHaveText(firstRecipient!)
+    await expectNoOverlaps(page)
+    await recipientsPager.getByRole('button', { name: 'Предыдущая страница' }).click()
+    await expect(recipients.getByRole('listitem').first()).toHaveText(firstRecipient!)
 
     if (width < 1024) {
       const order = await Promise.all([b.preview, b.recipients, b.run].map(async (l) => (await box(l)).y))
@@ -162,18 +167,21 @@ test('у каждой отправленной группы видно врем�
     const page = await openCard(browser, width, 'sending')
     const rows = blocks(page).results.getByRole('listitem')
     await expect(rows).toHaveCount(FIRST_PAGE)
-    await page.getByRole('button', { name: `Показать ещё ${FIRST_PAGE} из ${DELIVERIES - FIRST_PAGE}` }).click()
-    await expect(rows).toHaveCount(2 * FIRST_PAGE)
     const first = rows.nth(0)
     await expect(first.locator('time')).toHaveText('отправлено 29.10, 14:00')
     await expect(first.locator('time')).toHaveAttribute('datetime', sentAt(0))
     await expect(rows.nth(10).locator('time')).toHaveText('отправлено 29.10, 14:01')
     await expect(rows.nth(7).locator('time')).toHaveCount(0)
-    await expect(rows.nth(121).locator('time')).toHaveCount(0)
     const row = await box(first)
     const time = await box(first.locator('time'))
     expect(time.x + time.width).toBeLessThanOrEqual(row.x + row.width + TOLERANCE)
     expect(time.y + time.height).toBeLessThanOrEqual(row.y + row.height + TOLERANCE)
+    const resultsPager = page.getByRole('navigation', { name: 'Страницы результатов' })
+    await resultsPager.getByRole('combobox', { name: 'На странице' }).selectOption(String(LARGE_PAGE))
+    await resultsPager.getByRole('button', { name: 'Следующая страница' }).click()
+    await expect(rows).toHaveCount(LARGE_PAGE)
+    await expect(rows.nth(FIRST_PENDING - LARGE_PAGE).locator('time')).toHaveCount(0)
+    await expect(rows.nth(FIRST_PENDING - LARGE_PAGE - 1).locator('time')).toHaveCount(1)
     await page.context().close()
   }
 })

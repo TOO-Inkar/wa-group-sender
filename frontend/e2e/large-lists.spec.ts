@@ -1,24 +1,12 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
-import { CAMPAIGN_ID, FIRST_PAGE as PAGE, PASSWORD, campaign } from './support/campaign-card'
+import { bulkGroups } from './support/bulk-groups'
+import { CAMPAIGN_ID, PASSWORD, campaign } from './support/campaign-card'
 
 const TOTAL = 2000
+const PAGE = 25
 const LAST = `Большая группа ${TOTAL}`
 
-const groups = Array.from({ length: TOTAL }, (_, i) => ({
-  jid: `${120363500000000 + i}@g.us`,
-  name: `Большая группа ${i + 1}`,
-  archived: true,
-  member: true,
-  canSend: true,
-  active: true,
-  lastSync: '2026-11-03T23:32:04Z',
-  participants: 40,
-  community: false,
-  tooLarge: false,
-  rejectedCount: 0,
-  rejected: false,
-  blockedBy: null,
-}))
+const groups = bulkGroups(TOTAL)
 
 const deliveries = groups.map((g, i) => ({ groupJid: g.jid, groupName: g.name, position: i, status: 'SENT', error: null, sentAt: new Date(Date.UTC(2026, 9, 29, 9, 0) + i * 4_500).toISOString() }))
 
@@ -42,8 +30,9 @@ async function open(browser: Browser, width: number, path: string): Promise<Page
 async function expectPagedChecklist(page: Page, scope: ReturnType<Page['locator']>) {
   const rows = scope.getByRole('checkbox', { name: /^Большая группа / })
   await expect(rows).toHaveCount(PAGE)
-  await scope.getByRole('button', { name: `Показать ещё ${PAGE} из ${TOTAL - PAGE}` }).click()
-  await expect(rows).toHaveCount(2 * PAGE)
+  await scope.getByRole('button', { name: 'Следующая страница' }).click()
+  await expect(rows).toHaveCount(PAGE)
+  await expect(rows.first()).toHaveAccessibleName(`Большая группа ${PAGE + 1}`)
 
   await scope.getByPlaceholder('Поиск по названию группы').fill(String(TOTAL))
   await expect(rows).toHaveCount(1)
@@ -76,8 +65,9 @@ for (const width of [360, 1440]) {
     const page = await open(browser, width, `/campaigns/${CAMPAIGN_ID}`)
     const list = page.getByRole('list', { name: 'Группы рассылки' })
     await expect(list.getByRole('listitem')).toHaveCount(PAGE)
-    await page.getByRole('button', { name: `Показать ещё ${PAGE} из ${TOTAL - PAGE}` }).click()
-    await expect(list.getByRole('listitem')).toHaveCount(2 * PAGE)
+    await page.getByRole('navigation', { name: 'Страницы результатов' }).getByRole('button', { name: 'Следующая страница' }).click()
+    await expect(list.getByRole('listitem')).toHaveCount(PAGE)
+    await expect(list.getByRole('listitem').first()).toContainText(`Большая группа ${PAGE + 1}`)
     await page.getByPlaceholder('Найти группу').fill(String(TOTAL))
     await expect(list.getByRole('listitem')).toHaveCount(1)
     await expect(list).toContainText(LAST)

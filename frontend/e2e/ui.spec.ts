@@ -7,7 +7,8 @@ const WIDTHS = [360, 390, 768, 1024, 1440]
 const GROUPS = 284
 const NAMES = ['🚛 Грузоперевозки Казахстан Россия Узбекистан Кыргызстан Китай 24/7', '🌐💤🌐Azərbaycan yük qrupu🇦🇿🇹🇷🇷🇺🇧🇾🌐💤🌐', 'Логистика СНГ | Фуры | Тенты | Рефы | Попутные грузы', 'ГРУЗЫ КНР']
 const MAX_MENU_HEIGHT = 300
-const FIRST_PAGE = 100
+const TARGETS = 12
+const RECIPIENTS_PAGE = 10
 const groupName = (n: number) => `${NAMES[(n - 1) % NAMES.length]} ${n}`
 
 test.describe.configure({ mode: 'parallel' })
@@ -74,7 +75,7 @@ for (const width of WIDTHS) {
     await page.goto('/campaigns/new')
     await page.getByRole('radio', { name: 'Выбрать' }).click()
     const dialog = page.getByRole('dialog', { name: 'Выберите группы' })
-    await expect(dialog.getByRole('button', { name: `Показать ещё ${FIRST_PAGE} из ${GROUPS - FIRST_PAGE}` })).toBeAttached()
+    await expect(dialog.getByRole('navigation', { name: 'Страницы групп' })).toBeAttached()
     const body = dialog.locator('[data-dialog-body]')
     const search = dialog.getByRole('searchbox')
     const done = dialog.getByRole('button', { name: 'Готово' })
@@ -203,7 +204,7 @@ for (const width of WIDTHS) {
     await check(page.getByRole('dialog', { name: 'Выберите группы' }))
 
     await page.goto('/groups')
-    await page.locator('main input[aria-label$=" 1"]').check()
+    await page.locator('main input[type=checkbox][aria-label]').first().check()
     await page.getByRole('button', { name: 'Новый список из отмеченных' }).click()
     await page.getByLabel('Название списка').fill(uniqueName(`Проверка ${width}`))
     await page.getByRole('button', { name: 'Создать список' }).click()
@@ -291,7 +292,7 @@ test('состав списка меняется в одном месте и о�
 })
 
 for (const width of [390, 1440]) {
-  test(`открытый список «Кому» не сдвигает превью · ${width}`, async ({ browser }) => {
+  test(`листание списка «Кому» не сдвигает превью · ${width}`, async ({ browser }) => {
     const { context, page } = await open(browser, width)
     const created = await page.evaluate(async () => {
       const groups = ((await (await fetch('/api/groups?activeOnly=true')).json()) as { jid: string }[]).slice(0, 2).map((g) => g.jid)
@@ -303,15 +304,15 @@ for (const width of [390, 1440]) {
     await page.route(`**/api/admin/campaigns/${created.json.id}`, async (route) => {
       const response = await route.fetch()
       const campaign = await response.json()
-      const targets = Array.from({ length: 12 }, (_, i) => ({ jid: `${120363900000000 + i}@g.us`, name: `${NAMES[i % NAMES.length]} ${NAMES[(i + 1) % NAMES.length]}` }))
+      const targets = Array.from({ length: TARGETS }, (_, i) => ({ jid: `${120363900000000 + i}@g.us`, name: `${NAMES[i % NAMES.length]} ${NAMES[(i + 1) % NAMES.length]}` }))
       await route.fulfill({ response, json: { ...campaign, targets } })
     })
     await page.goto(`/campaigns/${created.json.id}`)
     const sheet = page.getByRole('dialog')
     const bubble = sheet.getByText('Проверка превью', { exact: true })
     const before = await box(bubble)
-    await sheet.getByRole('button', { name: 'Показать все 12' }).click()
-    await expect(sheet.getByRole('list', { name: 'Группы заявки' }).getByRole('listitem')).toHaveCount(12)
+    await sheet.getByRole('navigation', { name: 'Страницы получателей' }).getByRole('button', { name: 'Следующая страница' }).click()
+    await expect(sheet.getByRole('list', { name: 'Группы заявки' }).getByRole('listitem')).toHaveCount(TARGETS - RECIPIENTS_PAGE)
     const after = await box(bubble)
     expect(after.x).toBeCloseTo(before.x, 0)
     expect(after.width).toBeCloseTo(before.width, 0)
