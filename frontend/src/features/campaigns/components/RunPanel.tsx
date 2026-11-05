@@ -2,22 +2,27 @@ import { Clock, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useCampaignAction, useDeliveries } from '../api'
+import { ExportButtons, type ReportFormat } from '@/features/reports/ExportButtons'
 import { deliveryReason, RUN_STATE } from '../model'
 import type { Delivery, DeliveryStatus, Run } from '@/shared/api/types'
 import { download } from '@/shared/lib/download'
 import { formatTime } from '@/shared/lib/format'
 import { cn } from '@/shared/lib/cn'
+import { usePaging, type PageSize } from '@/shared/lib/paging'
 import { Badge, type Tone } from '@/shared/ui/badge'
 import { toneSurface } from '@/shared/ui/tone'
 import { Button } from '@/shared/ui/button'
 import { useConfirm } from '@/shared/ui/confirm-context'
 import { Select } from '@/shared/ui/input'
 import { EmptyState } from '@/shared/ui/empty-state'
-import { Paged } from '@/shared/ui/paged'
+import { Pager } from '@/shared/ui/pager'
 import { SearchInput } from '@/shared/ui/search-input'
 import { FOCUS_RING, TRANSITION } from '@/shared/ui/styles'
 
 type Filter = 'all' | 'sent' | 'waiting' | 'failed' | 'skipped'
+
+const RESULTS_PAGE: PageSize = 25
+const SCROLLING_PAGE: PageSize = 100
 
 const GROUP_STATE: Record<DeliveryStatus, { text: string; tone: Tone }> = {
   PENDING: { text: 'ждёт', tone: 'neutral' },
@@ -38,6 +43,9 @@ export function RunPanel({ runs }: { runs: Run[] }) {
   const { data: deliveries = [], isPending } = useDeliveries(run?.id ?? null)
   const action = useCampaignAction()
   const confirm = useConfirm()
+  const q = query.trim().toLowerCase()
+  const shown = deliveries.filter((d) => (filter === 'all' || bucket(d) === filter) && (!q || (d.groupName ?? d.groupJid).toLowerCase().includes(q)))
+  const paging = usePaging(shown, { key: 'run-results', size: RESULTS_PAGE, reset: JSON.stringify([run?.id, filter, q]) })
 
   if (!run)
     return (
@@ -48,8 +56,6 @@ export function RunPanel({ runs }: { runs: Run[] }) {
 
   const counts = { all: deliveries.length, sent: 0, waiting: 0, failed: 0, skipped: 0 }
   deliveries.forEach((d) => counts[bucket(d)]++)
-  const q = query.trim().toLowerCase()
-  const shown = deliveries.filter((d) => (filter === 'all' || bucket(d) === filter) && (!q || (d.groupName ?? d.groupJid).toLowerCase().includes(q)))
 
   const tiles: { key: Filter; label: string; tone: string }[] = [
     { key: 'all', label: 'Всего', tone: 'text-text' },
@@ -63,36 +69,38 @@ export function RunPanel({ runs }: { runs: Run[] }) {
     if (await confirm({ title: 'Повторить в группы с ошибкой?', body: <p>Уйдёт только туда, где была ошибка.</p>, confirm: 'Повторить' }))
       action.mutate({ action: 'retry', id: run.id }, { onSuccess: () => toast.success('Рассылка снова в очереди'), onError: (e) => toast.error(e.message) })
   }
-  const report = (format: 'xlsx' | 'pdf') =>
+  const status = <Badge tone={RUN_STATE[run.status].tone}>{RUN_STATE[run.status].text}</Badge>
+  const report = (format: ReportFormat) =>
     download(`/api/admin/reports/requests/${encodeURIComponent(run.id)}?format=${format}`, `wa-report-${run.id}.${format}`).catch((e: Error) => toast.error(e.message))
 
   return (
     <section aria-label="Результаты рассылки" className="grid min-w-0 gap-3">
-      <div role="group" aria-label="Запуск" className="grid gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {runs.length > 1 ? (
-            <Select block value={run.id} onChange={(e) => setRunId(e.target.value)} aria-label="Рассылка">
-              {runs.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {formatTime(r.queuedAt)} — {RUN_STATE[r.status].text}
-                </option>
-              ))}
-            </Select>
-          ) : (
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold tabular-nums">{formatTime(run.queuedAt)}</span>
-          )}
-          <span className="shrink-0">
-            <Badge tone={RUN_STATE[run.status].tone}>{RUN_STATE[run.status].text}</Badge>
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-          {(run.status === 'DONE' || run.status === 'FAILED') && run.progress.failed > 0 && (
-            <Button className="col-span-2" onClick={retry}>
-              <RotateCcw size={15} /> Повторить ошибки
-            </Button>
-          )}
-          <Button onClick={() => report('xlsx')}>Excel</Button>
-          <Button onClick={() => report('pdf')}>PDF</Button>
+      <div role="group" aria-label="Запуск" className="@container">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-[1_1_14rem]">
+            {runs.length > 1 ? (
+              <Select block value={run.id} onChange={(e) => setRunId(e.target.value)} aria-label="Рассылка" end={status}>
+                {runs.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {formatTime(r.queuedAt)}
+                    {r.id !== run.id && ` — ${RUN_STATE[r.status].text}`}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <span className="flex min-h-control min-w-0 flex-1 items-center gap-2">
+                <span className="min-w-0 truncate text-sm font-semibold tabular-nums">{formatTime(run.queuedAt)}</span>
+                {status}
+              </span>
+            )}
+          </div>
+          <ExportButtons onExport={report}>
+            {(run.status === 'DONE' || run.status === 'FAILED') && run.progress.failed > 0 && (
+              <Button className="col-span-2" onClick={retry}>
+                <RotateCcw size={15} /> Повторить ошибки
+              </Button>
+            )}
+          </ExportButtons>
         </div>
       </div>
 
@@ -125,35 +133,32 @@ export function RunPanel({ runs }: { runs: Run[] }) {
 
       <SearchInput value={query} onChange={setQuery} placeholder="Найти группу" />
 
-      <Paged items={shown}>
-        {(visible) => (
-          <div role="list" aria-label="Группы рассылки" className="max-h-[min(60dvh,480px)] overflow-auto overscroll-contain rounded-xl border border-border bg-surface">
-            {isPending && <p className="p-3 text-sm text-muted">Загрузка…</p>}
-            {!isPending && !deliveries.length && <EmptyState inset>{run.waiting ? 'Рассылка ещё не начиналась — причина выше.' : 'Рассылка ещё не начиналась.'}</EmptyState>}
-            {!isPending && deliveries.length > 0 && !shown.length && <EmptyState inset>Ничего не найдено</EmptyState>}
-            {visible.map((d) => {
-              const waiting = d.status === 'PENDING' && d.error
-              const state = waiting ? { text: 'пауза', tone: 'warn' as Tone } : GROUP_STATE[d.status]
-              return (
-                <div role="listitem" key={d.groupJid} className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 last:border-b-0">
-                  <span className="min-w-0 flex-1 text-sm">
-                    <span className="block truncate">{d.groupName ?? d.groupJid}</span>
-                    {d.error && <span className="block truncate text-caption text-muted">{deliveryReason(d.error)}</span>}
-                    {d.sentAt && (
-                      <time dateTime={d.sentAt} className="block truncate text-caption text-muted tabular-nums">
-                        отправлено {formatTime(d.sentAt)}
-                      </time>
-                    )}
-                  </span>
-                  <span className="flex w-28 shrink-0 justify-end">
-                    <Badge tone={state.tone}>{state.text}</Badge>
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </Paged>
+      <div role="list" aria-label="Группы рассылки" className={cn('min-w-0 rounded-xl border border-border bg-surface', paging.size === SCROLLING_PAGE && 'max-h-[60dvh] overflow-auto overscroll-contain')}>
+        {isPending && <p className="p-3 text-sm text-muted">Загрузка…</p>}
+        {!isPending && !deliveries.length && <EmptyState inset>{run.waiting ? 'Рассылка ещё не начиналась — причина выше.' : 'Рассылка ещё не начиналась.'}</EmptyState>}
+        {!isPending && deliveries.length > 0 && !shown.length && <EmptyState inset>Ничего не найдено</EmptyState>}
+        {paging.visible.map((d) => {
+          const waiting = d.status === 'PENDING' && d.error
+          const state = waiting ? { text: 'пауза', tone: 'warn' as Tone } : GROUP_STATE[d.status]
+          return (
+            <div role="listitem" key={d.groupJid} className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 last:border-b-0">
+              <span className="min-w-0 flex-1 text-sm">
+                <span className="block truncate">{d.groupName ?? d.groupJid}</span>
+                {d.error && <span className="block truncate text-caption text-muted">{deliveryReason(d.error)}</span>}
+                {d.sentAt && (
+                  <time dateTime={d.sentAt} className="block truncate text-caption text-muted tabular-nums">
+                    отправлено {formatTime(d.sentAt)}
+                  </time>
+                )}
+              </span>
+              <span className="flex w-28 shrink-0 justify-end">
+                <Badge tone={state.tone}>{state.text}</Badge>
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <Pager paging={paging} label="Страницы результатов" />
     </section>
   )
 }

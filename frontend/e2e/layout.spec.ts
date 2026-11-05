@@ -141,10 +141,10 @@ const flows: Record<string, (page: Page, check: (scene: string) => Promise<void>
 
   async groups(page, check) {
     await page.goto('/groups')
-    await expect(page.locator('main input[aria-label$=" 1"]')).toBeVisible()
+    await expect(page.locator('main input[type=checkbox][aria-label]').first()).toBeVisible()
     await check('groups')
 
-    await page.locator('main input[aria-label$=" 1"]').check()
+    await page.locator('main input[type=checkbox][aria-label]').first().check()
     await check('groups-selected')
 
     await page.getByRole('radio', { name: new RegExp(`^${SHORT_LIST.name}`) }).click()

@@ -4,9 +4,12 @@ import { sendable } from './model'
 import type { Group } from '@/shared/api/types'
 import { EmptyState } from '@/shared/ui/empty-state'
 import { CheckboxInput } from '@/shared/ui/input'
-import { Paged } from '@/shared/ui/paged'
+import { usePaging } from '@/shared/lib/paging'
+import { Pager } from '@/shared/ui/pager'
 
 type Toggle = (jids: string[], on: boolean) => void
+
+const GROUPS_PAGE = 25
 
 function selectableJids(groups: Group[], selected: Set<string>): string[] {
   return groups.filter((g) => sendable(g) || selected.has(g.jid)).map((g) => g.jid)
@@ -36,30 +39,34 @@ export function GroupRows({
   onToggle,
   onReset,
   empty,
+  pageKey,
+  reset,
 }: {
   groups: Group[]
   selected: Set<string>
   onToggle: Toggle
   onReset?: (jid: string) => void
   empty: ReactNode
+  pageKey: string
+  reset: string
 }) {
+  const paging = usePaging(groups, { key: pageKey, size: GROUPS_PAGE, reset })
   if (!groups.length) return <EmptyState inset>{empty}</EmptyState>
   return (
-    <Paged items={groups}>
-      {(visible) => (
-        <div className="divide-y divide-border">
-          {visible.map((g) => (
-            <GroupRow
-              key={g.jid}
-              group={g}
-              checked={selected.has(g.jid)}
-              disabled={!sendable(g) && !selected.has(g.jid)}
-              onChange={(on) => onToggle([g.jid], on)}
-              onReset={onReset}
-            />
-          ))}
-        </div>
-      )}
-    </Paged>
+    <>
+      <div className="divide-y divide-border">
+        {paging.visible.map((g) => (
+          <GroupRow
+            key={g.jid}
+            group={g}
+            checked={selected.has(g.jid)}
+            disabled={!sendable(g) && !selected.has(g.jid)}
+            onChange={(on) => onToggle([g.jid], on)}
+            onReset={onReset}
+          />
+        ))}
+      </div>
+      <Pager paging={paging} label="Страницы групп" className="border-t border-border px-[var(--row-x,0.75rem)] py-2" />
+    </>
   )
 }

@@ -89,7 +89,7 @@ export function ListComposer({ list, initial, onClose }: { list?: GroupList; ini
         <div className="border-b border-border">
           <GroupSelectAll groups={shown} selected={draft} onToggle={toggle} />
         </div>
-        <GroupRows groups={shown} selected={draft} onToggle={toggle} empty={scope === 'in' ? 'В списке пока нет групп — отметьте их во вкладке «Все группы».' : 'Ничего не найдено'} />
+        <GroupRows groups={shown} selected={draft} onToggle={toggle} pageKey="list-composer" reset={JSON.stringify([scope, query])} empty={scope === 'in' ? 'В списке пока нет групп — отметьте их во вкладке «Все группы».' : 'Ничего не найдено'} />
       </Card>
 
       <ActionBar

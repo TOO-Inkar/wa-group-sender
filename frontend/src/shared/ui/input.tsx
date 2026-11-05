@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
-import { control } from './styles'
+import { control, FOCUS_WITHIN_RING } from './styles'
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cn(control, className)} {...props} />
@@ -11,7 +11,17 @@ export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
   return <textarea className={cn(control, 'min-h-16 resize-y py-2', className)} {...props} />
 }
 
-export function Select({ className, block, ...props }: ComponentProps<'select'> & { block?: boolean }) {
+export function Select({ className, block, end, ...props }: ComponentProps<'select'> & { block?: boolean; end?: ReactNode }) {
+  if (end)
+    return (
+      <label className={cn(control, FOCUS_WITHIN_RING, 'flex max-w-full min-w-0 cursor-pointer items-center gap-2 py-0 pr-2.5 pl-3', block ? 'flex-auto' : 'sm:w-fit')}>
+        <select className={cn('min-w-0 flex-1 cursor-pointer appearance-none self-stretch truncate bg-transparent outline-none', className)} {...props} />
+        <span className="pointer-events-none flex shrink-0 items-center gap-2">
+          {end}
+          <ChevronDown size={16} aria-hidden className="text-muted" />
+        </span>
+      </label>
+    )
   return (
     <span className={cn('relative flex max-w-full min-w-0 items-center', block ? 'flex-auto' : 'w-full sm:w-fit')}>
       <select className={cn(control, 'w-full cursor-pointer appearance-none pr-9', !block && 'sm:min-w-48', className)} {...props} />

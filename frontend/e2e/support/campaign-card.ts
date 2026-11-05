@@ -5,7 +5,7 @@ export { PASSWORD } from './session'
 export const CAMPAIGN_ID = '777'
 export const TARGETS = 255
 export const DELIVERIES = 259
-export const FIRST_PAGE = 100
+export const FIRST_PAGE = 25
 
 const NAMES = [
   '🚛 Грузоперевозки Казахстан Россия Узбекистан Кыргызстан Китай 24/7',
