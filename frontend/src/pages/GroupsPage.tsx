@@ -141,7 +141,7 @@ export function GroupsPage() {
         <div className="border-b border-border">
           <GroupSelectAll groups={shown} selected={selected} onToggle={toggle} />
         </div>
-        <GroupRows groups={shown} selected={selected} onToggle={toggle} onReset={resetGroup} empty={groups.length ? 'Ничего не найдено' : 'Групп пока нет — подключите номер и нажмите «Обновить».'} />
+        <GroupRows groups={shown} selected={selected} onToggle={toggle} onReset={resetGroup} pageKey="groups" reset={JSON.stringify([listKey, filter, query])} empty={groups.length ? 'Ничего не найдено' : 'Групп пока нет — подключите номер и нажмите «Обновить».'} />
       </Card>
 
       {selected.size > 0 && (

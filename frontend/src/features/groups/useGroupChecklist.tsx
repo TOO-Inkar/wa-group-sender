@@ -39,7 +39,7 @@ export function useGroupChecklist(value: string[], onChange: (jids: string[]) =>
     ),
     rows: (
       <div className={cn(INSET, '-my-4 sm:-mb-6')}>
-        <GroupRows groups={shown} selected={selected} onToggle={toggle} empty="Ничего не найдено" />
+        <GroupRows groups={shown} selected={selected} onToggle={toggle} pageKey="group-picker" reset={JSON.stringify([query, onlyActive])} empty="Ничего не найдено" />
       </div>
     ),
   }
