@@ -2,6 +2,7 @@ import { Clock, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useCampaignAction, useDeliveries } from '../api'
+import { ExportButtons, type ReportFormat } from '@/features/reports/ExportButtons'
 import { deliveryReason, RUN_STATE } from '../model'
 import type { Delivery, DeliveryStatus, Run } from '@/shared/api/types'
 import { download } from '@/shared/lib/download'
@@ -63,36 +64,38 @@ export function RunPanel({ runs }: { runs: Run[] }) {
     if (await confirm({ title: 'Повторить в группы с ошибкой?', body: <p>Уйдёт только туда, где была ошибка.</p>, confirm: 'Повторить' }))
       action.mutate({ action: 'retry', id: run.id }, { onSuccess: () => toast.success('Рассылка снова в очереди'), onError: (e) => toast.error(e.message) })
   }
-  const report = (format: 'xlsx' | 'pdf') =>
+  const status = <Badge tone={RUN_STATE[run.status].tone}>{RUN_STATE[run.status].text}</Badge>
+  const report = (format: ReportFormat) =>
     download(`/api/admin/reports/requests/${encodeURIComponent(run.id)}?format=${format}`, `wa-report-${run.id}.${format}`).catch((e: Error) => toast.error(e.message))
 
   return (
     <section aria-label="Результаты рассылки" className="grid min-w-0 gap-3">
-      <div role="group" aria-label="Запуск" className="grid gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {runs.length > 1 ? (
-            <Select block value={run.id} onChange={(e) => setRunId(e.target.value)} aria-label="Рассылка">
-              {runs.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {formatTime(r.queuedAt)} — {RUN_STATE[r.status].text}
-                </option>
-              ))}
-            </Select>
-          ) : (
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold tabular-nums">{formatTime(run.queuedAt)}</span>
-          )}
-          <span className="shrink-0">
-            <Badge tone={RUN_STATE[run.status].tone}>{RUN_STATE[run.status].text}</Badge>
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-          {(run.status === 'DONE' || run.status === 'FAILED') && run.progress.failed > 0 && (
-            <Button className="col-span-2" onClick={retry}>
-              <RotateCcw size={15} /> Повторить ошибки
-            </Button>
-          )}
-          <Button onClick={() => report('xlsx')}>Excel</Button>
-          <Button onClick={() => report('pdf')}>PDF</Button>
+      <div role="group" aria-label="Запуск" className="@container">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-[1_1_14rem]">
+            {runs.length > 1 ? (
+              <Select block value={run.id} onChange={(e) => setRunId(e.target.value)} aria-label="Рассылка" end={status}>
+                {runs.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {formatTime(r.queuedAt)}
+                    {r.id !== run.id && ` — ${RUN_STATE[r.status].text}`}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <span className="flex min-h-control min-w-0 flex-1 items-center gap-2">
+                <span className="min-w-0 truncate text-sm font-semibold tabular-nums">{formatTime(run.queuedAt)}</span>
+                {status}
+              </span>
+            )}
+          </div>
+          <ExportButtons onExport={report}>
+            {(run.status === 'DONE' || run.status === 'FAILED') && run.progress.failed > 0 && (
+              <Button className="col-span-2" onClick={retry}>
+                <RotateCcw size={15} /> Повторить ошибки
+              </Button>
+            )}
+          </ExportButtons>
         </div>
       </div>
 

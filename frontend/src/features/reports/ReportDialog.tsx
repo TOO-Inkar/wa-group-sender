@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { download } from '@/shared/lib/download'
 import { isoDay } from '@/shared/lib/format'
-import { Button } from '@/shared/ui/button'
 import { Dialog } from '@/shared/ui/dialog'
 import { Segmented } from '@/shared/ui/segmented'
 import { Field, Input } from '@/shared/ui/input'
+import { ExportButtons, type ReportFormat } from './ExportButtons'
 
 const daysAgo = (days: number) => isoDay(new Date(Date.now() - days * 86_400_000))
 
@@ -27,7 +27,7 @@ export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     setFrom(daysAgo(Number(days)))
   }
 
-  const get = async (format: 'xlsx' | 'pdf') => {
+  const get = async (format: ReportFormat) => {
     if (to < from) return toast.error('Дата «по» раньше даты «с»')
     setBusy(true)
     try {
@@ -45,16 +45,7 @@ export function ReportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       onOpenChange={onOpenChange}
       title="Отчёт для заказчика"
       description="Рассылки за период: сколько отправлено, куда, ошибки понятными словами."
-      footer={
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-          <Button disabled={busy} onClick={() => get('xlsx')}>
-            Excel
-          </Button>
-          <Button variant="primary" disabled={busy} onClick={() => get('pdf')}>
-            PDF
-          </Button>
-        </div>
-      }
+      footer={<ExportButtons disabled={busy} onExport={get} />}
     >
       <Segmented stretch value={preset} options={PRESETS} onChange={choose} />
       <div className="grid gap-3 sm:grid-cols-2">

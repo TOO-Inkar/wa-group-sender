@@ -2,6 +2,8 @@ import { cva } from 'class-variance-authority'
 
 export const FOCUS_RING = 'focus-visible:shadow-[0_0_0_3px_var(--accent-soft)] focus-visible:outline-none'
 
+export const FOCUS_WITHIN_RING = 'has-focus-visible:border-accent has-focus-visible:shadow-[0_0_0_3px_var(--accent-soft)]'
+
 export const TRANSITION = 'transition-[color,background-color,border-color,box-shadow,opacity] duration-150 ease-out'
 
 export const control = `min-h-control w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text placeholder:text-muted ${TRANSITION} hover:border-muted/40 focus-visible:border-accent ${FOCUS_RING} aria-invalid:border-danger disabled:cursor-default disabled:opacity-55`
