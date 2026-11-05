@@ -6,7 +6,10 @@ import kz.wasender.support.IntegrationTest;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,6 +57,30 @@ class DispatcherFlowTest extends IntegrationTest {
         assertThat(wavePauses).hasSize(2).allMatch(d -> d.compareTo(Duration.ofMinutes(10)) >= 0 && d.compareTo(Duration.ofMinutes(20)) <= 0);
         assertThat(groupPauses).hasSizeGreaterThanOrEqualTo(20).allMatch(d -> d.compareTo(Duration.ofSeconds(60)) <= 0);
         assertThat(new HashSet<>(groupPauses)).hasSizeGreaterThan(groupPauses.size() / 2);
+    }
+
+    @Test
+    void sendTimeCountsTowardsThePauseBetweenGroups() throws Exception {
+        var minPause = Duration.ofSeconds(20);
+        var latency = minPause;
+        var maxPause = Duration.ofSeconds(60);
+        var waveSize = 10;
+        var starts = new ArrayList<Instant>();
+        useGroups(waveSize);
+        gateway.beforeSend(() -> {
+            starts.add(clock.instant());
+            clock.advance(latency);
+        });
+        addValidRow("Кокшетау — Петропавловск");
+        poller.poll();
+        sleeper.clear();
+
+        runUntilBlocked(500);
+
+        assertThat(sentJids()).hasSize(waveSize);
+        assertThat(sleeper.sleeps()).isNotEmpty().allMatch(d -> d.compareTo(maxPause.minus(latency)) <= 0);
+        assertThat(IntStream.range(1, starts.size()).mapToObj(i -> Duration.between(starts.get(i - 1), starts.get(i))))
+                .allMatch(gap -> gap.compareTo(minPause) >= 0 && gap.compareTo(maxPause) <= 0);
     }
 
     @Test

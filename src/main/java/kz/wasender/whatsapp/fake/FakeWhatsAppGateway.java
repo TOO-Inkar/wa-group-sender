@@ -26,6 +26,7 @@ import java.util.random.RandomGenerator;
 @Profile("fake")
 public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
     private static final Logger log = LoggerFactory.getLogger(FakeWhatsAppGateway.class);
+    private static final Runnable NO_HOOK = () -> {};
 
     private final FakeProperties properties;
     private final RandomGenerator random;
@@ -37,6 +38,7 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
     private final List<SentMessage> direct = new CopyOnWriteArrayList<>();
     private final List<String> rejectedCalls = new CopyOnWriteArrayList<>();
     private final Clock clock;
+    private volatile Runnable beforeSend = NO_HOOK;
     private final ProxyPolicy proxies;
 
     public FakeWhatsAppGateway(FakeProperties properties, RandomGenerator random, Clock clock, ProxyPolicy proxies) {
@@ -72,6 +74,7 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
 
     @Override
     public void sendText(String groupJid, String text) throws SendException {
+        beforeSend.run();
         if (sessionState() != SessionState.CONNECTED) {
             throw SendException.connectionLost("not connected", null);
         }
@@ -133,7 +136,12 @@ public class FakeWhatsAppGateway extends AbstractWhatsAppGateway {
         last.clear();
         direct.clear();
         rejectedCalls.clear();
+        beforeSend = NO_HOOK;
         resetGroups();
+    }
+
+    public void beforeSend(Runnable hook) {
+        beforeSend = hook;
     }
 
     public void rejectFor(String groupJid, int times) {

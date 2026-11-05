@@ -68,6 +68,7 @@ public class Dispatcher {
     private volatile boolean running;
     private volatile Thread worker;
     private Instant lastSendAt;
+    private Instant lastSendStartedAt;
     private int sentInWave;
     private String lastRequestId;
 
@@ -307,12 +308,12 @@ public class Dispatcher {
     }
 
     private Duration pauseBefore() {
-        if (lastSendAt == null) {
+        if (lastSendStartedAt == null) {
             return Duration.ZERO;
         }
         var multiplier = risk.pauseMultiplier();
         var desired = waveBoundary() ? pauses.wavePause(multiplier) : pauses.groupPause(multiplier);
-        var remaining = desired.minus(Duration.between(lastSendAt, Instant.now(clock)));
+        var remaining = desired.minus(Duration.between(lastSendStartedAt, Instant.now(clock)));
         return remaining.isNegative() ? Duration.ZERO : remaining;
     }
 
@@ -384,6 +385,7 @@ public class Dispatcher {
         warmup.registerAttempt();
         sentInWave++;
         deliveries.updateStatus(delivery.id(), DeliveryStatus.SENDING, null, Instant.now(clock));
+        lastSendStartedAt = Instant.now(clock);
         try {
             gateway.sendText(jid, request.message());
             lastSendAt = Instant.now(clock);
