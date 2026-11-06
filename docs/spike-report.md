@@ -1,3 +1,5 @@
+> Исходный отчёт спайка на 28.09.2026, не обновляется. Позже клиент перенесён на whatsmeow (`bridge/`); текущее поведение — `README.md`.
+
 # Спайк библиотеки WhatsApp Web
 
 Дата: 28.09.2026.
@@ -21,7 +23,7 @@
 
 ## Живая проверка
 
-Тест `src/test/java/kz/wasender/spike/CobaltSpikeTest.java` (запуск `./gradlew spike`) подключается к настоящему `wss://web.whatsapp.com/ws/chat` без браузера и ждёт QR:
+Тест `CobaltSpikeTest` (запуск `./gradlew spike`; удалён вместе с Cobalt) подключается к настоящему `wss://web.whatsapp.com/ws/chat` без браузера и ждёт QR:
 
 ```
 SPIKE text bytes equal=true
