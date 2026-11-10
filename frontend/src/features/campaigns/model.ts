@@ -1,4 +1,4 @@
-import type { Campaign, Run } from '@/shared/api/types'
+import type { Campaign, Run, Settings } from '@/shared/api/types'
 import type { Tone } from '@/shared/ui/badge'
 import { groupsCount, intervalText, plural } from '@/shared/lib/format'
 
@@ -103,15 +103,29 @@ export function runsText(times: string[]): string {
   return `${list} — ${plural(times.length, 'запуск', 'запуска', 'запусков')} в день`
 }
 
-// Честная оценка: лимиты общие для номера, а повтор пропускается, пока прошлая рассылка ещё идёт.
-export function loadWarnings({ times, groups, hourlyLimit, dailyLimit }: { times: string[]; groups: number; hourlyLimit: number; dailyLimit: number }): string[] {
+export const SEND_SECONDS = 1.9
+const SECONDS_PER_HOUR = 3600
+const MINUTES_PER_HOUR = 60
+
+type LoadInput = { times: string[]; groups: number } & Pick<Settings, 'hourlyLimit' | 'dailyLimit' | 'groupPauseMinSeconds' | 'groupPauseMaxSeconds'>
+
+const durationText = (hours: number) =>
+  hours < 1 ? plural(Math.max(1, Math.round(hours * MINUTES_PER_HOUR)), 'минуту', 'минуты', 'минут') : `${String(Math.round(hours * 10) / 10).replace('.', ',')} ч`
+
+export function loadWarnings({ times, groups, hourlyLimit, dailyLimit, groupPauseMinSeconds, groupPauseMaxSeconds }: LoadInput): string[] {
   const runs = times.length
   if (!runs || !groups) return []
   const warnings: string[] = []
-  const hours = hourlyLimit ? groups / hourlyLimit : 0
+  const perGroup = Math.max((groupPauseMinSeconds + groupPauseMaxSeconds) / 2, SEND_SECONDS)
+  const paceHours = (groups * perGroup) / SECONDS_PER_HOUR
+  const limitHours = hourlyLimit ? groups / hourlyLimit : 0
+  const hours = Math.max(paceHours, limitHours)
   const gap = Math.min(...times.slice(1).map((t, i) => minutes(t) - minutes(times[i]!)))
-  if (hours * 60 > gap) {
-    warnings.push(`Одна рассылка на ${groupsCount(groups)} идёт ≈ ${String(Math.round(hours * 10) / 10).replace('.', ',')} ч (лимит ${hourlyLimit} в час) — запуски, пока она идёт, пропускаются.`)
+  if (hours * MINUTES_PER_HOUR > gap) {
+    const limit = limitHours >= paceHours ? ` (лимит ${hourlyLimit} в час)` : ''
+    warnings.push(
+      `Одна рассылка на ${groupsCount(groups)} идёт ≈ ${durationText(hours)}${limit}, а следующий запуск наступает раньше. Тогда прошлая рассылка останавливается, оставшиеся группы получают отметку «перенесено в следующий запуск», а новая рассылка начинается с первой группы.`,
+    )
   }
   if (dailyLimit && groups * runs > dailyLimit) {
     const full = Math.floor(dailyLimit / groups)
