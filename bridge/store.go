@@ -120,7 +120,11 @@ func (d *devices) forget(ctx context.Context, key string) error {
 			}
 		}
 	}
-	_, err = d.db.ExecContext(ctx, `delete from bridge_session where session = ?`, key)
+	return d.unbind(ctx, key)
+}
+
+func (d *devices) unbind(ctx context.Context, key string) error {
+	_, err := d.db.ExecContext(ctx, `delete from bridge_session where session = ?`, key)
 	return err
 }
 
