@@ -63,7 +63,7 @@ export function WhenPicker({ groups }: { groups: number }) {
         windowEnd,
       )
     : []
-  const warnings = settings ? loadWarnings({ times, groups, hourlyLimit: settings.hourlyLimit, dailyLimit: settings.dailyLimit }) : []
+  const warnings = settings ? loadWarnings({ times, groups, ...settings }) : []
   const lateExtra = !values.anyTime && values.extraTimes.some((t) => t >= (values.repeat === 'interval' ? values.intervalEnd : windowEnd))
   const errors = [formState.errors.intervalEnd?.message, formState.errors.extraTimes?.message].filter(Boolean)
 

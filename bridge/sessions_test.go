@@ -158,6 +158,30 @@ func TestForgetDropsDeviceAndMapping(t *testing.T) {
 	}
 }
 
+func TestUnbindKeepsDeviceForWhatsmeowToDelete(t *testing.T) {
+	ctx := context.Background()
+	m, _ := testManager(t)
+	jid := pairedDevice(t, m, "77000000002")
+	if err := m.devices.bind(ctx, "t2", jid); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.devices.unbind(ctx, "t2"); err != nil {
+		t.Fatal(err)
+	}
+
+	if device, err := m.devices.container.GetDevice(ctx, jid); err != nil || device == nil {
+		t.Fatalf("device = %v, %v", device, err)
+	}
+	if mapped, err := m.devices.mapped(ctx); err != nil || len(mapped) != 0 {
+		t.Fatalf("mapped = %v, %v", mapped, err)
+	}
+	fresh, err := m.devices.device(ctx, "t2")
+	if err != nil || fresh.ID != nil {
+		t.Fatalf("device after unbind = %v, %v", fresh.ID, err)
+	}
+}
+
 func TestMissingDeviceGivesFreshDevice(t *testing.T) {
 	ctx := context.Background()
 	m, _ := testManager(t)

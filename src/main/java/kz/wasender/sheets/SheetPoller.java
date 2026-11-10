@@ -22,6 +22,12 @@ import java.util.Set;
 @Service
 public class SheetPoller {
     private static final Logger log = LoggerFactory.getLogger(SheetPoller.class);
+    private static final String UNAVAILABLE = "Не удаётся открыть Google Таблицу с заявками, новые заявки не принимаются. "
+            + "Проверьте, что таблица и лист «%s» на месте и у сервисного аккаунта остался доступ «Редактор».";
+    private static final String READ_FAILED = "Google Таблица с заявками не читается %d раз подряд, новые заявки не принимаются. "
+            + "Если через несколько минут не пройдёт — проверьте доступ к таблице.";
+    private static final String LAYOUT = "В Google Таблице (лист «%s», строка заголовков %d) нет колонок: %s. "
+            + "Новые заявки не читаются, пока названия колонок не исправлены.";
 
     private final RequestSource source;
     private final RequestRepository requests;
@@ -55,8 +61,7 @@ public class SheetPoller {
             reportLayout(missing);
         } catch (RuntimeException e) {
             log.error("SHEETS layout check failed: {}", e.getMessage());
-            alerts.alert("sheet-unavailable", "Не удаётся прочитать Google Таблицу: " + e.getMessage()
-                    + ". Проверьте SHEETS_SPREADSHEET_ID, имя листа и доступ «Редактор» для сервисного аккаунта.");
+            alerts.alert("sheet-unavailable", UNAVAILABLE.formatted(properties.sheetName()));
         }
         return false;
     }
@@ -73,7 +78,7 @@ public class SheetPoller {
             failures++;
             log.error("SHEETS read failed ({} in a row): {}", failures, e.getMessage());
             if (failures == properties.alertAfterFailures()) {
-                alerts.alert("sheets-failed", "Не удаётся прочитать Google Sheets " + failures + " раз подряд: " + e.getMessage());
+                alerts.alert("sheets-failed", READ_FAILED.formatted(failures));
             }
             return 0;
         }
@@ -141,7 +146,6 @@ public class SheetPoller {
     private void reportLayout(List<String> missing) {
         log.error("SHEETS sheet \"{}\" has no columns {} in header row {}. Fix the headers or SHEETS_COL_* in .env",
                 properties.sheetName(), missing, properties.headerRow());
-        alerts.alert("sheet-layout", "В Google Таблице (лист «" + properties.sheetName() + "», строка " + properties.headerRow()
-                + ") нет колонок: " + String.join(", ", missing) + ". Заявки не читаются, пока заголовки не исправлены.");
+        alerts.alert("sheet-layout", LAYOUT.formatted(properties.sheetName(), properties.headerRow(), String.join(", ", missing)));
     }
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { campaignState, dayRuns, loadWarnings, matchesFilter, runsText, scheduleShort, scheduleText, waitingShort, whereText } from './model'
+import { campaignState, dayRuns, loadWarnings, SEND_SECONDS, matchesFilter, runsText, scheduleShort, scheduleText, waitingShort, whereText } from './model'
 import type { Campaign, Run } from '@/shared/api/types'
+import { groupsCount } from '@/shared/lib/format'
+
+const SECONDS_PER_HOUR = 3600
 
 const run = (over: Partial<Run> = {}): Run => ({
   id: '5',
@@ -88,13 +91,32 @@ describe('запуски за день', () => {
     expect(scheduleText({ ...hourly, anyTime: true })).toBe('каждый час с 08:00 до 23:00 и в 05:00, в том числе вне рабочего окна')
   })
 
+  const ROLLOVER = ', а следующий запуск наступает раньше. Тогда прошлая рассылка останавливается, оставшиеся группы получают отметку «перенесено в следующий запуск», а новая рассылка начинается с первой группы.'
+  const PROD_PAUSE = { groupPauseMinSeconds: 1.5, groupPauseMaxSeconds: 2.5 }
+  const NO_LIMIT = 0
+  const HOURLY_LIMIT = 120
+  const DAILY_LIMIT = 900
+
   it('предупреждает, когда лимиты не дадут разослать столько раз', () => {
-    const warnings = loadWarnings({ times: dayRuns(hourly, '23:00'), groups: 263, hourlyLimit: 120, dailyLimit: 900 })
+    const warnings = loadWarnings({ times: dayRuns(hourly, '23:00'), groups: 263, hourlyLimit: HOURLY_LIMIT, dailyLimit: DAILY_LIMIT, ...PROD_PAUSE })
     expect(warnings).toEqual([
-      'Одна рассылка на 263 группы идёт ≈ 2,2 ч (лимит 120 в час) — запуски, пока она идёт, пропускаются.',
-      'Дневного лимита 900 хватит на 3 полные рассылки из 17.',
+      `Одна рассылка на 263 группы идёт ≈ 2,2 ч (лимит ${HOURLY_LIMIT} в час)${ROLLOVER}`,
+      `Дневного лимита ${DAILY_LIMIT} хватит на 3 полные рассылки из 17.`,
     ])
-    expect(loadWarnings({ times: ['05:00', '08:00'], groups: 20, hourlyLimit: 120, dailyLimit: 900 })).toEqual([])
+    expect(loadWarnings({ times: ['05:00', '08:00'], groups: 20, hourlyLimit: HOURLY_LIMIT, dailyLimit: DAILY_LIMIT, ...PROD_PAUSE })).toEqual([])
+  })
+
+  it('без часового лимита считает длительность по паузе между группами', () => {
+    const times = dayRuns(hourly, '23:00')
+    expect(loadWarnings({ times, groups: 2000, hourlyLimit: NO_LIMIT, dailyLimit: NO_LIMIT, ...PROD_PAUSE })).toEqual([`Одна рассылка на 2000 групп идёт ≈ 1,1 ч${ROLLOVER}`])
+    expect(loadWarnings({ times, groups: 263, hourlyLimit: NO_LIMIT, dailyLimit: NO_LIMIT, ...PROD_PAUSE })).toEqual([])
+    expect(loadWarnings({ times: ['08:00', '08:05'], groups: 263, hourlyLimit: NO_LIMIT, dailyLimit: NO_LIMIT, ...PROD_PAUSE })).toEqual([`Одна рассылка на 263 группы идёт ≈ 9 минут${ROLLOVER}`])
+  })
+
+  it('пауза короче отправки не ускоряет рассылку', () => {
+    const fast = { groupPauseMinSeconds: 0, groupPauseMaxSeconds: 0 }
+    const groups = Math.ceil(SECONDS_PER_HOUR / SEND_SECONDS) + 1
+    expect(loadWarnings({ times: ['08:00', '09:00'], groups, hourlyLimit: NO_LIMIT, dailyLimit: NO_LIMIT, ...fast })).toEqual([`Одна рассылка на ${groupsCount(groups)} идёт ≈ 1 ч${ROLLOVER}`])
   })
 })
 

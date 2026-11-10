@@ -1,151 +1,102 @@
-# План реализации wa-group-sender
+# Устройство wa-group-sender
 
-Сервис читает заявки из Google Sheets и рассылает их в архивные WhatsApp-группы тестового номера с антибан-логикой. Один номер, один поток отправки. ТЗ — `docs/TZ.md`.
+Многокабинетный сервис рассылки заявок в WhatsApp-группы. У каждого кабинета свой номер, группы, заявки, настройки и база; один поток отправки на кабинет. Эксплуатация и поведение — `README.md`, исходное ТЗ — `docs/TZ.md`.
 
 ## Стек
 
 | Компонент | Версия |
 | --- | --- |
-| JDK | 25 (LTS), образы `eclipse-temurin:25.0.4.1_1-jdk-noble` / `-jre-alpine` |
-| Spring Boot | 4.1.1 |
-| Gradle | 9.8.0 (Kotlin DSL, wrapper), foojay-resolver 1.0.0 |
-| WhatsApp Web | Cobalt `com.github.auties00:cobalt:0.0.10` (см. `spike-report.md`) |
+| JDK | 25, образы `eclipse-temurin:25.0.4.1_1-jdk-noble` / `-jre-alpine` |
+| Spring Boot | 4.1.1 (webmvc, jdbc, flyway, spring-security-crypto для bcrypt) |
+| Gradle | 9.8.0 (Kotlin DSL, wrapper) |
+| WhatsApp Web | whatsmeow (Go 1.26) в контейнере `wa-bridge`, версия в `bridge/go.mod`, патч `bridge/whatsmeow-sender-key-recipients.patch` |
 | БД | H2 2.5.252 (file), Flyway 13.8.0 |
-| Google Sheets | google-api-services-sheets v4-rev20260610-2.0.0, google-api-client 2.9.1, google-auth-library 1.53.0 |
+| API-описание | springdoc-openapi 3.1.1 (`/api/admin/openapi`), из него типы фронтенда |
+| Отчёты | Apache POI 5.4.1 (xlsx), OpenPDF 2.0.3, шрифт PT Sans |
 | QR | ZXing 3.5.4 |
+| Google Sheets | google-api-services-sheets v4-rev20260610-2.0.0 (выключено по умолчанию) |
+| Админка | React 19, Vite, TypeScript, TanStack Query, Tailwind 4 — `frontend/README.md` |
+
+## Кабинеты (`engine`, `platform`)
+
+- База `platform` (`db/platform`): `tenant` (название, статус `ACTIVE`/`BLOCKED`, `legacy`, код приглашения Telegram, прокси), `app_user` (логин, bcrypt, роль `SUPERADMIN`/`MEMBER`, кабинет), `audit_log`.
+- На каждый активный кабинет `EngineRegistry` поднимает свой `Engine` — набор бинов (`EngineComponents`: диспетчер, репозитории, шлюз WhatsApp, Telegram, планировщик) со своей базой `app.tenancy.db-url` (`{name}` → `wasender` у основного, `t<id>` у остальных) и миграциями `db/migration`.
+- Бины кабинета снаружи видны через прокси `TenantProxies`: вызов уходит в движок текущего кабинета (`CurrentTenant`, берётся из сессии или `X-Tenant`).
+- `PlatformBootstrap` при старте создаёт основной кабинет «Кабинет 1» и первого пользователя из `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` (и отдельного суперадмина из `PLATFORM_ADMIN_*`, если задан).
+- `wa-bridge` держит сессии всех кабинетов (ключ `t<id>`, основная — `t1`), у каждой свой прокси (`ProxyPolicy`: без прокси номер нового кабинета не подключается при `APP_TENANCY_REQUIRE_PROXY=true`).
 
 ## Пакеты (`kz.wasender`)
 
 | Пакет | Содержимое |
 | --- | --- |
-| `config` | records `@ConfigurationProperties` (`AppProperties`, `WhatsAppProperties`, `WatchdogProperties`, `SheetsProperties`, `MessageProperties`, `GroupsProperties`, `DispatchProperties`, `WarmupProperties`, `RiskProperties`, `NotifyProperties`, `SecurityProperties`, `FakeProperties`), бины `Clock`, `RandomGenerator`, `Sleeper`, планировщик, `StartupTasks` |
-| `time` | `Sleeper`, `ThreadSleeper` |
-| `whatsapp` | `WhatsAppGateway`, `GatewayEvent`, `GroupInfo`, `SessionState`, `SendException`, `QrService`, `SessionWatchdog` |
-| `whatsapp.cobalt` | `CobaltWhatsAppGateway` — единственное место с классами Cobalt |
-| `whatsapp.fake` | `FakeWhatsAppGateway` (профиль `fake`) |
-| `sheets` | `RequestSource`, `GoogleSheetsRequestSource`, `ColumnLayout` (поиск колонок по заголовкам), `SheetRow`, `SheetField`, `CsvParser`, `SheetPoller`, `SheetUpdateBuffer`, `SheetsRetry` |
-| `sheets.fake` | `FakeRequestSource` — таблица из `docs/test-sheet.csv`, состояние в volume |
-| `request` | `RequestRepository`, `RequestRecord`, `RequestStatus`, `RequestValidator`, `RequestIdGenerator` |
+| `config` | `@ConfigurationProperties` records, `CoreConfig` (`Clock`, `RandomGenerator`, `Sleeper`) |
+| `engine` | `EngineRegistry`, `Engine`, `TenantEngines`, `TenantProxies`, `CurrentTenant`, `TenantInfo` |
+| `platform` | кабинеты, пользователи, пароли, журнал, одноразовые коды входа, коды приглашения, проверка прокси |
+| `tenant` | `StartupTasks` — задачи кабинета: синхронизация групп, тик расписания (30 с), опрос таблицы |
+| `whatsapp` | `WhatsAppGateway`, `SessionWatchdog`, `QrService`, `GroupPictureService`, `ProxyPolicy`; `bridge.BridgeWhatsAppGateway` (HTTP к `wa-bridge`), `fake.FakeWhatsAppGateway` |
+| `campaign` | заявка с расписанием: `CampaignService`, `Schedule` (`ONCE`/`DAILY`/`INTERVAL`, доп. время, «вне окна»), `StartJitter`, `CampaignRecipients` |
+| `request` | запуск рассылки (`request`): `RequestIntake` (проверка и сборка текста), `RequestRepository`, `RequestValidator`, `RequestIdGenerator` |
+| `dispatch` | `Dispatcher`, `DeliveryRepository`, `PauseRandomizer`, `WorkWindow`, `WarmupService`, `DailyCounterRepository` |
+| `group` | `GroupRepository`, `GroupSyncService`, `GroupListRepository`, `GroupBlock` (почему группа не в рассылке) |
+| `settings` | `SettingsService` — настройки из админки поверх `.env` (`app_setting`) |
 | `template` | `TemplateRenderer`, `PreviewService` |
-| `group` | `GroupRepository`, `GroupSyncService` |
-| `dispatch` | `Dispatcher`, `DeliveryRepository`, `PauseRandomizer`, `WorkWindow`, `WarmupService`, `DailyCounterRepository`, `DispatcherState` |
+| `report` | `ReportService`, `ExcelReportWriter`, `PdfReportWriter` |
 | `risk` | `RiskMonitor`, `RiskEventRepository`, `RiskType` |
-| `notify` | `Notifier`, `TelegramNotifier` (список chat_id), `AlertService` (cooldown) |
-| `web` | `HealthController`, `AdminController`, `QrController`, `GroupController`, `FakeAdminController`, `AdminTokenFilter` |
+| `notify` | `AlertService` (cooldown), `TelegramNotifier`, `TelegramBot` (подписка по ссылке, `/start`, `/stop`), `TelegramSubscriberRepository` |
+| `autoreply` | `AutoReplyService` — ответ на личные сообщения и звонки |
+| `sheets` | Google Sheets (`SheetPoller`, `ColumnLayout`, `SheetUpdateBuffer`, `SheetsRetry`), `fake.FakeRequestSource` |
+| `web` | контроллеры, `AdminTokenFilter`, `Authenticator`, `SessionTokens` (HMAC-cookie), `CloudflareAccess`, `FailureThrottle`, `SpaController` |
 
 ## Поток заявки
 
-1. При старте `SheetPoller.checkLayout` проверяет заголовки листа. Нет нужных — ошибка в лог и алерт, сервис работает дальше.
-2. Раз в `poll-interval` `SheetPoller` читает лист, колонки ищет по заголовкам из конфига.
-3. Строка с пустым «Статус»: пустые обязательные поля → «Ошибка: не заполнено …». Пустой ID → следующий номер (max + 1), пишется в строку до постановки в очередь. ID уже в БД → повторно не ставится.
-4. Текст рендерится по шаблону (`templates/message.txt`) и сохраняется в `request`, в таблицу «В очереди».
-5. `Dispatcher` (один поток) берёт самую старую заявку. При первом взятии перемешивает активные группы и пишет план в `delivery` (PENDING, позиция).
-6. На каждую позицию: ворота (риск, пауза, сессия, окно, лимит прогрева) → пауза между группами или волнами × множитель риска → «печатает» → счётчик суток → `SENDING` → отправка → `SENT`/`FAILED`.
-7. Прогресс «отправлено / всего» копится в `SheetUpdateBuffer`, пишется пакетно: на границе волны, раз в `progress-flush-interval` и при смене статуса.
-8. Нет PENDING → «Отправлено» и время завершения `yyyy-MM-dd HH:mm`.
+1. `CampaignService.create` проверяет текст и группы (`RequestIntake`), сохраняет `campaign` и следующий запуск (`next_run_at`, со сдвигом 1–5 мин для расписания).
+2. Тик раз в 30 с: для каждой заявки с наступившим запуском закрывает недоделанный предыдущий запуск, создаёт `request` с окном заявки и считает следующий запуск.
+3. `Dispatcher` (поток кабинета): ворота (риск, пауза, сессия, дневной и часовой лимит) → заявки в своём окне → по кругу между заявками. При первом взятии — план: перемешанные группы в `delivery` (PENDING).
+4. На позицию: группа ещё доступна → правило «ждать ответа» и интервал для группы (иначе `not_before` и переход к другим) → пауза от начала прошлой отправки (волна или группа, × множитель риска) → `SENDING` → отправка → `SENT` / `FAILED` / повтор при отказе сервера.
+5. Нет ожидающих доставок → `DONE` (хотя бы одна отправлена) или `FAILED`.
 
-## Шаблон сообщения
-
-- Плейсхолдеры `{Имя колонки}` (по стандартным названиям и по заголовкам из конфига), `{ID}`, `{Контакт}` (из конфига).
-- Строка шаблона, у которой пуст хотя бы один плейсхолдер, удаляется целиком.
-- Многострочная ячейка даёт по строке сообщения на каждую непустую строку ячейки, текст строки шаблона вокруг плейсхолдера повторяется.
-- Две пустые строки подряд схлопываются, пустые строки в начале и конце убираются.
-- `MESSAGE_NUMBERING=true` → первая строка получает префикс из keycap-цифр ID (`1️⃣7️⃣ `), если ID числовой.
-
-## Схема БД (Flyway `V1__init.sql`)
+## Схема БД кабинета (`db/migration` V1–V8)
 
 ```
-request(id varchar pk, sheet_row int, message clob, status varchar, error varchar,
-        queued_at, started_at, completed_at timestamptz)
-wa_group(jid varchar pk, name varchar, archived bool, member bool, can_send bool,
-         active bool, last_sync timestamptz)
-delivery(id bigint pk, request_id fk, group_jid varchar, position int, status varchar,
-         error varchar, updated_at timestamptz, unique(request_id, group_jid))
-risk_event(id bigint pk, type varchar, group_jid varchar, request_id varchar,
-           detail varchar, created_at timestamptz)
-daily_counter(counter_date date pk, sent int, limit_value int)
+campaign(id, title, draft, message, targeted, target_label, repeat_mode, start_time, end_time,
+         interval_minutes, extra_times, any_time, enabled, deleted, created_at, updated_at,
+         next_run_at, last_run_at)                 campaign_target(campaign_id, group_jid)
+request(id, sheet_row, message, status, error, queued_at, started_at, completed_at,
+        targeted, campaign_id, window_start, window_end)   request_target(request_id, group_jid)
+delivery(id, request_id, group_jid, position, status, error, updated_at, attempts,
+         not_before, waiting_reply)
+wa_group(jid, name, archived, member, can_send, active, last_sync, participants, community,
+         too_large, rejected_count, rejected, present)
+group_list(id, name, created_at)                    group_list_member(list_id, group_jid)
+app_setting(name, setting_value, updated_at)
+telegram_subscriber(chat_id, name, username, status, requested_at, decided_at)
+autoreply_log(contact_jid, kind, replied_at)
+risk_event(id, type, group_jid, request_id, detail, created_at)
+daily_counter(counter_date, sent, limit_value)
 ```
 
-Статусы `delivery`: PENDING, SENDING, SENT, FAILED, SKIPPED. Статусы `request`: QUEUED, SENDING, DONE, FAILED.
-Остановка по риску — события `RISK_STOP` / `RESUMED` в `risk_event`, переживает рестарт.
+Статусы `delivery`: PENDING, SENDING, SENT, FAILED, SKIPPED. Статусы `request`: QUEUED, SENDING, DONE, FAILED. Остановка по риску — события `RISK_STOP` / `RESUMED` в `risk_event`, переживает рестарт.
 
-## Конфиг-параметры (application.yml ← env)
+## Конфигурация
 
-| Параметр | Env | Дефолт |
-| --- | --- | --- |
-| app.zone | APP_ZONE | Asia/Almaty |
-| app.message.template-path | MESSAGE_TEMPLATE_PATH | /data/templates/message.txt |
-| app.message.contact | MESSAGE_CONTACT | пусто (строка контакта не выводится) |
-| app.message.numbering | MESSAGE_NUMBERING | false |
-| app.whatsapp.session-dir | WA_SESSION_DIR | /data/session |
-| app.whatsapp.qr-png-path | WA_QR_PNG_PATH | /data/qr/qr.png |
-| app.whatsapp.device-name | WA_DEVICE_NAME | wa-group-sender |
-| app.whatsapp.send-timeout | WA_SEND_TIMEOUT | 60s |
-| app.whatsapp.metadata-query-delay | WA_METADATA_QUERY_DELAY | 700ms |
-| app.whatsapp.metadata-ttl | WA_METADATA_TTL | 6h |
-| app.watchdog.check-interval | WATCHDOG_CHECK_INTERVAL | 15s |
-| app.watchdog.max-attempts | WATCHDOG_MAX_ATTEMPTS | 8 |
-| app.watchdog.initial-delay / max-delay | WATCHDOG_INITIAL_DELAY / MAX_DELAY | 10s / 1m |
-| app.watchdog.connect-timeout | WATCHDOG_CONNECT_TIMEOUT | 3m |
-| app.sheets.enabled | SHEETS_ENABLED | true |
-| app.sheets.spreadsheet-id | SHEETS_SPREADSHEET_ID | — |
-| app.sheets.sheet-name | SHEETS_SHEET_NAME | Заявки |
-| app.sheets.credentials-path | GOOGLE_CREDENTIALS_PATH | /run/secrets/google.json |
-| app.sheets.poll-interval | SHEETS_POLL_INTERVAL | 30s |
-| app.sheets.header-row | SHEETS_HEADER_ROW | 1 |
-| app.sheets.columns.* | SHEETS_COL_ID, _ROUTE, _DATE, _VEHICLES, _CARGO, _FREIGHT, _CONDITIONS, _STATUS, _PROGRESS, _COMPLETED | заголовки из раздела 5.1 ТЗ |
-| app.sheets.progress-flush-interval | SHEETS_PROGRESS_FLUSH_INTERVAL | 60s |
-| app.sheets.retry.* | SHEETS_RETRY_MAX_ATTEMPTS / INITIAL_BACKOFF / MAX_BACKOFF | 5 / 2s / 60s |
-| app.sheets.alert-after-failures | SHEETS_ALERT_AFTER_FAILURES | 10 |
-| app.sheets.completed-format | SHEETS_COMPLETED_FORMAT | yyyy-MM-dd HH:mm |
-| app.groups.sync-interval | GROUPS_SYNC_INTERVAL | 1h |
-| app.groups.initial-sync-delay | GROUPS_INITIAL_SYNC_DELAY | 60s |
-| app.dispatch.autostart | DISPATCH_AUTOSTART | true |
-| app.dispatch.wave-size | DISPATCH_WAVE_SIZE | 25 |
-| app.dispatch.wave-pause-min / max | DISPATCH_WAVE_PAUSE_MIN / MAX | 10m / 20m |
-| app.dispatch.group-pause-min / max | DISPATCH_GROUP_PAUSE_MIN / MAX | 20s / 60s |
-| app.dispatch.idle-poll | DISPATCH_IDLE_POLL | 5s |
-| app.dispatch.window-start / end | DISPATCH_WINDOW_START / END | 08:00 / 20:00 |
-| app.dispatch.weekends-enabled | DISPATCH_WEEKENDS_ENABLED | false |
-| app.warmup.enabled | WARMUP_ENABLED | true |
-| app.warmup.daily-limits | WARMUP_DAILY_LIMITS | 45,80,120,170,220 (с 6-го дня — весь список) |
-| app.risk.window | RISK_WINDOW | 1h |
-| app.risk.warn-threshold / critical-threshold | RISK_WARN_THRESHOLD / RISK_CRITICAL_THRESHOLD | 5 / 10 |
-| app.risk.pause-multiplier | RISK_PAUSE_MULTIPLIER | 2.0 |
-| app.notify.cooldown | NOTIFY_COOLDOWN | 15m |
-| app.notify.telegram.bot-token | TELEGRAM_BOT_TOKEN | — |
-| app.notify.telegram.chat-ids | TELEGRAM_CHAT_IDS | — (через запятую) |
-| app.security.admin-token / header | ADMIN_TOKEN / ADMIN_TOKEN_HEADER | — / X-Admin-Token |
-| app.logging.* | LOG_DIR, LOG_MAX_FILE_SIZE, LOG_MAX_HISTORY_DAYS, LOG_TOTAL_SIZE_CAP | /data/logs, 20MB, 30, 2GB |
-| app.fake.* | FAKE_GROUPS, FAKE_UNARCHIVED_GROUPS, FAKE_ADMIN_ONLY_GROUPS, FAKE_FAILURE_RATE, FAKE_SHEET_CSV, FAKE_SHEET_STATE | 30, 3, 2, 0.0, classpath CSV, /data/db/fake-sheet.csv |
+Все переменные и значения по умолчанию — `src/main/resources/application.yml` и `.env.example`; какие из них редактируются в админке — README, раздел 4. Профиль `fake` (`application-fake.yml`): фейковый WhatsApp и таблица, короткие паузы, окно круглосуточно, прокси не обязателен.
 
-## Эндпоинты
+## Тесты
 
-| Метод | Путь | Доступ |
-| --- | --- | --- |
-| GET | /api/health | открыт |
-| GET | /api/qr | токен |
-| GET | /api/groups | токен |
-| POST | /api/admin/preview | токен |
-| POST | /api/admin/resume, /api/admin/pause | токен |
-| POST | /api/admin/groups/sync | токен |
-| POST | /api/admin/test-alert | токен |
-| GET | /api/admin/requests | токен |
-| POST/GET | /api/admin/fake/requests, /sheet, /sent | токен, только профиль `fake` |
-
-## Тесты (JUnit 5, `Clock` и `Sleeper` инжектируются, реальных sleep нет)
+JUnit 5, `Clock` и `Sleeper` инжектируются, реальных sleep нет; общая база API-тестов — `ApiTest`; фронтенд — Vitest и Playwright (`frontend/README.md`).
 
 | Тест | Что проверяет |
 | --- | --- |
-| `TemplateRendererTest` | три заявки из `test-sheet.csv` побайтно равны `src/test/resources/golden/*`; удаление строк с пустыми полями; многострочные ячейки; флаг нумерации; перечитывание шаблона |
-| `CsvFullCycleTest` | полный цикл fake: CSV → очередь → 25 групп × 3 заявки ровно по эталонам, без повторов; preview по ID и по полям |
-| `SheetPollerTest` | пустые обязательные поля, числовой ID, идемпотентность, дубликат ID, нет заголовков → алерт без падения |
-| `ColumnLayoutTest` | колонки по заголовкам в любом порядке, CSV с многострочными ячейками |
-| `WarmupTest`, `WarmupMidnightTest` | суточный лимит, перенос остатка с той же позиции, сброс в полночь по Алматы, 45→220→весь список |
-| `WorkWindowTest`, `WorkWindowDispatchTest`, `WeekendFlagTest` | границы окна, флаг выходных, заявки ждут |
-| `PauseRandomizerTest`, `ShuffleTest`, `DispatcherFlowTest` | паузы в диапазоне, волны, перемешивание, FIFO, пакетная запись прогресса |
-| `RestartRecoveryTest` | SENDING после рестарта → отправлено, повторов нет |
-| `RiskMonitorTest`, `SessionWatchdogTest` | порог предупреждения → множитель, критический → стоп + алерт; backoff и алерты watchdog |
-| `TelegramNotifierTest` | рассылка всем chat_id, сбой одного не мешает остальным |
-| `AdminTokenFilterTest`, `ApplicationContextTest` | защита админ-эндпоинтов, подъём контекста |
-| `CobaltSpikeTest` (`./gradlew spike`) | живой handshake с WhatsApp Web, QR, передача разметки и эмодзи без изменений |
+| `TemplateRendererTest` | эталоны `src/test/resources/golden/*`, удаление пустых строк, многострочные поля, нумерация |
+| `CsvFullCycleTest`, `SheetPollerTest`, `ColumnLayoutTest` | Google Sheets: полный цикл fake, проверки строк, поиск колонок |
+| `DispatcherFlowTest`, `ShuffleTest`, `PauseRandomizerTest`, `GroupPauseSettingTest` | круговой обход заявок, паузы и волны (время отправки входит в паузу), дробные секунды паузы, перемешивание |
+| `CampaignFlowTest`, `ScheduleTest`, `StartJitterTest`, `AdminRequestsTest` | заявки, расписание, сдвиг старта, разовые заявки, списки групп, несколько заявок в сообщении, повтор при отказе WhatsApp |
+| `WarmupTest`, `WarmupMidnightTest`, `DailyCapTest`, `WorkWindowTest`, `WorkWindowDispatchTest`, `WeekendFlagTest` | лимиты, прогрев, окно, выходные |
+| `RestartRecoveryTest`, `RiskMonitorTest`, `SessionWatchdogTest` | восстановление после рестарта, риск, переподключение |
+| `GroupBlockReasonTest`, `GroupsOfPreviousNumberTest`, `GroupPictureServiceTest` | правила групп, смена номера, аватары |
+| `TelegramNotifierTest`, `TelegramBotTest`, `AutoReplyTest`, `ReportTest` | уведомления, подписка, автоответчик, отчёты |
+| `AuthTest`, `AdminTokenFilterTest`, `SeparateAdminTest`, `CloudflareAccessTest` | вход, защита API, отдельный суперадмин, Cloudflare Access |
+| `PlatformApiTest`, `TenantIsolationTest`, `ProxyRequirementTest`, `ProxyUrlsTest` | кабинеты, изоляция данных, прокси |
+| `BridgeWhatsAppGatewayTest`, `ApplicationContextTest` | клиент `wa-bridge`, подъём контекста |
+
+Go-тесты `wa-bridge` (`bridge/*_test.go`) запускаются при сборке его образа.
