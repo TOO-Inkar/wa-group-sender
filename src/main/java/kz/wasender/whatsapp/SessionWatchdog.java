@@ -16,6 +16,13 @@ import java.time.Instant;
 public class SessionWatchdog {
     private static final Logger log = LoggerFactory.getLogger(SessionWatchdog.class);
     private static final int DEAD_TRANSPORT_CHECKS = 2;
+    private static final String RECONNECT_EXHAUSTED = "Нет связи с WhatsApp уже %d попыток подряд, сообщения не уходят. "
+            + "Проверьте, что телефон включён и в нём работает интернет. Если не поможет — откройте «Подключение» в админке.";
+    private static final String RECONNECT_RESTORED = "Связь с WhatsApp восстановлена.";
+    private static final String QR_REQUIRED = "WhatsApp ждёт привязки номера. Откройте «Подключение» в админке и отсканируйте QR "
+            + "телефоном: WhatsApp → «Связанные устройства».";
+    private static final String LOGGED_OUT = "WhatsApp отвязал номер, сообщения не уходят. Откройте «Подключение» в админке "
+            + "и отсканируйте QR заново.";
 
     private final WhatsAppGateway gateway;
     private final WatchdogProperties properties;
@@ -94,8 +101,7 @@ public class SessionWatchdog {
         log.warn("WATCHDOG reconnect attempt {}/{}", attempts, properties.maxAttempts());
         if (attempts >= properties.maxAttempts() && !exhausted) {
             exhausted = true;
-            alerts.alert("reconnect-exhausted", "Не удалось восстановить сессию WhatsApp после " + attempts
-                    + " попыток. Сервис продолжит попытки раз в " + properties.maxDelay() + ". Проверьте телефон и сеть VPS.");
+            alerts.alert("reconnect-exhausted", RECONNECT_EXHAUSTED.formatted(attempts));
         }
         lastState = null;
         gateway.connect();
@@ -117,7 +123,7 @@ public class SessionWatchdog {
                     log.info("WATCHDOG session restored after {} attempts", attempts);
                 }
                 if (exhausted) {
-                    alerts.alert("reconnect-restored", "Сессия WhatsApp восстановлена.");
+                    alerts.alert("reconnect-restored", RECONNECT_RESTORED);
                 }
                 attempts = 0;
                 exhausted = false;
@@ -126,7 +132,7 @@ public class SessionWatchdog {
             }
             case GatewayEvent.QrReceived ignored -> {
                 if (!pairing) {
-                    alerts.alert("qr-required", "WhatsApp ждёт сканирования QR-кода: откройте GET /api/qr или PNG в volume и привяжите номер через «Связанные устройства».");
+                    alerts.alert("qr-required", QR_REQUIRED);
                 }
                 pairing = true;
             }
@@ -140,7 +146,7 @@ public class SessionWatchdog {
             }
             case GatewayEvent.LoggedOut ignored -> {
                 risk.record(RiskType.LOGGED_OUT, null, null, "logged out");
-                alerts.alert("logged-out", "WhatsApp разлогинил устройство. Сервис перешёл в режим ожидания QR: отсканируйте новый код (GET /api/qr).");
+                alerts.alert("logged-out", LOGGED_OUT);
                 pairing = true;
                 nextAttemptAt = now.plus(properties.initialDelay());
             }

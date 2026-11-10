@@ -15,13 +15,13 @@ class RiskMonitorTest extends IntegrationTest {
             risk.record(RiskType.SEND_FAILED, "g" + i + "@g.us", "R1", "error");
         }
         assertThat(risk.pauseMultiplier()).isEqualTo(1.0);
-        assertThat(notifier.anyContains("Порог предупреждения")).isFalse();
+        assertThat(notifier.anyContains("Много сбоев")).isFalse();
 
         risk.record(RiskType.GROUP_REMOVED, "g5@g.us", null, "removed");
 
         assertThat(risk.pauseMultiplier()).isEqualTo(2.0);
         assertThat(risk.isStopped()).isFalse();
-        assertThat(notifier.anyContains("Порог предупреждения")).isTrue();
+        assertThat(notifier.anyContains("Много сбоев при отправке: 5 за 60 мин")).isTrue();
     }
 
     @Test
@@ -47,7 +47,7 @@ class RiskMonitorTest extends IntegrationTest {
         }
 
         assertThat(risk.isStopped()).isTrue();
-        assertThat(notifier.anyContains("Рассылка ОСТАНОВЛЕНА")).isTrue();
+        assertThat(notifier.anyContains("Рассылка остановлена: слишком много сбоев (10 за 60 мин)")).isTrue();
         dispatcher.cycle();
         assertThat(dispatcher.state()).isEqualTo(DispatcherState.STOPPED_BY_RISK);
         assertThat(gateway.sent()).isEmpty();
@@ -78,6 +78,6 @@ class RiskMonitorTest extends IntegrationTest {
     void logoutSendsAlert() {
         gateway.simulateLogout();
 
-        assertThat(notifier.anyContains("разлогинил")).isTrue();
+        assertThat(notifier.anyContains("WhatsApp отвязал номер")).isTrue();
     }
 }
