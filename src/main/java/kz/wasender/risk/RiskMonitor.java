@@ -13,6 +13,11 @@ import java.util.List;
 @Service
 public class RiskMonitor {
     private static final Logger log = LoggerFactory.getLogger(RiskMonitor.class);
+    private static final String CHECK_PHONE = "Проверьте телефон: WhatsApp открывается, номер не заблокирован.";
+    private static final String WARN = "Много сбоев при отправке: %d за %d мин. Рассылка замедлена, чтобы не потерять номер. " + CHECK_PHONE;
+    private static final String STOPPED = "Рассылка остановлена: %s. " + CHECK_PHONE
+            + " Затем в админке: «Настройки» → «Проверил телефон — возобновить».";
+    private static final String CRITICAL_REASON = "слишком много сбоев (%d за %d мин)";
 
     private final RiskEventRepository repository;
     private final RiskProperties properties;
@@ -32,19 +37,17 @@ public class RiskMonitor {
         log.warn("RISK type={} request_id={} group_jid={} window_count={} detail={}", type, requestId, groupJid, count, detail);
         if (count >= properties.criticalThreshold()) {
             if (!isStopped()) {
-                stop("критический порог риска: " + count + " сигналов за " + properties.window());
+                stop(CRITICAL_REASON.formatted(count, properties.window().toMinutes()));
             }
         } else if (count >= properties.warnThreshold()) {
-            alerts.alert("risk-warn", "Порог предупреждения риска: " + count + " сигналов за " + properties.window()
-                    + ". Паузы увеличены в " + properties.pauseMultiplier() + " раза. Последний сигнал: " + type
-                    + (groupJid == null ? "" : " " + groupJid));
+            alerts.alert("risk-warn", WARN.formatted(count, properties.window().toMinutes()));
         }
     }
 
     public synchronized void stop(String reason) {
         repository.insert(RiskType.RISK_STOP, null, null, reason, Instant.now(clock));
         log.error("RISK dispatch stopped: {}", reason);
-        alerts.alert("risk-stop", "Рассылка ОСТАНОВЛЕНА: " + reason + ". Проверьте номер и возобновите вручную: POST /api/admin/resume.");
+        alerts.alert("risk-stop", STOPPED.formatted(reason));
     }
 
     public synchronized void resume() {

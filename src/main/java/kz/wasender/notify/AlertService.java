@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class AlertService {
     private static final Logger log = LoggerFactory.getLogger(AlertService.class);
+    private static final String MESSAGE = "%s: %s";
 
     private final NotifyProperties properties;
     private final List<Notifier> notifiers;
@@ -42,7 +43,7 @@ public class AlertService {
         }
         lastSent.put(key, now);
         log.warn("ALERT key={} text={}", key, text);
-        var message = "[wa-group-sender] " + tenantName() + ": " + text;
+        var message = MESSAGE.formatted(tenantName(), text);
         var delivered = 0;
         for (var notifier : notifiers) {
             if (!notifier.configured()) {

@@ -116,7 +116,7 @@ class TenantIsolationTest extends IntegrationTest {
     void alertsArePrefixedWithTheTenantName() {
         inSecond(() -> alerts.alert("test", "проверка"));
 
-        assertThat(notifier.anyContains("[wa-group-sender] Кабинет 2: проверка")).isTrue();
+        assertThat(notifier.anyContains("Кабинет 2: проверка")).isTrue();
     }
 
     @Test

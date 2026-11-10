@@ -234,7 +234,7 @@ func (s *session) onEvent(cli *whatsmeow.Client, evt any) {
 		s.dropped("client outdated")
 	case *events.LoggedOut:
 		s.log.Warn("SESSION logged out", "reason", e.Reason.String(), "on_connect", e.OnConnect)
-		if err := s.devices.forget(context.Background(), s.key); err != nil {
+		if err := s.devices.unbind(context.Background(), s.key); err != nil {
 			s.log.Error("SESSION device mapping not dropped", "err", err)
 		}
 		s.mu.Lock()

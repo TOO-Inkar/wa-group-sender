@@ -107,7 +107,7 @@ public class AdminController {
 
     @PostMapping("/test-alert")
     public Map<String, Object> testAlert() {
-        var delivered = alerts.alert("test-" + System.nanoTime(), "Тестовый алерт: канал уведомлений настроен.");
+        var delivered = alerts.alert("test-" + System.nanoTime(), "Тестовое уведомление: Telegram подключён, сюда будут приходить сообщения о рассылке.");
         return Map.of("deliveredChats", delivered);
     }
 
