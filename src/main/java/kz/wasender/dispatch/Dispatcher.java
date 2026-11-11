@@ -64,7 +64,6 @@ public class Dispatcher {
     private final TenantInfo tenant;
 
     private volatile DispatcherState state = DispatcherState.STARTING;
-    private volatile boolean paused;
     private volatile boolean running;
     private volatile Thread worker;
     private Instant lastSendAt;
@@ -123,13 +122,13 @@ public class Dispatcher {
     }
 
     public void pause() {
-        paused = true;
+        settings.dispatchPaused(true);
         log.warn("DISPATCHER paused manually");
         changeState(gate());
     }
 
     public void unpause() {
-        paused = false;
+        settings.dispatchPaused(false);
         log.warn("DISPATCHER unpaused manually");
         if (state == DispatcherState.PAUSED || state == DispatcherState.STOPPED_BY_RISK) {
             var gate = gate();
@@ -138,7 +137,7 @@ public class Dispatcher {
     }
 
     public boolean paused() {
-        return paused;
+        return settings.dispatchPaused();
     }
 
     public int recoverInterrupted() {
@@ -265,7 +264,7 @@ public class Dispatcher {
         if (risk.isStopped()) {
             return DispatcherState.STOPPED_BY_RISK;
         }
-        if (paused) {
+        if (paused()) {
             return DispatcherState.PAUSED;
         }
         if (gateway.sessionState() != SessionState.CONNECTED) {
