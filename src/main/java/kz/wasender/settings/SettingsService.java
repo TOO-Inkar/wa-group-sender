@@ -121,13 +121,23 @@ public class SettingsService {
         }
 
         var now = Instant.now(clock);
-        values.forEach((setting, value) -> {
-            jdbc.sql("merge into app_setting(name, setting_value, updated_at) key (name) values (?, ?, ?)")
-                    .params(setting.name(), value, now).update();
-            overrides.put(setting, value);
-        });
+        values.forEach((setting, value) -> store(setting, value, now));
         log.info("SETTINGS updated {}", values.keySet());
         return view();
+    }
+
+    public boolean dispatchPaused() {
+        return bool(Setting.DISPATCH_PAUSED, false);
+    }
+
+    public synchronized void dispatchPaused(boolean paused) {
+        store(Setting.DISPATCH_PAUSED, Boolean.toString(paused), Instant.now(clock));
+    }
+
+    private void store(Setting setting, String value, Instant now) {
+        jdbc.sql("merge into app_setting(name, setting_value, updated_at) key (name) values (?, ?, ?)")
+                .params(setting.name(), value, now).update();
+        overrides.put(setting, value);
     }
 
     private Map<Setting, String> snapshot() {
@@ -227,7 +237,7 @@ public class SettingsService {
     enum Setting {
         WINDOW_START, WINDOW_END, WEEKENDS_ENABLED, HOURLY_LIMIT, DAILY_LIMIT, WARMUP_ENABLED,
         GROUP_PAUSE_MIN, GROUP_PAUSE_MAX, WAVE_SIZE, WAVE_PAUSE_MIN, WAVE_PAUSE_MAX, GROUP_SEND_INTERVAL, WAIT_FOR_REPLY,
-        AUTOREPLY_ENABLED, AUTOREPLY_REJECT_CALLS, AUTOREPLY_COOLDOWN, AUTOREPLY_TEXT
+        AUTOREPLY_ENABLED, AUTOREPLY_REJECT_CALLS, AUTOREPLY_COOLDOWN, AUTOREPLY_TEXT, DISPATCH_PAUSED
     }
 
     public record View(String windowStart, String windowEnd, Boolean weekendsEnabled, Integer hourlyLimit, Integer dailyLimit,
